@@ -1,0 +1,15 @@
+gen=/scratch/group/wheeler/basis
+Default
+    solvent=Dichloromethane
+    solvent_model=PCM
+    temperature=298
+    low_method=PM6
+    method=B97D
+    basis=def2tzvp
+    denfit=1
+    charge=0
+    mult=1
+    wall=12
+	short_wall=2
+    n_procs=20:Intel
+	short_procs=2:Intel
