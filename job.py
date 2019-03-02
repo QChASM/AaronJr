@@ -1,16 +1,24 @@
+import os
+
+from Aaron.const import MAXSTEP
 from AaronTools.const import CONNECTIVITY_THRESHOLD
 from AaronTools.geometry import Geometry
+from AaronTools.comp_output import CompOutput
+from AaronTools.job_control import JobControl
 
 
 class Job:
     """
     Attributes:
         catalyst
+        conformers
         step
         cycle
         path
+        output
         status
     """
+    name_template = "{}/{}.{}.{}"
 
     def __init__(self, catalyst=None, reaction=None):
         self.catalyst = catalyst
@@ -19,6 +27,7 @@ class Job:
         self.cycle = 1
         self.name = ''
         self.path = ''
+        self.output = None
         self.status = ''
 
         if self.catalyst:
@@ -27,6 +36,9 @@ class Job:
             tmp = tmp[-1].split('.')
             self.name = '.'.join(tmp[:-1])
             self.step = int(tmp[-1])
+
+        self.name_template = Job.name_template.format(
+            self.path, self.name, '{}', '{}')
 
     def examine_connectivity(self):
         """
@@ -45,7 +57,7 @@ class Job:
         broken = []
         if self.step < 2:
             return formed, broken
-        compare = Geometry(fname='{}/{}.2.com'.format(self.path, self.name))
+        compare = Geometry('{}/{}.2.com'.format(self.path, self.name))
         connectivities = zip(self.catalyst.connectivity(),
                              compare.connectivity())
         for i, con in enumerate(connectivities):
@@ -66,3 +78,33 @@ class Job:
                 if len(tmp) != 0:
                     broken += [(i, sorted(tmp))]
         return formed, broken
+
+    def check_step(self):
+        """
+
+        """
+        if self.status == 'finished' and self.output:
+            return
+
+        check_reaction = False
+        for step in range(MAXSTEP['TS'], 0, -1):
+            log_name = self.name_template.format(step, 'log')
+            com_name = self.name_template.format(step, 'com')
+            if os.access(log_name, os.R_OK):
+                self.output = CompOutput(log_name, get_all=False)
+                self.step = step
+                if self.output.error:
+                    self.status = 'failed'
+                elif self.output.finished:
+                    self.status = 'done'
+                    self.catalyst.update_geometry(self.output.geometry)
+                elif JobControl.findJob(self.path):
+                    self.status = 'running'
+                    self.catalyst.update_geometry(self.output.geometry)
+                break
+            elif os.access(com_name, os.R_OK):
+                self.step = step
+                if JobControl.findJob(self.path):
+                    self.status = 'pending'
+                else:
+                    self.status = '2submit'
