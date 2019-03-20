@@ -238,3 +238,40 @@ class Theory:
                 footer += "0\n{}\n".format(e)
 
         return footer
+
+    def make_header(self, geometry, options, *args, **kwargs):
+        if 'job_type' in kwargs:
+            job_type = kwargs['job_type']
+            del kwargs['job_type']
+        if 'comment' in kwargs:
+            comment = kwargs['comment']
+            del kwargs['comment']
+        else:
+            comment = geometry.comment
+        header = '#{}/'.format(self.method)
+        if self.ecp:
+            header += 'genecp'
+
+        if job_type == 'min':
+            header += ' opt'
+
+        if options.solvent_model.lower != 'gas':
+            header += ' scrf({},solvent={})'.format(options.solvent_model,
+                                                    options.solvent)
+        if options.additional_opts:
+            header += ' ' + options.additional_opts
+
+        for arg in args:
+            header += ' {}'.format(arg)
+        for kw, arg in kwargs.items():
+            if hasattr(arg, '__iter__') and not isinstance(arg, str):
+                tmp = ''
+                for a in arg:
+                    tmp += '{},'.format(a)
+                arg = tmp[:-1]
+            header += ' {}=({})'.format(kw, arg)
+
+        header += '\n\n{}\n\n{},{}\n'.format(comment,
+                                             options.charge,
+                                             options.mult)
+        return header
