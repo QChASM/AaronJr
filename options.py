@@ -9,8 +9,8 @@ class Reaction:
     """
     Attributes:
         reaction_type   templates stored in directories
-        template            in library named as:
-        selectivity     TS_geoms/rxn_type/template/selectivity
+        template            in Aaron library named as:
+        selectivity         TS_geoms/rxn_type/template/selectivity
         ligand          ligand mapping/substitutions
         substrate       substrate substitutions
         con_thresh      connectivity threshold
@@ -41,8 +41,10 @@ class Reaction:
 
 class CompOpts:
     """
+    Class Attributes:
+        by_step         {step_number: CompOpts()}
     Attributes:
-        theory          {'':Theory(), 'low':Theory(), 'high':Theory()}
+        theory          Theory()
         temperature	temperature in K
         denfit	        true|false.  Controls whether 'denfit' option is invoked
         charge	        integer value of charge
@@ -53,29 +55,44 @@ class CompOpts:
         emp_dispersion	empirical dispersion keywords. e.g. emp_dispersion=GD3
         additional_opts dictionary of extra keywords
     """
+    by_step = {}
 
-    def __init__(self, params):
-        self.theory = {'': Theory(), 'low': Theory(), 'high': Theory()}
-        self.temperature = 0
-        self.denfit = False
-        self.charge = 0
-        self.mult = 1
+    @classmethod
+    def cascade_defaults(cls):
+        if 0.0 not in cls.by_step:
+            return
+        else:
+            defaults = cls.by_step[0.0].__dict__
+        for step, compopt in cls.by_step.items():
+            if step == 0.0:
+                continue
+            for key, val in compopt.__dict__.items():
+                if val is not None:
+                    # don't overwrite set settings
+                    continue
+                compopt.__dict__[key] = defaults[key]
+
+    def __init__(self, params=None):
+        self.theory = Theory()
+        self.temperature = None
+        self.denfit = None
+        self.charge = None
+        self.mult = None
         self.solvent_model = None
-        self.solvent = 'gas'
+        self.solvent = None
         self.grid = None
         self.emp_dispersion = None
         self.additional_opts = None
+        if params is None:
+            return
 
-        for name, info in params.items():
-            key = name.split('_')[0]
-            if key not in ['low', 'high']:
-                key = ''
+        def store_settings(name, info):
             if 'method' in name:
-                self.theory[key].method = info
+                self.theory.method = info
             elif 'basis' in name:
-                self.theory[key].set_basis(info)
+                self.theory.set_basis(info)
             elif 'ecp' in name:
-                self.theory[key].set_ecp(info)
+                self.theory.set_ecp(info)
             elif 'temperature' == name:
                 self.temperature = float(info)
             elif 'denfit' == name:
@@ -97,6 +114,32 @@ class CompOpts:
                 self.emp_dispersion = info
             elif 'additional_opts' == name:
                 self.additional_opts = info
+
+        for name, info in params.items():
+            # get step key
+            key = name.split('_')
+            if len(key) == 1:
+                key = 0.0  # default
+            else:
+                key = key[0]
+                try:
+                    key = [float(key)]
+                except ValueError:
+                    if key not in ['low', 'high']:
+                        key = 0.0  # default
+                    elif key == 'low':
+                        key = 1.0
+                    elif key == 'high':
+                        key = 5.0
+            # change to correct CompOpt
+            if key not in CompOpts.by_step:
+                CompOpts.by_step[key] = CompOpts()
+            else:
+                self = CompOpts.by_step[key]
+            # store info in appropriate attribute
+            store_settings(name, info)
+        # cascade defaults to steps without settings
+        self.cascade_defaults()
 
 
 class ClusterOpts:
@@ -128,11 +171,12 @@ class ClusterOpts:
 class Theory:
     """
     Attributes:
-        method	        DFT functional used for Steps2-4
-        basis	        basis set used for Steps2-4
-        ecp	        ecp used for Steps2-4
-        gen_basis
+        method	    method to use
+        basis	    basis set to use
+        ecp	    ecp to use
+        gen_basis   path to gen basis files
     """
+    nobasis = ['AM1', 'PM3', 'PM3MM', 'PM6', 'PDDG', 'PM7']
 
     def __init__(self):
         self.method = None
@@ -140,8 +184,21 @@ class Theory:
         self.ecp = {}
         self.gen_basis = {}
 
-    def set_basis(self, args):
-        for a in args:
+    def set_basis(self, spec):
+        """
+        Stores basis set information as a dictionary keyed by atoms
+
+        :spec: list of basis specification strings from Aaron input file
+            acceptable forms:
+                "6-31G" will set basis for all atoms to 6-31G
+                "tm SDD" will set basis for all transiton metals to SDD
+                "C H O N def2tzvp" will set basis for C, H, O, and N atoms
+        """
+        if self.method is None:
+            raise RuntimeError('Theory().method is None')
+        if self.method.upper() in Theory.nobasis:
+            return
+        for a in spec:
             info = a.split()
             basis = info.pop()
             for i in info:
@@ -157,7 +214,13 @@ class Theory:
                         self.basis[e] = basis
         return
 
-    def check_basis(self, gen=None):
+    def set_gen_basis(self, gen):
+        """
+        Creates gen basis specifications
+        Checks to ensure basis set files exist
+
+        :gen: str specifying the gen basis file directory
+        """
         if self.gen_basis:
             return
 
@@ -182,6 +245,18 @@ class Theory:
         return
 
     def set_ecp(self, args):
+        """
+        Stores ecp information as a dictionary keyed by atoms
+
+        :spec: list of basis specification strings from Aaron input file
+            acceptable forms:
+                "tm SDD" will set basis for all transiton metals to SDD
+                "Ru Pt SDD" will set basis for Ru and Pt to SDD
+        """
+        if self.method is None:
+            raise RuntimeError('Theory().method is None')
+        if self.method.upper() in Theory.nobasis:
+            return
         for a in args:
             info = a.strip().split()
             if len(info) < 2:
@@ -207,7 +282,7 @@ class Theory:
             msg += "provided type {}".format(type(geometry))
             raise ValueError(msg)
 
-        footer = ''
+        footer = '\n'
         if self.basis:
             basis = {}
             for e in sorted(set(geometry.elements())):
@@ -225,6 +300,7 @@ class Theory:
                 footer += "@{}/N\n".format(g)
 
         if self.ecp:
+            footer += '\n'
             ecp = {}
             for e in sorted(set(geometry.elements())):
                 if e not in self.ecp:
@@ -237,9 +313,18 @@ class Theory:
                 footer += ("{} "*len(ecp[e])).format(*ecp[e])
                 footer += "0\n{}\n".format(e)
 
-        return footer
+        if footer.strip() == '':
+            return '\n'
+
+        return footer + '\n'
 
     def make_header(self, geometry, options, *args, **kwargs):
+        """
+        :geometry: Geometry()
+        :options: CompOpts()
+        :args: additional arguments for header
+        :kwargs: additional keyword=value arguments for header
+        """
         if 'job_type' in kwargs:
             job_type = kwargs['job_type']
             del kwargs['job_type']
@@ -248,6 +333,7 @@ class Theory:
             del kwargs['comment']
         else:
             comment = geometry.comment
+
         header = '#{}/'.format(self.method)
         if self.ecp:
             header += 'genecp'

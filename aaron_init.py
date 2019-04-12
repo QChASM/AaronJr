@@ -7,12 +7,11 @@ from Aaron.options import ClusterOpts, CompOpts, Reaction
 class AaronInit:
     """
     Attributes:
-        jobname
-        args            command line arguments
-        cluster_opts
-        comp_opts
-        theory
-        reaction
+    :jobname:       str - name of aaron input file
+    :args:          command line arguments
+    :cluster_opts:  ClusterOpts() - contains resource settings
+    :comp_opts:     {step: CompOpts()} - contains computation settings
+    :reaction:      Reaction() - contains
     """
 
     def __init__(self, infile, args=None):
@@ -22,12 +21,12 @@ class AaronInit:
         self.params = self.read_aaron_input(infile)
         self.cluster_opts = ClusterOpts(self.params)
         self.comp_opts = CompOpts(self.params)
+        self.comp_opts = CompOpts.by_step
         self.reaction = Reaction(self.params)
 
-        self.theory = self.comp_opts.theory
         if 'gen' in self.params:
-            for theory in self.theory.values():
-                theory.check_basis(self.params['gen'])
+            for comp_opts in self.comp_opts.values():
+                comp_opts.theory.set_gen_basis(self.params['gen'])
 
     def read_aaron_input(self, infile):
         def parse(f, params, custom=None):
@@ -93,12 +92,14 @@ class AaronInit:
         if 'custom' not in params:
             params['custom'] = 'Default'
 
+        # fill missing parameters from user profile
         try:
             with open(HOME + '.aaronrc') as f:
                 parse(f, params, params['custom'])
         except FileNotFoundError:
             pass
 
+        # fill missing parameters from QCHASM defaults
         try:
             with open(QCHASM + 'Aaron/.aaronrc') as f:
                 parse(f, params, params['custom'])
@@ -167,4 +168,5 @@ if __name__ == '__main__':
                       + ' conformers will be recovered.')
 
     args = args.parse_args()
+    print(type(args))
     init = AaronInit(args.input_file, args)
