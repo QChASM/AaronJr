@@ -20,7 +20,8 @@ class Data:
             self.sel = None
         self.output = CompOutput(os.path.join(directory, log))
         for key in THERMO:
-            if key not in self.output.__dict__:
+            if self.output.__dict__[key] is None:
+                self.__dict__[key] = np.nan
                 continue
             self.__dict__[key] = self.output.__dict__[key]
 
@@ -31,25 +32,36 @@ class Results:
         self.aaron = AaronInit(aaron_in)
         self.data = {}
         self.min = {}
+        logfiles = []
+        print('Searching for step 4 log files in {}'.format(directory))
         for dirpath, dirnames, filenames in os.walk(directory):
-            log = None
-            for f in filenames:
-                if f.endswith('.4.log'):
-                    log = f
-            if not log:
-                continue
+            for log in filenames:
+                if log.endswith('.4.log'):
+                    logfiles += [(log, dirpath)]
+        print('...done')
+        print('Loading data from logfiles')
+        progress_str = '  {: 3.0f}% |{:<50s}|'
+        count = 0
+        total = len(logfiles)
+        for log, dirpath in logfiles:
+            print(progress_str.format(100*count/total, '#'*(50*count//total)),
+                  end='\r')
+            count += 1
             tmp = Data(log, dirpath)
+            if not tmp.output.finished:
+                continue
             if tmp.name in self.data:
                 self.data[tmp.name] += [tmp]
             else:
                 self.data[tmp.name] = [tmp]
-                self.min[tmp.name] = {key: None for key in THERMO}
+                self.min[tmp.name] = {key: np.nan for key in THERMO}
             for key in THERMO:
                 if tmp.__dict__[key] is None:
                     continue
-                if (self.min[tmp.name][key] is None
+                if (self.min[tmp.name][key] is np.nan
                         or self.min[tmp.name][key] > tmp.__dict__[key]):
                     self.min[tmp.name][key] = tmp.__dict__[key]
+        print('...done' + ' '*60)
 
         for name in self.data:
             self.data[name] = self.sort_data(self.data[name])
