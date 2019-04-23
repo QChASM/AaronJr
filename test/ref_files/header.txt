@@ -1,0 +1,27 @@
+#PM6 opt nosym scrf=(smd,solvent=2-propanol)
+
+step 1
+
+0,1
+============
+%chk=test_files/S_binap-TMEN_Ph.R.ts1.Cf1.2.chk
+#wb97xd/genecp opt=(modredundant,maxcyc=1000) scrf=(smd,solvent=2-propanol)
+
+step 2
+
+0,1
+============
+%chk=test_files/S_binap-TMEN_Ph.R.ts1.Cf1.2.chk
+#wb97xd/genecp opt=(calcfc,ts,maxcyc=1000) scrf=(smd,solvent=2-propanol)
+
+step 3
+
+0,1
+============
+%chk=test_files/S_binap-TMEN_Ph.R.ts1.Cf1.2.chk
+#wb97xd/genecp freq=(hpmodes,noraman,temperature=298.0) scrf=(smd,solvent=2-propanol)
+
+step 4
+
+0,1
+============

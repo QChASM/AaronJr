@@ -11,6 +11,9 @@ class TestAaronInit(unittest.TestCase):
         initializes aaron instance
         """
         self.init = AaronInit('test_files/S-binap.in')
+        self.test_geom = Geometry('test_files/S_binap-TMEN_Ph.R.ts1.Cf1.2.log')
+        self.test_geom.comment = 'F:44-8-3-4'
+        self.test_geom.parse_comment()
 
     def test_read_aaron_input(self):
         def make_str(obj):
@@ -30,8 +33,8 @@ class TestAaronInit(unittest.TestCase):
         for d in sorted(self.init.__dict__):
             name, value = d, self.init.__dict__[d]
             if name == 'comp_opts':
-                for step in sorted(value.keys()):
-                    val = value[step]
+                for step in sorted(value.by_step.keys()):
+                    val = value.by_step[step]
                     test_str += "{} ({}): {}".format(name, step, make_str(val))
             elif name in ['cluster_opts', 'reaction']:
                 test_str += name + ": " + make_str(value)
@@ -44,21 +47,37 @@ class TestAaronInit(unittest.TestCase):
                     test_str += tmp + ": " + make_str(value[t])
             else:
                 test_str += name + ": " + str(value) + '\n'
-
         with open('ref_files/test_init.txt') as f:
             self.assertEqual(test_str, f.read())
 
     def test_footer(self):
-        geom = Geometry('test_files/S_binap-TMEN_Ph.R.ts1.Cf1.4.log')
         test_str = ''
-        for step in sorted(self.init.comp_opts):
-            compopt = self.init.comp_opts[step]
-            test_str += compopt.theory.make_footer(geom) + '\n'
-            test_str += "\n" + "="*12 + "\n"
-        with open('tmp.txt', 'w') as f:
-            f.write(test_str)
+        for step in range(1, 5):
+            if float(step) in self.init.comp_opts.by_step:
+                compopt = self.init.comp_opts.by_step[float(step)]
+            else:
+                compopt = self.init.comp_opts.by_step[0.0]
+            test_str += compopt.theory.make_footer(self.test_geom, float(step))
+            test_str += "="*12 + "\n"
         with open('ref_files/footer.txt') as f:
             self.assertEqual(test_str, f.read())
+
+    def test_header(self):
+        test_str = ''
+        for step in range(1, 5):
+            if float(step) in self.init.comp_opts.by_step:
+                compopt = self.init.comp_opts.by_step[float(step)]
+            else:
+                compopt = self.init.comp_opts.by_step[0.0]
+            test_str += compopt.theory.make_header(
+                self.test_geom, float(step), compopt)
+            test_str += "="*12 + "\n"
+        with open('ref_files/header.txt') as f:
+            self.assertEqual(test_str, f.read())
+
+    def test_write_com(self):
+        for step in range(1, 5):
+            self.init.comp_opts.write_com(self.test_geom, float(step))
 
 
 if __name__ == '__main__':

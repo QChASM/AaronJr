@@ -1,28 +1,66 @@
-import re
 import os
 
-from AaronTools.const import ELEMENTS, TMETAL
+from AaronTools.const import ELEMENTS, TMETAL, QCHASM, AARONLIB
 from AaronTools.geometry import Geometry
+from AaronTools.substituent import Substituent
+from AaronTools.component import Component
+from AaronTools.catalyst import Catalyst
+from AaronTools.fileIO import FileWriter
+
+
+class CatalystMetaData:
+    """
+    :template_file:     file location of template.xyz
+    :reaction_type:     name of the reaction type
+    :template_name:     name of the template subdirectory
+    :selectivity:       selectivity of the template used
+    :ligand_changes:    changes to the ligand made
+    :substrate_changes: changes to the substrate made
+    :catalyst_dir:      where the catalyst optimizations will be done
+    """
+
+    def __init__(self, template_file=None, reaction=None, selectivity=None,
+                 ligand_change=None, substrate_change=None, catalyst_dir=None):
+        self.template_file = template_file
+        if reaction is not None:
+            if isinstance(reaction, Reaction):
+                self.reaction_type = reaction.reaction_type
+                self.template_name = reaction.template
+            else:
+                self.reaction_type, self.template_name = reaction
+        else:
+            self.reaction_type = None
+            self.template_name = None
+        self.selectivity = selectivity
+        self.ligand_change = ligand_change
+        self.substrate_change = substrate_change
+        self.catalyst_dir = catalyst_dir
 
 
 class Reaction:
     """
-    Attributes:
-        reaction_type   templates stored in directories
-        template            in Aaron library named as:
-        selectivity         TS_geoms/rxn_type/template/selectivity
-        ligand          ligand mapping/substitutions
-        substrate       substrate substitutions
-        con_thresh      connectivity threshold
+    :reaction_type: templates stored in directories
+    :template:          in Aaron library named as:
+    :selectivity:       TS_geoms/rxn_type/template/selectivity
+    :ligand:        ligand mapping/substitutions
+    :substrate:     substrate substitutions
+    :con_thresh:    connectivity threshold
+    :template_XYZ:  list(tuple(template_directory, subdirectory, filename.xyz))
+                        eg: [($AARONLIB/TS_geoms/rxn/lig/R, ts1, Cf1.xyz)]
+                            --> $AARONLIB/TS_geoms/rxn/lig/R/ts1/Cf1.xyz
+    :catalyst_data: metadata for generating catalyst structures
     """
 
     def __init__(self, params=None):
         self.reaction_type = ''
         self.template = ''
+        self.template_XYZ = []
         self.selectivity = []
         self.ligand = {}
         self.substrate = {}
+        self.catalyst_data = []
         self.con_thresh = None
+        self.top_dir = None
         if params is None:
             return
 
@@ -37,6 +75,204 @@ class Reaction:
             self.substrate = params['substrate']
         if 'con_thresh' in params:
             self.con_thresh = params['con_thresh']
+        if 'top_dir' in params:
+            self.top_dir = params['top_dir']
+
+    def get_templates(self):
+        """
+        Finds template files in either user's or built-in library
+        """
+        selectivity = self.selectivity
+        if len(selectivity) == 0:
+            # ensure we do the loop at least once
+            selectivity += ['']
+
+        templates = []
+        for sel in selectivity:
+            # get relative path
+            path = "TS_geoms/{}/{}".format(self.reaction_type, self.template)
+            if sel:
+                path += '/{}'.format(sel)
+            # try to find in user's library
+            if os.access(os.path.join(AARONLIB, path), os.R_OK):
+                path = os.path.join(AARONLIB, path)
+            # or in built-in library
+            elif os.access(os.path.join(QCHASM, path), os.R_OK):
+                path = os.path.join(QCHASM, 'Aaron', path)
+            else:
+                msg = "Cannot find/access TS structure templates ({})"
+                raise OSError(msg.format(path))
+            # find template XYZ files in subdirectories
+            for top, dirs, files in os.walk(path):
+                if not files:
+                    continue
+                for f in files:
+                    if f.endswith('.xyz'):
+                        d = os.path.relpath(top, path)
+                        # fix for path joining later
+                        if d == '.':
+                            d = ''
+                        # autodetect R/S selectivity
+                        elif d == 'R' or d == 'S':
+                            path = os.path.join(top, d)
+                            if d not in self.selectivity:
+                                self.selectivity += [d]
+                        templates += [(path, d, f)]
+        self.template_XYZ = templates
+
+    def load_lib_ligand(cls, lig_name):
+        """
+        Loads a Component() from a ligand XYZ file in the library
+
+        :lig_name: the name of the ligand
+        :returns: Component()
+        """
+        if not lig_name.endswith('.xyz'):
+            name = lig_name + '.xyz'
+        path = [os.path.join(AARONLIB, 'Ligands', name)]
+        path += [os.path.join(QCHASM, 'AaronTools/Ligands', name)]
+        for p in path:
+            if os.path.isfile(p):
+                return Component(p)
+        else:
+            raise FileNotFoundError("Could not find ligand: " + name)
+
+    def _do_ligand_changes(self, template_file, lig_change):
+        lig, change = lig_change
+        catalyst = Catalyst(template_file)
+        # mappings
+        if 'map' in change:
+            name, old_keys = change['map']
+            if not old_keys:
+                old_keys = []
+                for lig in catalyst.components['ligand']:
+                    old_keys += list(lig.key_atoms)
+            new_lig = self.load_lib_ligand(name)
+            catalyst.map_ligand(new_lig, old_keys)
+        # substitutions
+        for atom, sub in change.items():
+            if atom == 'map':
+                continue
+            # convert to relative numbering
+            if 'map' in change:
+                atom = '*.' + atom
+            else:
+                atom = str(int(atom)
+                           + len(catalyst.atoms)
+                           - sum([len(i.atoms)
+                                  for i in catalyst.components['ligand']]))
+            catalyst.substitute(sub, atom)
+        return catalyst
+
+    def _do_substrate_changes(self, template_file, sub_change):
+        sub, change = sub_change
+        catalyst = Catalyst(template_file)
+        # substitutions
+        for atom, sub in change.items():
+            catalyst.substitute(sub, atom)
+        return catalyst
+
+    def generate_structures(self):
+        """
+        Generates catalyst metadata for requested mapping/substitution
+        combinations. See CatalystMetaData for data structure info
+
+        Sets self.catalyst_data = [CatalystMetaData(), ...]
+        """
+        self.catalyst_data = []
+        if not self.template_XYZ:
+            self.get_templates()
+        for i, template in enumerate(self.template_XYZ):
+            template_file = os.path.join(*template)
+            template_path = os.path.join(*template[:2]).rstrip('/')
+            if os.path.basename(template_path) in self.selectivity:
+                selectivity = os.path.basename(template_path)
+            for lig_change in self.ligand.items():
+                if not lig_change[1]:
+                    lig_change = None
+                for sub_change in self.substrate.items():
+                    self.catalyst_data += [CatalystMetaData(template_file,
+                                                            self, selectivity,
+                                                            lig_change,
+                                                            sub_change)]
+                # if no ligand changes, no need to add another entry
+                if lig_change is None:
+                    continue
+                # we still want ligand changes without substrate changes
+                self.catalyst_data += [CatalystMetaData(template_file,
+                                                        self, selectivity,
+                                                        lig_change, None)]
+            # even if no changes requested, still want to optimize templates
+            if len(self.catalyst_data) <= i:
+                self.catalyst_data += [CatalystMetaData(template_file,
+                                                        self, selectivity,
+                                                        None, None)]
+
+    def _get_nconfs(self, cat_data):
+        all_subs = []
+        if cat_data.ligand_change is not None:
+            for name, change in cat_data.ligand_change[1].items():
+                if name != 'map':
+                    all_subs += [change]
+        if cat_data.substrate_change is not None:
+            all_subs += cat_data.substrate_change[1].values()
+        nconfs = 1
+        for sub in all_subs:
+            sub = Substituent(sub)
+            nconfs *= sub.conf_num
+        return nconfs
+
+    def _get_next_cf_dir_number(self, ts_dir):
+        pass
+
+    def make_directories(self, top_dir=None):
+        """
+        :top_dir:   the directory in which to put generated directories
+        """
+        if top_dir is None:
+            top_dir = self.top_dir
+        if os.path.isfile(top_dir):
+            top_dir = os.path.dirname(top_dir)
+        if not os.access(top_dir, os.W_OK):
+            msg = "Directory does not exist or write permission denied:\n  {}"
+            raise OSError(msg.format(top_dir))
+        self.top_dir = top_dir
+
+        if not self.catalyst_data:
+            self.generate_structures()
+        for cat_data in self.catalyst_data:
+            # generate child directory name
+            if cat_data.ligand_change is None:
+                lig_str = "none"
+            else:
+                lig_str = cat_data.ligand_change[0]
+            if cat_data.substrate_change is None:
+                sub_str = "none"
+            else:
+                sub_str = cat_data.substrate_change[0]
+            # child_dir is top/lig_spec/sub_spec...
+            child_dir = os.path.join(top_dir, lig_str, sub_str)
+            # .../selectivity...
+            if cat_data.selectivity:
+                child_dir = os.path.join(child_dir, cat_data.selectivity)
+            # .../ts#...
+            dir_up, tname = os.path.split(cat_data.template_file)
+            dir_up = os.path.basename(dir_up)
+            tname = os.path.splitext(tname)[0]
+            if tname.lower().startswith('ts'):
+                # template files are ts structures
+                child_dir = os.path.join(child_dir, tname)
+                try:
+                    os.makedirs(child_dir, mode=0o755)
+                except FileExistsError:
+                    pass
+            elif dir_up.lower().startswith('ts'):
+                # template files are conformer structures within ts directory
+                child_dir = os.path.join(child_dir, dir_up, tname)
+                try:
+                    os.makedirs(child_dir, mode=0o755)
+                except FileExistsError:
+                    pass
 
 
 class CompOpts:
@@ -55,7 +291,15 @@ class CompOpts:
         emp_dispersion	empirical dispersion keywords. e.g. emp_dispersion=GD3
         additional_opts dictionary of extra keywords
     """
-    by_step = {}
+    by_step = {}  # key 0.0 corresponds to default
+
+    @classmethod
+    def write_com(cls, geometry, step, *args, **kwargs):
+        if float(step) in cls.by_step:
+            options = cls.by_step[step]
+        else:
+            options = cls.by_step[0.0]
+        FileWriter.write_com(geometry, float(step), options, *args, **kwargs)
 
     @classmethod
     def cascade_defaults(cls):
@@ -136,6 +380,7 @@ class CompOpts:
                 CompOpts.by_step[key] = CompOpts()
             else:
                 self = CompOpts.by_step[key]
+            self.theory.step = key
             # store info in appropriate attribute
             store_settings(name, info)
         # cascade defaults to steps without settings
@@ -183,6 +428,7 @@ class Theory:
         self.basis = {}
         self.ecp = {}
         self.gen_basis = {}
+        self._unique_basis = None
 
     def set_basis(self, spec):
         """
@@ -276,14 +522,40 @@ class Theory:
                     raise IOError(msg)
         return
 
-    def make_footer(self, geometry):
+    def unique_basis(self, geometry):
+        if self._unique_basis:
+            return self._unique_basis
+        if not self.basis:
+            return False
+
+        all_basis = set([])
+        for a in geometry.atoms:
+            all_basis.add(self.basis[a.element].upper())
+        if len(all_basis) != 1:
+            self._unique_basis = None
+            return False
+        else:
+            self._unique_basis = self.basis[a.element]
+            return self._unique_basis
+
+    def make_footer(self, geometry, step):
         if not isinstance(geometry, Geometry):
             msg = "argument provided must be Geometry type; "
             msg += "provided type {}".format(type(geometry))
             raise ValueError(msg)
-
         footer = '\n'
-        if self.basis:
+
+        # constrained optimization
+        if int(step) == 2:
+            constraints = geometry.get_constraints()
+            for con in constraints:
+                footer += 'B {} {} F\n'.format(con[0] + 1, con[1] + 1)
+            if len(constraints) > 0:
+                footer += '\n'
+
+        if self.basis and (not self.unique_basis(geometry)
+                           or self.ecp
+                           or self.gen_basis):
             basis = {}
             for e in sorted(set(geometry.elements())):
                 tmp = self.basis[e]
@@ -314,39 +586,77 @@ class Theory:
                 footer += "0\n{}\n".format(e)
 
         if footer.strip() == '':
-            return '\n'
+            return '\n\n\n'
 
-        return footer + '\n'
+        return footer + '\n\n\n'
 
-    def make_header(self, geometry, options, *args, **kwargs):
+    def make_header(self, geometry, step, options, *args, **kwargs):
         """
         :geometry: Geometry()
         :options: CompOpts()
         :args: additional arguments for header
         :kwargs: additional keyword=value arguments for header
         """
-        if 'job_type' in kwargs:
-            job_type = kwargs['job_type']
-            del kwargs['job_type']
+        # determine type of job
+        if step < 2:
+            job_type = 'relax'
+        elif step < 3:
+            job_type = 'constrained_opt'
+        elif step < 4:
+            job_type = 'ts_opt'
+        elif step < 5:
+            job_type = 'frequencies'
+        else:
+            job_type = 'single_point'
+
+        # get comment
         if 'comment' in kwargs:
             comment = kwargs['comment']
             del kwargs['comment']
         else:
-            comment = geometry.comment
+            comment = 'step {}'.format(
+                int(step) if int(step) == step else step)
 
-        header = '#{}/'.format(self.method)
+        # checkfile
+        has_check = False
+        if step > 1:
+            header = "%chk={}.chk\n".format(geometry.name)
+            if os.access("{}.chk".format(geometry.name), os.R_OK):
+                has_check = True
+        else:
+            header = ''
+
+        # method and basis
+        header += '#{}'.format(self.method)
         if self.ecp:
-            header += 'genecp'
+            header += '/genecp'
+        elif self.unique_basis(geometry):
+            header += '/{}'.format(self.unique_basis)
+        elif self.basis:
+            header += '/gen'
 
-        if job_type == 'min':
-            header += ' opt'
+        if job_type == 'relax':
+            header += ' opt nosym'
+        elif job_type == 'constrained_opt':
+            header += ' opt=(modredundant,maxcyc=1000)'
+        elif job_type == 'ts_opt':
+            header += ' opt=({}fc,ts,maxcyc=1000)'.format(
+                'read' if has_check else 'calc')
+        elif job_type == 'frequencies':
+            header += ' freq=(hpmodes,noraman,temperature={})'.format(
+                options.temperature)
+        elif job_type == 'opt':
+            header += ' opt=({}fc,maxcyc=1000)'.format(
+                'read' if has_check else 'calc')
 
+        # solvent
         if options.solvent_model.lower != 'gas':
-            header += ' scrf({},solvent={})'.format(options.solvent_model,
-                                                    options.solvent)
+            header += ' scrf=({},solvent={})'.format(options.solvent_model,
+                                                     options.solvent)
+        # other keywords
         if options.additional_opts:
             header += ' ' + options.additional_opts
-
+        # alternate form for other keywords
         for arg in args:
             header += ' {}'.format(arg)
         for kw, arg in kwargs.items():
@@ -357,6 +667,7 @@ class Theory:
                 arg = tmp[:-1]
             header += ' {}=({})'.format(kw, arg)
 
+        # comment, charge and multiplicity
         header += '\n\n{}\n\n{},{}\n'.format(comment,
                                              options.charge,
                                              options.mult)

@@ -21,11 +21,13 @@ class AaronInit:
         self.params = self.read_aaron_input(infile)
         self.cluster_opts = ClusterOpts(self.params)
         self.comp_opts = CompOpts(self.params)
-        self.comp_opts = CompOpts.by_step
+        self.comp_opts = self.comp_opts.by_step[0.0]
+        if 'top_dir' not in self.params:
+            self.params['top_dir'] = infile
         self.reaction = Reaction(self.params)
 
         if 'gen' in self.params:
-            for comp_opts in self.comp_opts.values():
+            for comp_opts in self.comp_opts.by_step.values():
                 comp_opts.theory.set_gen_basis(self.params['gen'])
 
     def read_aaron_input(self, infile):
@@ -116,8 +118,9 @@ class AaronInit:
                 if len(i) == 1:
                     ligand[lig] = None
                     continue
-                if i[0].strip().lower() == 'ligand':
-                    ligand[lig]['map'] = i[1].strip()
+                if i[0].strip().lower().startswith('ligand'):
+                    old_keys = i[0].strip().lstrip('ligand.')
+                    ligand[lig]['map'] = (i[1].strip(), old_keys)
                 else:
                     ligand[lig][i[0].strip()] = i[1].strip()
         params['ligand'] = ligand

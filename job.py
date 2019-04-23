@@ -1,10 +1,11 @@
 import os
+import glob
 
-from Aaron.const import MAXSTEP
 from AaronTools.const import CONNECTIVITY_THRESHOLD
 from AaronTools.geometry import Geometry
 from AaronTools.comp_output import CompOutput
 from AaronTools.job_control import JobControl
+from AaronTools.fileIO import str2step
 
 
 class Job:
@@ -23,7 +24,7 @@ class Job:
     def __init__(self, catalyst=None, reaction=None):
         self.catalyst = catalyst
         self.reaction = reaction
-        self.step = 1
+        self.step = 1.0
         self.cycle = 1
         self.name = ''
         self.path = ''
@@ -35,7 +36,7 @@ class Job:
             self.path = '/'.join(tmp[:-1])
             tmp = tmp[-1].split('.')
             self.name = '.'.join(tmp[:-1])
-            self.step = int(tmp[-1])
+            self.step = float(tmp[-1])
 
         self.name_template = Job.name_template.format(
             self.path, self.name, '{}', '{}')
@@ -81,15 +82,16 @@ class Job:
 
     def check_step(self):
         """
-
+        Determines the status of a jobs of the same path and name as self
         """
         if self.status == 'finished' and self.output:
             return
 
-        check_reaction = False
-        for step in range(MAXSTEP['TS'], 0, -1):
+        for com_name in glob.glob(self.name_template.format('*', 'com')):
+            step = com_name.split('.')[-2]
             log_name = self.name_template.format(step, 'log')
-            com_name = self.name_template.format(step, 'com')
+
+            step = str2step(step)
             if os.access(log_name, os.R_OK):
                 self.output = CompOutput(log_name, get_all=False)
                 self.step = step

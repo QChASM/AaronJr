@@ -14,8 +14,8 @@ charge=0
 &Ligands
 S_binap: none
 R_binap: ligand=R-BINAP
-test_1: 12=Me
-test_2: ligand=R-BINAP 12=Me
+test_1: 3=Me
+test_2: ligand=R-BINAP 1=Me
 &
 &Substrates
 TMEN_Ph: 18=Me 19=Me 20=Me 21=Me 5=Ph
