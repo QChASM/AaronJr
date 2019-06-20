@@ -1,114 +1,66 @@
-/home/deo/Aaron_libs/TS_geoms/asymmetric_hydrogenation/S_BINAP/R/ts2.xyz None ('TMEN_Ph', {'18': 'Me', '19': 'Me', '20': 'Me', '21': 'Me', '5': 'Ph'})
 /home/deo/Aaron_libs/TS_geoms/asymmetric_hydrogenation/S_BINAP/R/ts2.xyz None ('SS_dpen_Ph', {'18': 'Ph', '21': 'Ph', '5': 'Ph'})
-/home/deo/Aaron_libs/TS_geoms/asymmetric_hydrogenation/S_BINAP/R/ts2.xyz None ('SS_dpen_napth', {'18': 'Ph', '21': 'Ph', '5': '1-napth'})
-/home/deo/Aaron_libs/TS_geoms/asymmetric_hydrogenation/S_BINAP/R/ts2.xyz None ('RR_dpen_napth', {'19': 'Ph', '20': 'Ph', '5': '1-napth'})
-/home/deo/Aaron_libs/TS_geoms/asymmetric_hydrogenation/S_BINAP/R/ts2.xyz ('R_binap', {'map': ('R-BINAP', '')}) ('TMEN_Ph', {'18': 'Me', '19': 'Me', '20': 'Me', '21': 'Me', '5': 'Ph'})
-/home/deo/Aaron_libs/TS_geoms/asymmetric_hydrogenation/S_BINAP/R/ts2.xyz ('R_binap', {'map': ('R-BINAP', '')}) ('SS_dpen_Ph', {'18': 'Ph', '21': 'Ph', '5': 'Ph'})
-/home/deo/Aaron_libs/TS_geoms/asymmetric_hydrogenation/S_BINAP/R/ts2.xyz ('R_binap', {'map': ('R-BINAP', '')}) ('SS_dpen_napth', {'18': 'Ph', '21': 'Ph', '5': '1-napth'})
-/home/deo/Aaron_libs/TS_geoms/asymmetric_hydrogenation/S_BINAP/R/ts2.xyz ('R_binap', {'map': ('R-BINAP', '')}) ('RR_dpen_napth', {'19': 'Ph', '20': 'Ph', '5': '1-napth'})
-/home/deo/Aaron_libs/TS_geoms/asymmetric_hydrogenation/S_BINAP/R/ts2.xyz ('R_binap', {'map': ('R-BINAP', '')}) None
-/home/deo/Aaron_libs/TS_geoms/asymmetric_hydrogenation/S_BINAP/R/ts2.xyz ('test_1', {'3': 'Me'}) ('TMEN_Ph', {'18': 'Me', '19': 'Me', '20': 'Me', '21': 'Me', '5': 'Ph'})
-/home/deo/Aaron_libs/TS_geoms/asymmetric_hydrogenation/S_BINAP/R/ts2.xyz ('test_1', {'3': 'Me'}) ('SS_dpen_Ph', {'18': 'Ph', '21': 'Ph', '5': 'Ph'})
-/home/deo/Aaron_libs/TS_geoms/asymmetric_hydrogenation/S_BINAP/R/ts2.xyz ('test_1', {'3': 'Me'}) ('SS_dpen_napth', {'18': 'Ph', '21': 'Ph', '5': '1-napth'})
-/home/deo/Aaron_libs/TS_geoms/asymmetric_hydrogenation/S_BINAP/R/ts2.xyz ('test_1', {'3': 'Me'}) ('RR_dpen_napth', {'19': 'Ph', '20': 'Ph', '5': '1-napth'})
-/home/deo/Aaron_libs/TS_geoms/asymmetric_hydrogenation/S_BINAP/R/ts2.xyz ('test_1', {'3': 'Me'}) None
-/home/deo/Aaron_libs/TS_geoms/asymmetric_hydrogenation/S_BINAP/R/ts2.xyz ('test_2', {'map': ('R-BINAP', ''), '1': 'Me'}) ('TMEN_Ph', {'18': 'Me', '19': 'Me', '20': 'Me', '21': 'Me', '5': 'Ph'})
-/home/deo/Aaron_libs/TS_geoms/asymmetric_hydrogenation/S_BINAP/R/ts2.xyz ('test_2', {'map': ('R-BINAP', ''), '1': 'Me'}) ('SS_dpen_Ph', {'18': 'Ph', '21': 'Ph', '5': 'Ph'})
-/home/deo/Aaron_libs/TS_geoms/asymmetric_hydrogenation/S_BINAP/R/ts2.xyz ('test_2', {'map': ('R-BINAP', ''), '1': 'Me'}) ('SS_dpen_napth', {'18': 'Ph', '21': 'Ph', '5': '1-napth'})
-/home/deo/Aaron_libs/TS_geoms/asymmetric_hydrogenation/S_BINAP/R/ts2.xyz ('test_2', {'map': ('R-BINAP', ''), '1': 'Me'}) ('RR_dpen_napth', {'19': 'Ph', '20': 'Ph', '5': '1-napth'})
-/home/deo/Aaron_libs/TS_geoms/asymmetric_hydrogenation/S_BINAP/R/ts2.xyz ('test_2', {'map': ('R-BINAP', ''), '1': 'Me'}) None
-/home/deo/Aaron_libs/TS_geoms/asymmetric_hydrogenation/S_BINAP/R/ts1.xyz None ('TMEN_Ph', {'18': 'Me', '19': 'Me', '20': 'Me', '21': 'Me', '5': 'Ph'})
 /home/deo/Aaron_libs/TS_geoms/asymmetric_hydrogenation/S_BINAP/R/ts1.xyz None ('SS_dpen_Ph', {'18': 'Ph', '21': 'Ph', '5': 'Ph'})
-/home/deo/Aaron_libs/TS_geoms/asymmetric_hydrogenation/S_BINAP/R/ts1.xyz None ('SS_dpen_napth', {'18': 'Ph', '21': 'Ph', '5': '1-napth'})
-/home/deo/Aaron_libs/TS_geoms/asymmetric_hydrogenation/S_BINAP/R/ts1.xyz None ('RR_dpen_napth', {'19': 'Ph', '20': 'Ph', '5': '1-napth'})
-/home/deo/Aaron_libs/TS_geoms/asymmetric_hydrogenation/S_BINAP/R/ts1.xyz ('R_binap', {'map': ('R-BINAP', '')}) ('TMEN_Ph', {'18': 'Me', '19': 'Me', '20': 'Me', '21': 'Me', '5': 'Ph'})
-/home/deo/Aaron_libs/TS_geoms/asymmetric_hydrogenation/S_BINAP/R/ts1.xyz ('R_binap', {'map': ('R-BINAP', '')}) ('SS_dpen_Ph', {'18': 'Ph', '21': 'Ph', '5': 'Ph'})
-/home/deo/Aaron_libs/TS_geoms/asymmetric_hydrogenation/S_BINAP/R/ts1.xyz ('R_binap', {'map': ('R-BINAP', '')}) ('SS_dpen_napth', {'18': 'Ph', '21': 'Ph', '5': '1-napth'})
-/home/deo/Aaron_libs/TS_geoms/asymmetric_hydrogenation/S_BINAP/R/ts1.xyz ('R_binap', {'map': ('R-BINAP', '')}) ('RR_dpen_napth', {'19': 'Ph', '20': 'Ph', '5': '1-napth'})
-/home/deo/Aaron_libs/TS_geoms/asymmetric_hydrogenation/S_BINAP/R/ts1.xyz ('R_binap', {'map': ('R-BINAP', '')}) None
-/home/deo/Aaron_libs/TS_geoms/asymmetric_hydrogenation/S_BINAP/R/ts1.xyz ('test_1', {'3': 'Me'}) ('TMEN_Ph', {'18': 'Me', '19': 'Me', '20': 'Me', '21': 'Me', '5': 'Ph'})
-/home/deo/Aaron_libs/TS_geoms/asymmetric_hydrogenation/S_BINAP/R/ts1.xyz ('test_1', {'3': 'Me'}) ('SS_dpen_Ph', {'18': 'Ph', '21': 'Ph', '5': 'Ph'})
-/home/deo/Aaron_libs/TS_geoms/asymmetric_hydrogenation/S_BINAP/R/ts1.xyz ('test_1', {'3': 'Me'}) ('SS_dpen_napth', {'18': 'Ph', '21': 'Ph', '5': '1-napth'})
-/home/deo/Aaron_libs/TS_geoms/asymmetric_hydrogenation/S_BINAP/R/ts1.xyz ('test_1', {'3': 'Me'}) ('RR_dpen_napth', {'19': 'Ph', '20': 'Ph', '5': '1-napth'})
-/home/deo/Aaron_libs/TS_geoms/asymmetric_hydrogenation/S_BINAP/R/ts1.xyz ('test_1', {'3': 'Me'}) None
-/home/deo/Aaron_libs/TS_geoms/asymmetric_hydrogenation/S_BINAP/R/ts1.xyz ('test_2', {'map': ('R-BINAP', ''), '1': 'Me'}) ('TMEN_Ph', {'18': 'Me', '19': 'Me', '20': 'Me', '21': 'Me', '5': 'Ph'})
-/home/deo/Aaron_libs/TS_geoms/asymmetric_hydrogenation/S_BINAP/R/ts1.xyz ('test_2', {'map': ('R-BINAP', ''), '1': 'Me'}) ('SS_dpen_Ph', {'18': 'Ph', '21': 'Ph', '5': 'Ph'})
-/home/deo/Aaron_libs/TS_geoms/asymmetric_hydrogenation/S_BINAP/R/ts1.xyz ('test_2', {'map': ('R-BINAP', ''), '1': 'Me'}) ('SS_dpen_napth', {'18': 'Ph', '21': 'Ph', '5': '1-napth'})
-/home/deo/Aaron_libs/TS_geoms/asymmetric_hydrogenation/S_BINAP/R/ts1.xyz ('test_2', {'map': ('R-BINAP', ''), '1': 'Me'}) ('RR_dpen_napth', {'19': 'Ph', '20': 'Ph', '5': '1-napth'})
-/home/deo/Aaron_libs/TS_geoms/asymmetric_hydrogenation/S_BINAP/R/ts1.xyz ('test_2', {'map': ('R-BINAP', ''), '1': 'Me'}) None
-/home/deo/Aaron_libs/TS_geoms/asymmetric_hydrogenation/S_BINAP/R/ts3.xyz None ('TMEN_Ph', {'18': 'Me', '19': 'Me', '20': 'Me', '21': 'Me', '5': 'Ph'})
 /home/deo/Aaron_libs/TS_geoms/asymmetric_hydrogenation/S_BINAP/R/ts3.xyz None ('SS_dpen_Ph', {'18': 'Ph', '21': 'Ph', '5': 'Ph'})
-/home/deo/Aaron_libs/TS_geoms/asymmetric_hydrogenation/S_BINAP/R/ts3.xyz None ('SS_dpen_napth', {'18': 'Ph', '21': 'Ph', '5': '1-napth'})
-/home/deo/Aaron_libs/TS_geoms/asymmetric_hydrogenation/S_BINAP/R/ts3.xyz None ('RR_dpen_napth', {'19': 'Ph', '20': 'Ph', '5': '1-napth'})
-/home/deo/Aaron_libs/TS_geoms/asymmetric_hydrogenation/S_BINAP/R/ts3.xyz ('R_binap', {'map': ('R-BINAP', '')}) ('TMEN_Ph', {'18': 'Me', '19': 'Me', '20': 'Me', '21': 'Me', '5': 'Ph'})
-/home/deo/Aaron_libs/TS_geoms/asymmetric_hydrogenation/S_BINAP/R/ts3.xyz ('R_binap', {'map': ('R-BINAP', '')}) ('SS_dpen_Ph', {'18': 'Ph', '21': 'Ph', '5': 'Ph'})
-/home/deo/Aaron_libs/TS_geoms/asymmetric_hydrogenation/S_BINAP/R/ts3.xyz ('R_binap', {'map': ('R-BINAP', '')}) ('SS_dpen_napth', {'18': 'Ph', '21': 'Ph', '5': '1-napth'})
-/home/deo/Aaron_libs/TS_geoms/asymmetric_hydrogenation/S_BINAP/R/ts3.xyz ('R_binap', {'map': ('R-BINAP', '')}) ('RR_dpen_napth', {'19': 'Ph', '20': 'Ph', '5': '1-napth'})
-/home/deo/Aaron_libs/TS_geoms/asymmetric_hydrogenation/S_BINAP/R/ts3.xyz ('R_binap', {'map': ('R-BINAP', '')}) None
-/home/deo/Aaron_libs/TS_geoms/asymmetric_hydrogenation/S_BINAP/R/ts3.xyz ('test_1', {'3': 'Me'}) ('TMEN_Ph', {'18': 'Me', '19': 'Me', '20': 'Me', '21': 'Me', '5': 'Ph'})
-/home/deo/Aaron_libs/TS_geoms/asymmetric_hydrogenation/S_BINAP/R/ts3.xyz ('test_1', {'3': 'Me'}) ('SS_dpen_Ph', {'18': 'Ph', '21': 'Ph', '5': 'Ph'})
-/home/deo/Aaron_libs/TS_geoms/asymmetric_hydrogenation/S_BINAP/R/ts3.xyz ('test_1', {'3': 'Me'}) ('SS_dpen_napth', {'18': 'Ph', '21': 'Ph', '5': '1-napth'})
-/home/deo/Aaron_libs/TS_geoms/asymmetric_hydrogenation/S_BINAP/R/ts3.xyz ('test_1', {'3': 'Me'}) ('RR_dpen_napth', {'19': 'Ph', '20': 'Ph', '5': '1-napth'})
-/home/deo/Aaron_libs/TS_geoms/asymmetric_hydrogenation/S_BINAP/R/ts3.xyz ('test_1', {'3': 'Me'}) None
-/home/deo/Aaron_libs/TS_geoms/asymmetric_hydrogenation/S_BINAP/R/ts3.xyz ('test_2', {'map': ('R-BINAP', ''), '1': 'Me'}) ('TMEN_Ph', {'18': 'Me', '19': 'Me', '20': 'Me', '21': 'Me', '5': 'Ph'})
-/home/deo/Aaron_libs/TS_geoms/asymmetric_hydrogenation/S_BINAP/R/ts3.xyz ('test_2', {'map': ('R-BINAP', ''), '1': 'Me'}) ('SS_dpen_Ph', {'18': 'Ph', '21': 'Ph', '5': 'Ph'})
-/home/deo/Aaron_libs/TS_geoms/asymmetric_hydrogenation/S_BINAP/R/ts3.xyz ('test_2', {'map': ('R-BINAP', ''), '1': 'Me'}) ('SS_dpen_napth', {'18': 'Ph', '21': 'Ph', '5': '1-napth'})
-/home/deo/Aaron_libs/TS_geoms/asymmetric_hydrogenation/S_BINAP/R/ts3.xyz ('test_2', {'map': ('R-BINAP', ''), '1': 'Me'}) ('RR_dpen_napth', {'19': 'Ph', '20': 'Ph', '5': '1-napth'})
-/home/deo/Aaron_libs/TS_geoms/asymmetric_hydrogenation/S_BINAP/R/ts3.xyz ('test_2', {'map': ('R-BINAP', ''), '1': 'Me'}) None
-/home/deo/Aaron_libs/TS_geoms/asymmetric_hydrogenation/S_BINAP/S/ts2.xyz None ('TMEN_Ph', {'18': 'Me', '19': 'Me', '20': 'Me', '21': 'Me', '5': 'Ph'})
 /home/deo/Aaron_libs/TS_geoms/asymmetric_hydrogenation/S_BINAP/S/ts2.xyz None ('SS_dpen_Ph', {'18': 'Ph', '21': 'Ph', '5': 'Ph'})
-/home/deo/Aaron_libs/TS_geoms/asymmetric_hydrogenation/S_BINAP/S/ts2.xyz None ('SS_dpen_napth', {'18': 'Ph', '21': 'Ph', '5': '1-napth'})
-/home/deo/Aaron_libs/TS_geoms/asymmetric_hydrogenation/S_BINAP/S/ts2.xyz None ('RR_dpen_napth', {'19': 'Ph', '20': 'Ph', '5': '1-napth'})
-/home/deo/Aaron_libs/TS_geoms/asymmetric_hydrogenation/S_BINAP/S/ts2.xyz ('R_binap', {'map': ('R-BINAP', '')}) ('TMEN_Ph', {'18': 'Me', '19': 'Me', '20': 'Me', '21': 'Me', '5': 'Ph'})
-/home/deo/Aaron_libs/TS_geoms/asymmetric_hydrogenation/S_BINAP/S/ts2.xyz ('R_binap', {'map': ('R-BINAP', '')}) ('SS_dpen_Ph', {'18': 'Ph', '21': 'Ph', '5': 'Ph'})
-/home/deo/Aaron_libs/TS_geoms/asymmetric_hydrogenation/S_BINAP/S/ts2.xyz ('R_binap', {'map': ('R-BINAP', '')}) ('SS_dpen_napth', {'18': 'Ph', '21': 'Ph', '5': '1-napth'})
-/home/deo/Aaron_libs/TS_geoms/asymmetric_hydrogenation/S_BINAP/S/ts2.xyz ('R_binap', {'map': ('R-BINAP', '')}) ('RR_dpen_napth', {'19': 'Ph', '20': 'Ph', '5': '1-napth'})
-/home/deo/Aaron_libs/TS_geoms/asymmetric_hydrogenation/S_BINAP/S/ts2.xyz ('R_binap', {'map': ('R-BINAP', '')}) None
-/home/deo/Aaron_libs/TS_geoms/asymmetric_hydrogenation/S_BINAP/S/ts2.xyz ('test_1', {'3': 'Me'}) ('TMEN_Ph', {'18': 'Me', '19': 'Me', '20': 'Me', '21': 'Me', '5': 'Ph'})
-/home/deo/Aaron_libs/TS_geoms/asymmetric_hydrogenation/S_BINAP/S/ts2.xyz ('test_1', {'3': 'Me'}) ('SS_dpen_Ph', {'18': 'Ph', '21': 'Ph', '5': 'Ph'})
-/home/deo/Aaron_libs/TS_geoms/asymmetric_hydrogenation/S_BINAP/S/ts2.xyz ('test_1', {'3': 'Me'}) ('SS_dpen_napth', {'18': 'Ph', '21': 'Ph', '5': '1-napth'})
-/home/deo/Aaron_libs/TS_geoms/asymmetric_hydrogenation/S_BINAP/S/ts2.xyz ('test_1', {'3': 'Me'}) ('RR_dpen_napth', {'19': 'Ph', '20': 'Ph', '5': '1-napth'})
-/home/deo/Aaron_libs/TS_geoms/asymmetric_hydrogenation/S_BINAP/S/ts2.xyz ('test_1', {'3': 'Me'}) None
-/home/deo/Aaron_libs/TS_geoms/asymmetric_hydrogenation/S_BINAP/S/ts2.xyz ('test_2', {'map': ('R-BINAP', ''), '1': 'Me'}) ('TMEN_Ph', {'18': 'Me', '19': 'Me', '20': 'Me', '21': 'Me', '5': 'Ph'})
-/home/deo/Aaron_libs/TS_geoms/asymmetric_hydrogenation/S_BINAP/S/ts2.xyz ('test_2', {'map': ('R-BINAP', ''), '1': 'Me'}) ('SS_dpen_Ph', {'18': 'Ph', '21': 'Ph', '5': 'Ph'})
-/home/deo/Aaron_libs/TS_geoms/asymmetric_hydrogenation/S_BINAP/S/ts2.xyz ('test_2', {'map': ('R-BINAP', ''), '1': 'Me'}) ('SS_dpen_napth', {'18': 'Ph', '21': 'Ph', '5': '1-napth'})
-/home/deo/Aaron_libs/TS_geoms/asymmetric_hydrogenation/S_BINAP/S/ts2.xyz ('test_2', {'map': ('R-BINAP', ''), '1': 'Me'}) ('RR_dpen_napth', {'19': 'Ph', '20': 'Ph', '5': '1-napth'})
-/home/deo/Aaron_libs/TS_geoms/asymmetric_hydrogenation/S_BINAP/S/ts2.xyz ('test_2', {'map': ('R-BINAP', ''), '1': 'Me'}) None
-/home/deo/Aaron_libs/TS_geoms/asymmetric_hydrogenation/S_BINAP/S/ts1.xyz None ('TMEN_Ph', {'18': 'Me', '19': 'Me', '20': 'Me', '21': 'Me', '5': 'Ph'})
 /home/deo/Aaron_libs/TS_geoms/asymmetric_hydrogenation/S_BINAP/S/ts1.xyz None ('SS_dpen_Ph', {'18': 'Ph', '21': 'Ph', '5': 'Ph'})
-/home/deo/Aaron_libs/TS_geoms/asymmetric_hydrogenation/S_BINAP/S/ts1.xyz None ('SS_dpen_napth', {'18': 'Ph', '21': 'Ph', '5': '1-napth'})
-/home/deo/Aaron_libs/TS_geoms/asymmetric_hydrogenation/S_BINAP/S/ts1.xyz None ('RR_dpen_napth', {'19': 'Ph', '20': 'Ph', '5': '1-napth'})
-/home/deo/Aaron_libs/TS_geoms/asymmetric_hydrogenation/S_BINAP/S/ts1.xyz ('R_binap', {'map': ('R-BINAP', '')}) ('TMEN_Ph', {'18': 'Me', '19': 'Me', '20': 'Me', '21': 'Me', '5': 'Ph'})
-/home/deo/Aaron_libs/TS_geoms/asymmetric_hydrogenation/S_BINAP/S/ts1.xyz ('R_binap', {'map': ('R-BINAP', '')}) ('SS_dpen_Ph', {'18': 'Ph', '21': 'Ph', '5': 'Ph'})
-/home/deo/Aaron_libs/TS_geoms/asymmetric_hydrogenation/S_BINAP/S/ts1.xyz ('R_binap', {'map': ('R-BINAP', '')}) ('SS_dpen_napth', {'18': 'Ph', '21': 'Ph', '5': '1-napth'})
-/home/deo/Aaron_libs/TS_geoms/asymmetric_hydrogenation/S_BINAP/S/ts1.xyz ('R_binap', {'map': ('R-BINAP', '')}) ('RR_dpen_napth', {'19': 'Ph', '20': 'Ph', '5': '1-napth'})
-/home/deo/Aaron_libs/TS_geoms/asymmetric_hydrogenation/S_BINAP/S/ts1.xyz ('R_binap', {'map': ('R-BINAP', '')}) None
-/home/deo/Aaron_libs/TS_geoms/asymmetric_hydrogenation/S_BINAP/S/ts1.xyz ('test_1', {'3': 'Me'}) ('TMEN_Ph', {'18': 'Me', '19': 'Me', '20': 'Me', '21': 'Me', '5': 'Ph'})
-/home/deo/Aaron_libs/TS_geoms/asymmetric_hydrogenation/S_BINAP/S/ts1.xyz ('test_1', {'3': 'Me'}) ('SS_dpen_Ph', {'18': 'Ph', '21': 'Ph', '5': 'Ph'})
-/home/deo/Aaron_libs/TS_geoms/asymmetric_hydrogenation/S_BINAP/S/ts1.xyz ('test_1', {'3': 'Me'}) ('SS_dpen_napth', {'18': 'Ph', '21': 'Ph', '5': '1-napth'})
-/home/deo/Aaron_libs/TS_geoms/asymmetric_hydrogenation/S_BINAP/S/ts1.xyz ('test_1', {'3': 'Me'}) ('RR_dpen_napth', {'19': 'Ph', '20': 'Ph', '5': '1-napth'})
-/home/deo/Aaron_libs/TS_geoms/asymmetric_hydrogenation/S_BINAP/S/ts1.xyz ('test_1', {'3': 'Me'}) None
-/home/deo/Aaron_libs/TS_geoms/asymmetric_hydrogenation/S_BINAP/S/ts1.xyz ('test_2', {'map': ('R-BINAP', ''), '1': 'Me'}) ('TMEN_Ph', {'18': 'Me', '19': 'Me', '20': 'Me', '21': 'Me', '5': 'Ph'})
-/home/deo/Aaron_libs/TS_geoms/asymmetric_hydrogenation/S_BINAP/S/ts1.xyz ('test_2', {'map': ('R-BINAP', ''), '1': 'Me'}) ('SS_dpen_Ph', {'18': 'Ph', '21': 'Ph', '5': 'Ph'})
-/home/deo/Aaron_libs/TS_geoms/asymmetric_hydrogenation/S_BINAP/S/ts1.xyz ('test_2', {'map': ('R-BINAP', ''), '1': 'Me'}) ('SS_dpen_napth', {'18': 'Ph', '21': 'Ph', '5': '1-napth'})
-/home/deo/Aaron_libs/TS_geoms/asymmetric_hydrogenation/S_BINAP/S/ts1.xyz ('test_2', {'map': ('R-BINAP', ''), '1': 'Me'}) ('RR_dpen_napth', {'19': 'Ph', '20': 'Ph', '5': '1-napth'})
-/home/deo/Aaron_libs/TS_geoms/asymmetric_hydrogenation/S_BINAP/S/ts1.xyz ('test_2', {'map': ('R-BINAP', ''), '1': 'Me'}) None
-/home/deo/Aaron_libs/TS_geoms/asymmetric_hydrogenation/S_BINAP/S/ts3.xyz None ('TMEN_Ph', {'18': 'Me', '19': 'Me', '20': 'Me', '21': 'Me', '5': 'Ph'})
 /home/deo/Aaron_libs/TS_geoms/asymmetric_hydrogenation/S_BINAP/S/ts3.xyz None ('SS_dpen_Ph', {'18': 'Ph', '21': 'Ph', '5': 'Ph'})
-/home/deo/Aaron_libs/TS_geoms/asymmetric_hydrogenation/S_BINAP/S/ts3.xyz None ('SS_dpen_napth', {'18': 'Ph', '21': 'Ph', '5': '1-napth'})
-/home/deo/Aaron_libs/TS_geoms/asymmetric_hydrogenation/S_BINAP/S/ts3.xyz None ('RR_dpen_napth', {'19': 'Ph', '20': 'Ph', '5': '1-napth'})
-/home/deo/Aaron_libs/TS_geoms/asymmetric_hydrogenation/S_BINAP/S/ts3.xyz ('R_binap', {'map': ('R-BINAP', '')}) ('TMEN_Ph', {'18': 'Me', '19': 'Me', '20': 'Me', '21': 'Me', '5': 'Ph'})
-/home/deo/Aaron_libs/TS_geoms/asymmetric_hydrogenation/S_BINAP/S/ts3.xyz ('R_binap', {'map': ('R-BINAP', '')}) ('SS_dpen_Ph', {'18': 'Ph', '21': 'Ph', '5': 'Ph'})
-/home/deo/Aaron_libs/TS_geoms/asymmetric_hydrogenation/S_BINAP/S/ts3.xyz ('R_binap', {'map': ('R-BINAP', '')}) ('SS_dpen_napth', {'18': 'Ph', '21': 'Ph', '5': '1-napth'})
-/home/deo/Aaron_libs/TS_geoms/asymmetric_hydrogenation/S_BINAP/S/ts3.xyz ('R_binap', {'map': ('R-BINAP', '')}) ('RR_dpen_napth', {'19': 'Ph', '20': 'Ph', '5': '1-napth'})
+/home/deo/Aaron_libs/TS_geoms/asymmetric_hydrogenation/S_BINAP/R/ts2.xyz None ('TMEN_Ph', {'18': 'Me', '19': 'Me', '20': 'Me', '21': 'Me', '5': 'Ph'})
+/home/deo/Aaron_libs/TS_geoms/asymmetric_hydrogenation/S_BINAP/R/ts1.xyz None ('TMEN_Ph', {'18': 'Me', '19': 'Me', '20': 'Me', '21': 'Me', '5': 'Ph'})
+/home/deo/Aaron_libs/TS_geoms/asymmetric_hydrogenation/S_BINAP/R/ts3.xyz None ('TMEN_Ph', {'18': 'Me', '19': 'Me', '20': 'Me', '21': 'Me', '5': 'Ph'})
+/home/deo/Aaron_libs/TS_geoms/asymmetric_hydrogenation/S_BINAP/S/ts2.xyz None ('TMEN_Ph', {'18': 'Me', '19': 'Me', '20': 'Me', '21': 'Me', '5': 'Ph'})
+/home/deo/Aaron_libs/TS_geoms/asymmetric_hydrogenation/S_BINAP/S/ts1.xyz None ('TMEN_Ph', {'18': 'Me', '19': 'Me', '20': 'Me', '21': 'Me', '5': 'Ph'})
+/home/deo/Aaron_libs/TS_geoms/asymmetric_hydrogenation/S_BINAP/S/ts3.xyz None ('TMEN_Ph', {'18': 'Me', '19': 'Me', '20': 'Me', '21': 'Me', '5': 'Ph'})
+/home/deo/Aaron_libs/TS_geoms/asymmetric_hydrogenation/S_BINAP/R/ts2.xyz ('R_binap', {'map': ('R-BINAP', '')}) None
+/home/deo/Aaron_libs/TS_geoms/asymmetric_hydrogenation/S_BINAP/R/ts1.xyz ('R_binap', {'map': ('R-BINAP', '')}) None
+/home/deo/Aaron_libs/TS_geoms/asymmetric_hydrogenation/S_BINAP/R/ts3.xyz ('R_binap', {'map': ('R-BINAP', '')}) None
+/home/deo/Aaron_libs/TS_geoms/asymmetric_hydrogenation/S_BINAP/S/ts2.xyz ('R_binap', {'map': ('R-BINAP', '')}) None
+/home/deo/Aaron_libs/TS_geoms/asymmetric_hydrogenation/S_BINAP/S/ts1.xyz ('R_binap', {'map': ('R-BINAP', '')}) None
 /home/deo/Aaron_libs/TS_geoms/asymmetric_hydrogenation/S_BINAP/S/ts3.xyz ('R_binap', {'map': ('R-BINAP', '')}) None
-/home/deo/Aaron_libs/TS_geoms/asymmetric_hydrogenation/S_BINAP/S/ts3.xyz ('test_1', {'3': 'Me'}) ('TMEN_Ph', {'18': 'Me', '19': 'Me', '20': 'Me', '21': 'Me', '5': 'Ph'})
-/home/deo/Aaron_libs/TS_geoms/asymmetric_hydrogenation/S_BINAP/S/ts3.xyz ('test_1', {'3': 'Me'}) ('SS_dpen_Ph', {'18': 'Ph', '21': 'Ph', '5': 'Ph'})
-/home/deo/Aaron_libs/TS_geoms/asymmetric_hydrogenation/S_BINAP/S/ts3.xyz ('test_1', {'3': 'Me'}) ('SS_dpen_napth', {'18': 'Ph', '21': 'Ph', '5': '1-napth'})
-/home/deo/Aaron_libs/TS_geoms/asymmetric_hydrogenation/S_BINAP/S/ts3.xyz ('test_1', {'3': 'Me'}) ('RR_dpen_napth', {'19': 'Ph', '20': 'Ph', '5': '1-napth'})
-/home/deo/Aaron_libs/TS_geoms/asymmetric_hydrogenation/S_BINAP/S/ts3.xyz ('test_1', {'3': 'Me'}) None
-/home/deo/Aaron_libs/TS_geoms/asymmetric_hydrogenation/S_BINAP/S/ts3.xyz ('test_2', {'map': ('R-BINAP', ''), '1': 'Me'}) ('TMEN_Ph', {'18': 'Me', '19': 'Me', '20': 'Me', '21': 'Me', '5': 'Ph'})
-/home/deo/Aaron_libs/TS_geoms/asymmetric_hydrogenation/S_BINAP/S/ts3.xyz ('test_2', {'map': ('R-BINAP', ''), '1': 'Me'}) ('SS_dpen_Ph', {'18': 'Ph', '21': 'Ph', '5': 'Ph'})
-/home/deo/Aaron_libs/TS_geoms/asymmetric_hydrogenation/S_BINAP/S/ts3.xyz ('test_2', {'map': ('R-BINAP', ''), '1': 'Me'}) ('SS_dpen_napth', {'18': 'Ph', '21': 'Ph', '5': '1-napth'})
-/home/deo/Aaron_libs/TS_geoms/asymmetric_hydrogenation/S_BINAP/S/ts3.xyz ('test_2', {'map': ('R-BINAP', ''), '1': 'Me'}) ('RR_dpen_napth', {'19': 'Ph', '20': 'Ph', '5': '1-napth'})
-/home/deo/Aaron_libs/TS_geoms/asymmetric_hydrogenation/S_BINAP/S/ts3.xyz ('test_2', {'map': ('R-BINAP', ''), '1': 'Me'}) None
+/home/deo/Aaron_libs/TS_geoms/asymmetric_hydrogenation/S_BINAP/R/ts2.xyz ('R_binap', {'map': ('R-BINAP', '')}) ('SS_dpen_Ph', {'18': 'Ph', '21': 'Ph', '5': 'Ph'})
+/home/deo/Aaron_libs/TS_geoms/asymmetric_hydrogenation/S_BINAP/R/ts1.xyz ('R_binap', {'map': ('R-BINAP', '')}) ('SS_dpen_Ph', {'18': 'Ph', '21': 'Ph', '5': 'Ph'})
+/home/deo/Aaron_libs/TS_geoms/asymmetric_hydrogenation/S_BINAP/R/ts3.xyz ('R_binap', {'map': ('R-BINAP', '')}) ('SS_dpen_Ph', {'18': 'Ph', '21': 'Ph', '5': 'Ph'})
+/home/deo/Aaron_libs/TS_geoms/asymmetric_hydrogenation/S_BINAP/S/ts2.xyz ('R_binap', {'map': ('R-BINAP', '')}) ('SS_dpen_Ph', {'18': 'Ph', '21': 'Ph', '5': 'Ph'})
+/home/deo/Aaron_libs/TS_geoms/asymmetric_hydrogenation/S_BINAP/S/ts1.xyz ('R_binap', {'map': ('R-BINAP', '')}) ('SS_dpen_Ph', {'18': 'Ph', '21': 'Ph', '5': 'Ph'})
+/home/deo/Aaron_libs/TS_geoms/asymmetric_hydrogenation/S_BINAP/S/ts3.xyz ('R_binap', {'map': ('R-BINAP', '')}) ('SS_dpen_Ph', {'18': 'Ph', '21': 'Ph', '5': 'Ph'})
+/home/deo/Aaron_libs/TS_geoms/asymmetric_hydrogenation/S_BINAP/R/ts2.xyz ('R_binap', {'map': ('R-BINAP', '')}) ('TMEN_Ph', {'18': 'Me', '19': 'Me', '20': 'Me', '21': 'Me', '5': 'Ph'})
+/home/deo/Aaron_libs/TS_geoms/asymmetric_hydrogenation/S_BINAP/R/ts1.xyz ('R_binap', {'map': ('R-BINAP', '')}) ('TMEN_Ph', {'18': 'Me', '19': 'Me', '20': 'Me', '21': 'Me', '5': 'Ph'})
+/home/deo/Aaron_libs/TS_geoms/asymmetric_hydrogenation/S_BINAP/R/ts3.xyz ('R_binap', {'map': ('R-BINAP', '')}) ('TMEN_Ph', {'18': 'Me', '19': 'Me', '20': 'Me', '21': 'Me', '5': 'Ph'})
+/home/deo/Aaron_libs/TS_geoms/asymmetric_hydrogenation/S_BINAP/S/ts2.xyz ('R_binap', {'map': ('R-BINAP', '')}) ('TMEN_Ph', {'18': 'Me', '19': 'Me', '20': 'Me', '21': 'Me', '5': 'Ph'})
+/home/deo/Aaron_libs/TS_geoms/asymmetric_hydrogenation/S_BINAP/S/ts1.xyz ('R_binap', {'map': ('R-BINAP', '')}) ('TMEN_Ph', {'18': 'Me', '19': 'Me', '20': 'Me', '21': 'Me', '5': 'Ph'})
+/home/deo/Aaron_libs/TS_geoms/asymmetric_hydrogenation/S_BINAP/S/ts3.xyz ('R_binap', {'map': ('R-BINAP', '')}) ('TMEN_Ph', {'18': 'Me', '19': 'Me', '20': 'Me', '21': 'Me', '5': 'Ph'})
+/home/deo/Aaron_libs/TS_geoms/asymmetric_hydrogenation/S_BINAP/R/ts2.xyz ('test_1', {'3': 'Ph'}) None
+/home/deo/Aaron_libs/TS_geoms/asymmetric_hydrogenation/S_BINAP/R/ts1.xyz ('test_1', {'3': 'Ph'}) None
+/home/deo/Aaron_libs/TS_geoms/asymmetric_hydrogenation/S_BINAP/R/ts3.xyz ('test_1', {'3': 'Ph'}) None
+/home/deo/Aaron_libs/TS_geoms/asymmetric_hydrogenation/S_BINAP/S/ts2.xyz ('test_1', {'3': 'Ph'}) None
+/home/deo/Aaron_libs/TS_geoms/asymmetric_hydrogenation/S_BINAP/S/ts1.xyz ('test_1', {'3': 'Ph'}) None
+/home/deo/Aaron_libs/TS_geoms/asymmetric_hydrogenation/S_BINAP/S/ts3.xyz ('test_1', {'3': 'Ph'}) None
+/home/deo/Aaron_libs/TS_geoms/asymmetric_hydrogenation/S_BINAP/R/ts2.xyz ('test_1', {'3': 'Ph'}) ('SS_dpen_Ph', {'18': 'Ph', '21': 'Ph', '5': 'Ph'})
+/home/deo/Aaron_libs/TS_geoms/asymmetric_hydrogenation/S_BINAP/R/ts1.xyz ('test_1', {'3': 'Ph'}) ('SS_dpen_Ph', {'18': 'Ph', '21': 'Ph', '5': 'Ph'})
+/home/deo/Aaron_libs/TS_geoms/asymmetric_hydrogenation/S_BINAP/R/ts3.xyz ('test_1', {'3': 'Ph'}) ('SS_dpen_Ph', {'18': 'Ph', '21': 'Ph', '5': 'Ph'})
+/home/deo/Aaron_libs/TS_geoms/asymmetric_hydrogenation/S_BINAP/S/ts2.xyz ('test_1', {'3': 'Ph'}) ('SS_dpen_Ph', {'18': 'Ph', '21': 'Ph', '5': 'Ph'})
+/home/deo/Aaron_libs/TS_geoms/asymmetric_hydrogenation/S_BINAP/S/ts1.xyz ('test_1', {'3': 'Ph'}) ('SS_dpen_Ph', {'18': 'Ph', '21': 'Ph', '5': 'Ph'})
+/home/deo/Aaron_libs/TS_geoms/asymmetric_hydrogenation/S_BINAP/S/ts3.xyz ('test_1', {'3': 'Ph'}) ('SS_dpen_Ph', {'18': 'Ph', '21': 'Ph', '5': 'Ph'})
+/home/deo/Aaron_libs/TS_geoms/asymmetric_hydrogenation/S_BINAP/R/ts2.xyz ('test_1', {'3': 'Ph'}) ('TMEN_Ph', {'18': 'Me', '19': 'Me', '20': 'Me', '21': 'Me', '5': 'Ph'})
+/home/deo/Aaron_libs/TS_geoms/asymmetric_hydrogenation/S_BINAP/R/ts1.xyz ('test_1', {'3': 'Ph'}) ('TMEN_Ph', {'18': 'Me', '19': 'Me', '20': 'Me', '21': 'Me', '5': 'Ph'})
+/home/deo/Aaron_libs/TS_geoms/asymmetric_hydrogenation/S_BINAP/R/ts3.xyz ('test_1', {'3': 'Ph'}) ('TMEN_Ph', {'18': 'Me', '19': 'Me', '20': 'Me', '21': 'Me', '5': 'Ph'})
+/home/deo/Aaron_libs/TS_geoms/asymmetric_hydrogenation/S_BINAP/S/ts2.xyz ('test_1', {'3': 'Ph'}) ('TMEN_Ph', {'18': 'Me', '19': 'Me', '20': 'Me', '21': 'Me', '5': 'Ph'})
+/home/deo/Aaron_libs/TS_geoms/asymmetric_hydrogenation/S_BINAP/S/ts1.xyz ('test_1', {'3': 'Ph'}) ('TMEN_Ph', {'18': 'Me', '19': 'Me', '20': 'Me', '21': 'Me', '5': 'Ph'})
+/home/deo/Aaron_libs/TS_geoms/asymmetric_hydrogenation/S_BINAP/S/ts3.xyz ('test_1', {'3': 'Ph'}) ('TMEN_Ph', {'18': 'Me', '19': 'Me', '20': 'Me', '21': 'Me', '5': 'Ph'})
+/home/deo/Aaron_libs/TS_geoms/asymmetric_hydrogenation/S_BINAP/R/ts2.xyz ('test_2', {'map': ('R-BINAP', ''), '1': 'Ph'}) None
+/home/deo/Aaron_libs/TS_geoms/asymmetric_hydrogenation/S_BINAP/R/ts1.xyz ('test_2', {'map': ('R-BINAP', ''), '1': 'Ph'}) None
+/home/deo/Aaron_libs/TS_geoms/asymmetric_hydrogenation/S_BINAP/R/ts3.xyz ('test_2', {'map': ('R-BINAP', ''), '1': 'Ph'}) None
+/home/deo/Aaron_libs/TS_geoms/asymmetric_hydrogenation/S_BINAP/S/ts2.xyz ('test_2', {'map': ('R-BINAP', ''), '1': 'Ph'}) None
+/home/deo/Aaron_libs/TS_geoms/asymmetric_hydrogenation/S_BINAP/S/ts1.xyz ('test_2', {'map': ('R-BINAP', ''), '1': 'Ph'}) None
+/home/deo/Aaron_libs/TS_geoms/asymmetric_hydrogenation/S_BINAP/S/ts3.xyz ('test_2', {'map': ('R-BINAP', ''), '1': 'Ph'}) None
+/home/deo/Aaron_libs/TS_geoms/asymmetric_hydrogenation/S_BINAP/R/ts2.xyz ('test_2', {'map': ('R-BINAP', ''), '1': 'Ph'}) ('SS_dpen_Ph', {'18': 'Ph', '21': 'Ph', '5': 'Ph'})
+/home/deo/Aaron_libs/TS_geoms/asymmetric_hydrogenation/S_BINAP/R/ts1.xyz ('test_2', {'map': ('R-BINAP', ''), '1': 'Ph'}) ('SS_dpen_Ph', {'18': 'Ph', '21': 'Ph', '5': 'Ph'})
+/home/deo/Aaron_libs/TS_geoms/asymmetric_hydrogenation/S_BINAP/R/ts3.xyz ('test_2', {'map': ('R-BINAP', ''), '1': 'Ph'}) ('SS_dpen_Ph', {'18': 'Ph', '21': 'Ph', '5': 'Ph'})
+/home/deo/Aaron_libs/TS_geoms/asymmetric_hydrogenation/S_BINAP/S/ts2.xyz ('test_2', {'map': ('R-BINAP', ''), '1': 'Ph'}) ('SS_dpen_Ph', {'18': 'Ph', '21': 'Ph', '5': 'Ph'})
+/home/deo/Aaron_libs/TS_geoms/asymmetric_hydrogenation/S_BINAP/S/ts1.xyz ('test_2', {'map': ('R-BINAP', ''), '1': 'Ph'}) ('SS_dpen_Ph', {'18': 'Ph', '21': 'Ph', '5': 'Ph'})
+/home/deo/Aaron_libs/TS_geoms/asymmetric_hydrogenation/S_BINAP/S/ts3.xyz ('test_2', {'map': ('R-BINAP', ''), '1': 'Ph'}) ('SS_dpen_Ph', {'18': 'Ph', '21': 'Ph', '5': 'Ph'})
+/home/deo/Aaron_libs/TS_geoms/asymmetric_hydrogenation/S_BINAP/R/ts2.xyz ('test_2', {'map': ('R-BINAP', ''), '1': 'Ph'}) ('TMEN_Ph', {'18': 'Me', '19': 'Me', '20': 'Me', '21': 'Me', '5': 'Ph'})
+/home/deo/Aaron_libs/TS_geoms/asymmetric_hydrogenation/S_BINAP/R/ts1.xyz ('test_2', {'map': ('R-BINAP', ''), '1': 'Ph'}) ('TMEN_Ph', {'18': 'Me', '19': 'Me', '20': 'Me', '21': 'Me', '5': 'Ph'})
+/home/deo/Aaron_libs/TS_geoms/asymmetric_hydrogenation/S_BINAP/R/ts3.xyz ('test_2', {'map': ('R-BINAP', ''), '1': 'Ph'}) ('TMEN_Ph', {'18': 'Me', '19': 'Me', '20': 'Me', '21': 'Me', '5': 'Ph'})
+/home/deo/Aaron_libs/TS_geoms/asymmetric_hydrogenation/S_BINAP/S/ts2.xyz ('test_2', {'map': ('R-BINAP', ''), '1': 'Ph'}) ('TMEN_Ph', {'18': 'Me', '19': 'Me', '20': 'Me', '21': 'Me', '5': 'Ph'})
+/home/deo/Aaron_libs/TS_geoms/asymmetric_hydrogenation/S_BINAP/S/ts1.xyz ('test_2', {'map': ('R-BINAP', ''), '1': 'Ph'}) ('TMEN_Ph', {'18': 'Me', '19': 'Me', '20': 'Me', '21': 'Me', '5': 'Ph'})
+/home/deo/Aaron_libs/TS_geoms/asymmetric_hydrogenation/S_BINAP/S/ts3.xyz ('test_2', {'map': ('R-BINAP', ''), '1': 'Ph'}) ('TMEN_Ph', {'18': 'Me', '19': 'Me', '20': 'Me', '21': 'Me', '5': 'Ph'})
