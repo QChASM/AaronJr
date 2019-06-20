@@ -1,0 +1,2106 @@
+1: /home/deo/Aaron_libs/TS_geoms/asymmetric_hydrogenation/S_BINAP/R/ts2.xyz
+asymmetric_hydrogenation, None, 2
+lig: None
+sub: ('TMEN_Ph', {'18': 'Me', '19': 'Me', '20': 'Me', '21': 'Me', '5': 'Ph'})
+Cf #1: /home/deo/pyCHASM/Aaron/test/test_files/make_dirs/original/TMEN_Ph/R/ts2/Cf1
+	5.1 (Ph): cf 1
+Cf #2: /home/deo/pyCHASM/Aaron/test/test_files/make_dirs/original/TMEN_Ph/R/ts2/Cf2
+	5.1 (Ph): cf 2
+
+2: /home/deo/Aaron_libs/TS_geoms/asymmetric_hydrogenation/S_BINAP/R/ts2.xyz
+asymmetric_hydrogenation, None, 2
+lig: None
+sub: ('SS_dpen_Ph', {'18': 'Ph', '21': 'Ph', '5': 'Ph'})
+Cf #111: /home/deo/pyCHASM/Aaron/test/test_files/make_dirs/original/SS_dpen_Ph/R/ts2/Cf111
+	5.1 (Ph): cf 1
+	18.1 (Ph): cf 1
+	21.1 (Ph): cf 1
+Cf #211: /home/deo/pyCHASM/Aaron/test/test_files/make_dirs/original/SS_dpen_Ph/R/ts2/Cf211
+	5.1 (Ph): cf 2
+	18.1 (Ph): cf 1
+	21.1 (Ph): cf 1
+Cf #121: /home/deo/pyCHASM/Aaron/test/test_files/make_dirs/original/SS_dpen_Ph/R/ts2/Cf121
+	5.1 (Ph): cf 1
+	18.1 (Ph): cf 2
+	21.1 (Ph): cf 1
+Cf #221: /home/deo/pyCHASM/Aaron/test/test_files/make_dirs/original/SS_dpen_Ph/R/ts2/Cf221
+	5.1 (Ph): cf 2
+	18.1 (Ph): cf 2
+	21.1 (Ph): cf 1
+Cf #112: /home/deo/pyCHASM/Aaron/test/test_files/make_dirs/original/SS_dpen_Ph/R/ts2/Cf112
+	5.1 (Ph): cf 1
+	18.1 (Ph): cf 1
+	21.1 (Ph): cf 2
+Cf #212: /home/deo/pyCHASM/Aaron/test/test_files/make_dirs/original/SS_dpen_Ph/R/ts2/Cf212
+	5.1 (Ph): cf 2
+	18.1 (Ph): cf 1
+	21.1 (Ph): cf 2
+Cf #122: /home/deo/pyCHASM/Aaron/test/test_files/make_dirs/original/SS_dpen_Ph/R/ts2/Cf122
+	5.1 (Ph): cf 1
+	18.1 (Ph): cf 2
+	21.1 (Ph): cf 2
+Cf #222: /home/deo/pyCHASM/Aaron/test/test_files/make_dirs/original/SS_dpen_Ph/R/ts2/Cf222
+	5.1 (Ph): cf 2
+	18.1 (Ph): cf 2
+	21.1 (Ph): cf 2
+
+3: /home/deo/Aaron_libs/TS_geoms/asymmetric_hydrogenation/S_BINAP/R/ts2.xyz
+asymmetric_hydrogenation, None, 2
+lig: ('R_binap', {'map': ('R-BINAP', '')})
+sub: None
+Cf #111: /home/deo/pyCHASM/Aaron/test/test_files/make_dirs/R_binap/original/R/ts2/Cf111
+	23.18 (Ph): cf 1
+	3 (CHO): cf 1
+	23.37 (Ph): cf 1
+Cf #211: /home/deo/pyCHASM/Aaron/test/test_files/make_dirs/R_binap/original/R/ts2/Cf211
+	23.18 (Ph): cf 2
+	3 (CHO): cf 1
+	23.37 (Ph): cf 1
+Cf #121: /home/deo/pyCHASM/Aaron/test/test_files/make_dirs/R_binap/original/R/ts2/Cf121
+	23.18 (Ph): cf 1
+	3 (CHO): cf 2
+	23.37 (Ph): cf 1
+Cf #221: /home/deo/pyCHASM/Aaron/test/test_files/make_dirs/R_binap/original/R/ts2/Cf221
+	23.18 (Ph): cf 2
+	3 (CHO): cf 2
+	23.37 (Ph): cf 1
+Cf #112: /home/deo/pyCHASM/Aaron/test/test_files/make_dirs/R_binap/original/R/ts2/Cf112
+	23.18 (Ph): cf 1
+	3 (CHO): cf 1
+	23.37 (Ph): cf 2
+Cf #212: /home/deo/pyCHASM/Aaron/test/test_files/make_dirs/R_binap/original/R/ts2/Cf212
+	23.18 (Ph): cf 2
+	3 (CHO): cf 1
+	23.37 (Ph): cf 2
+Cf #122: /home/deo/pyCHASM/Aaron/test/test_files/make_dirs/R_binap/original/R/ts2/Cf122
+	23.18 (Ph): cf 1
+	3 (CHO): cf 2
+	23.37 (Ph): cf 2
+Cf #222: /home/deo/pyCHASM/Aaron/test/test_files/make_dirs/R_binap/original/R/ts2/Cf222
+	23.18 (Ph): cf 2
+	3 (CHO): cf 2
+	23.37 (Ph): cf 2
+
+4: /home/deo/Aaron_libs/TS_geoms/asymmetric_hydrogenation/S_BINAP/R/ts2.xyz
+asymmetric_hydrogenation, None, 2
+lig: ('R_binap', {'map': ('R-BINAP', '')})
+sub: ('TMEN_Ph', {'18': 'Me', '19': 'Me', '20': 'Me', '21': 'Me', '5': 'Ph'})
+Cf #1: /home/deo/pyCHASM/Aaron/test/test_files/make_dirs/R_binap/TMEN_Ph/R/ts2/Cf1
+	5.1 (Ph): cf 1
+Cf #2: /home/deo/pyCHASM/Aaron/test/test_files/make_dirs/R_binap/TMEN_Ph/R/ts2/Cf2
+	5.1 (Ph): cf 2
+
+5: /home/deo/Aaron_libs/TS_geoms/asymmetric_hydrogenation/S_BINAP/R/ts2.xyz
+asymmetric_hydrogenation, None, 2
+lig: ('R_binap', {'map': ('R-BINAP', '')})
+sub: ('SS_dpen_Ph', {'18': 'Ph', '21': 'Ph', '5': 'Ph'})
+Cf #111: /home/deo/pyCHASM/Aaron/test/test_files/make_dirs/R_binap/SS_dpen_Ph/R/ts2/Cf111
+	5.1 (Ph): cf 1
+	18.1 (Ph): cf 1
+	21.1 (Ph): cf 1
+Cf #211: /home/deo/pyCHASM/Aaron/test/test_files/make_dirs/R_binap/SS_dpen_Ph/R/ts2/Cf211
+	5.1 (Ph): cf 2
+	18.1 (Ph): cf 1
+	21.1 (Ph): cf 1
+Cf #121: /home/deo/pyCHASM/Aaron/test/test_files/make_dirs/R_binap/SS_dpen_Ph/R/ts2/Cf121
+	5.1 (Ph): cf 1
+	18.1 (Ph): cf 2
+	21.1 (Ph): cf 1
+Cf #221: /home/deo/pyCHASM/Aaron/test/test_files/make_dirs/R_binap/SS_dpen_Ph/R/ts2/Cf221
+	5.1 (Ph): cf 2
+	18.1 (Ph): cf 2
+	21.1 (Ph): cf 1
+Cf #112: /home/deo/pyCHASM/Aaron/test/test_files/make_dirs/R_binap/SS_dpen_Ph/R/ts2/Cf112
+	5.1 (Ph): cf 1
+	18.1 (Ph): cf 1
+	21.1 (Ph): cf 2
+Cf #212: /home/deo/pyCHASM/Aaron/test/test_files/make_dirs/R_binap/SS_dpen_Ph/R/ts2/Cf212
+	5.1 (Ph): cf 2
+	18.1 (Ph): cf 1
+	21.1 (Ph): cf 2
+Cf #122: /home/deo/pyCHASM/Aaron/test/test_files/make_dirs/R_binap/SS_dpen_Ph/R/ts2/Cf122
+	5.1 (Ph): cf 1
+	18.1 (Ph): cf 2
+	21.1 (Ph): cf 2
+Cf #222: /home/deo/pyCHASM/Aaron/test/test_files/make_dirs/R_binap/SS_dpen_Ph/R/ts2/Cf222
+	5.1 (Ph): cf 2
+	18.1 (Ph): cf 2
+	21.1 (Ph): cf 2
+
+6: /home/deo/Aaron_libs/TS_geoms/asymmetric_hydrogenation/S_BINAP/R/ts2.xyz
+asymmetric_hydrogenation, None, 2
+lig: ('test_1', {'3': 'Ph'})
+sub: None
+Cf #1: /home/deo/pyCHASM/Aaron/test/test_files/make_dirs/test_1/original/R/ts2/Cf1
+	25.1 (Ph): cf 1
+Cf #2: /home/deo/pyCHASM/Aaron/test/test_files/make_dirs/test_1/original/R/ts2/Cf2
+	25.1 (Ph): cf 2
+
+7: /home/deo/Aaron_libs/TS_geoms/asymmetric_hydrogenation/S_BINAP/R/ts2.xyz
+asymmetric_hydrogenation, None, 2
+lig: ('test_1', {'3': 'Ph'})
+sub: ('TMEN_Ph', {'18': 'Me', '19': 'Me', '20': 'Me', '21': 'Me', '5': 'Ph'})
+Cf #11: /home/deo/pyCHASM/Aaron/test/test_files/make_dirs/test_1/TMEN_Ph/R/ts2/Cf11
+	5.1 (Ph): cf 1
+	25.1 (Ph): cf 1
+Cf #21: /home/deo/pyCHASM/Aaron/test/test_files/make_dirs/test_1/TMEN_Ph/R/ts2/Cf21
+	5.1 (Ph): cf 2
+	25.1 (Ph): cf 1
+Cf #12: /home/deo/pyCHASM/Aaron/test/test_files/make_dirs/test_1/TMEN_Ph/R/ts2/Cf12
+	5.1 (Ph): cf 1
+	25.1 (Ph): cf 2
+Cf #22: /home/deo/pyCHASM/Aaron/test/test_files/make_dirs/test_1/TMEN_Ph/R/ts2/Cf22
+	5.1 (Ph): cf 2
+	25.1 (Ph): cf 2
+
+8: /home/deo/Aaron_libs/TS_geoms/asymmetric_hydrogenation/S_BINAP/R/ts2.xyz
+asymmetric_hydrogenation, None, 2
+lig: ('test_1', {'3': 'Ph'})
+sub: ('SS_dpen_Ph', {'18': 'Ph', '21': 'Ph', '5': 'Ph'})
+Cf #1111: /home/deo/pyCHASM/Aaron/test/test_files/make_dirs/test_1/SS_dpen_Ph/R/ts2/Cf1111
+	5.1 (Ph): cf 1
+	18.1 (Ph): cf 1
+	21.1 (Ph): cf 1
+	25.1 (Ph): cf 1
+Cf #2111: /home/deo/pyCHASM/Aaron/test/test_files/make_dirs/test_1/SS_dpen_Ph/R/ts2/Cf2111
+	5.1 (Ph): cf 2
+	18.1 (Ph): cf 1
+	21.1 (Ph): cf 1
+	25.1 (Ph): cf 1
+Cf #1211: /home/deo/pyCHASM/Aaron/test/test_files/make_dirs/test_1/SS_dpen_Ph/R/ts2/Cf1211
+	5.1 (Ph): cf 1
+	18.1 (Ph): cf 2
+	21.1 (Ph): cf 1
+	25.1 (Ph): cf 1
+Cf #2211: /home/deo/pyCHASM/Aaron/test/test_files/make_dirs/test_1/SS_dpen_Ph/R/ts2/Cf2211
+	5.1 (Ph): cf 2
+	18.1 (Ph): cf 2
+	21.1 (Ph): cf 1
+	25.1 (Ph): cf 1
+Cf #1121: /home/deo/pyCHASM/Aaron/test/test_files/make_dirs/test_1/SS_dpen_Ph/R/ts2/Cf1121
+	5.1 (Ph): cf 1
+	18.1 (Ph): cf 1
+	21.1 (Ph): cf 2
+	25.1 (Ph): cf 1
+Cf #2121: /home/deo/pyCHASM/Aaron/test/test_files/make_dirs/test_1/SS_dpen_Ph/R/ts2/Cf2121
+	5.1 (Ph): cf 2
+	18.1 (Ph): cf 1
+	21.1 (Ph): cf 2
+	25.1 (Ph): cf 1
+Cf #1221: /home/deo/pyCHASM/Aaron/test/test_files/make_dirs/test_1/SS_dpen_Ph/R/ts2/Cf1221
+	5.1 (Ph): cf 1
+	18.1 (Ph): cf 2
+	21.1 (Ph): cf 2
+	25.1 (Ph): cf 1
+Cf #2221: /home/deo/pyCHASM/Aaron/test/test_files/make_dirs/test_1/SS_dpen_Ph/R/ts2/Cf2221
+	5.1 (Ph): cf 2
+	18.1 (Ph): cf 2
+	21.1 (Ph): cf 2
+	25.1 (Ph): cf 1
+Cf #1112: /home/deo/pyCHASM/Aaron/test/test_files/make_dirs/test_1/SS_dpen_Ph/R/ts2/Cf1112
+	5.1 (Ph): cf 1
+	18.1 (Ph): cf 1
+	21.1 (Ph): cf 1
+	25.1 (Ph): cf 2
+Cf #2112: /home/deo/pyCHASM/Aaron/test/test_files/make_dirs/test_1/SS_dpen_Ph/R/ts2/Cf2112
+	5.1 (Ph): cf 2
+	18.1 (Ph): cf 1
+	21.1 (Ph): cf 1
+	25.1 (Ph): cf 2
+Cf #1212: /home/deo/pyCHASM/Aaron/test/test_files/make_dirs/test_1/SS_dpen_Ph/R/ts2/Cf1212
+	5.1 (Ph): cf 1
+	18.1 (Ph): cf 2
+	21.1 (Ph): cf 1
+	25.1 (Ph): cf 2
+Cf #2212: /home/deo/pyCHASM/Aaron/test/test_files/make_dirs/test_1/SS_dpen_Ph/R/ts2/Cf2212
+	5.1 (Ph): cf 2
+	18.1 (Ph): cf 2
+	21.1 (Ph): cf 1
+	25.1 (Ph): cf 2
+Cf #1122: /home/deo/pyCHASM/Aaron/test/test_files/make_dirs/test_1/SS_dpen_Ph/R/ts2/Cf1122
+	5.1 (Ph): cf 1
+	18.1 (Ph): cf 1
+	21.1 (Ph): cf 2
+	25.1 (Ph): cf 2
+Cf #2122: /home/deo/pyCHASM/Aaron/test/test_files/make_dirs/test_1/SS_dpen_Ph/R/ts2/Cf2122
+	5.1 (Ph): cf 2
+	18.1 (Ph): cf 1
+	21.1 (Ph): cf 2
+	25.1 (Ph): cf 2
+Cf #1222: /home/deo/pyCHASM/Aaron/test/test_files/make_dirs/test_1/SS_dpen_Ph/R/ts2/Cf1222
+	5.1 (Ph): cf 1
+	18.1 (Ph): cf 2
+	21.1 (Ph): cf 2
+	25.1 (Ph): cf 2
+Cf #2222: /home/deo/pyCHASM/Aaron/test/test_files/make_dirs/test_1/SS_dpen_Ph/R/ts2/Cf2222
+	5.1 (Ph): cf 2
+	18.1 (Ph): cf 2
+	21.1 (Ph): cf 2
+	25.1 (Ph): cf 2
+
+9: /home/deo/Aaron_libs/TS_geoms/asymmetric_hydrogenation/S_BINAP/R/ts2.xyz
+asymmetric_hydrogenation, None, 2
+lig: ('test_2', {'map': ('R-BINAP', ''), '1': 'Ph'})
+sub: None
+Cf #1: /home/deo/pyCHASM/Aaron/test/test_files/make_dirs/test_2/original/R/ts2/Cf1
+	23.1.1 (Ph): cf 1
+Cf #2: /home/deo/pyCHASM/Aaron/test/test_files/make_dirs/test_2/original/R/ts2/Cf2
+	23.1.1 (Ph): cf 2
+
+10: /home/deo/Aaron_libs/TS_geoms/asymmetric_hydrogenation/S_BINAP/R/ts2.xyz
+asymmetric_hydrogenation, None, 2
+lig: ('test_2', {'map': ('R-BINAP', ''), '1': 'Ph'})
+sub: ('TMEN_Ph', {'18': 'Me', '19': 'Me', '20': 'Me', '21': 'Me', '5': 'Ph'})
+Cf #11: /home/deo/pyCHASM/Aaron/test/test_files/make_dirs/test_2/TMEN_Ph/R/ts2/Cf11
+	5.1 (Ph): cf 1
+	23.1.1 (Ph): cf 1
+Cf #21: /home/deo/pyCHASM/Aaron/test/test_files/make_dirs/test_2/TMEN_Ph/R/ts2/Cf21
+	5.1 (Ph): cf 2
+	23.1.1 (Ph): cf 1
+Cf #12: /home/deo/pyCHASM/Aaron/test/test_files/make_dirs/test_2/TMEN_Ph/R/ts2/Cf12
+	5.1 (Ph): cf 1
+	23.1.1 (Ph): cf 2
+Cf #22: /home/deo/pyCHASM/Aaron/test/test_files/make_dirs/test_2/TMEN_Ph/R/ts2/Cf22
+	5.1 (Ph): cf 2
+	23.1.1 (Ph): cf 2
+
+11: /home/deo/Aaron_libs/TS_geoms/asymmetric_hydrogenation/S_BINAP/R/ts2.xyz
+asymmetric_hydrogenation, None, 2
+lig: ('test_2', {'map': ('R-BINAP', ''), '1': 'Ph'})
+sub: ('SS_dpen_Ph', {'18': 'Ph', '21': 'Ph', '5': 'Ph'})
+Cf #1111: /home/deo/pyCHASM/Aaron/test/test_files/make_dirs/test_2/SS_dpen_Ph/R/ts2/Cf1111
+	5.1 (Ph): cf 1
+	18.1 (Ph): cf 1
+	21.1 (Ph): cf 1
+	23.1.1 (Ph): cf 1
+Cf #2111: /home/deo/pyCHASM/Aaron/test/test_files/make_dirs/test_2/SS_dpen_Ph/R/ts2/Cf2111
+	5.1 (Ph): cf 2
+	18.1 (Ph): cf 1
+	21.1 (Ph): cf 1
+	23.1.1 (Ph): cf 1
+Cf #1211: /home/deo/pyCHASM/Aaron/test/test_files/make_dirs/test_2/SS_dpen_Ph/R/ts2/Cf1211
+	5.1 (Ph): cf 1
+	18.1 (Ph): cf 2
+	21.1 (Ph): cf 1
+	23.1.1 (Ph): cf 1
+Cf #2211: /home/deo/pyCHASM/Aaron/test/test_files/make_dirs/test_2/SS_dpen_Ph/R/ts2/Cf2211
+	5.1 (Ph): cf 2
+	18.1 (Ph): cf 2
+	21.1 (Ph): cf 1
+	23.1.1 (Ph): cf 1
+Cf #1121: /home/deo/pyCHASM/Aaron/test/test_files/make_dirs/test_2/SS_dpen_Ph/R/ts2/Cf1121
+	5.1 (Ph): cf 1
+	18.1 (Ph): cf 1
+	21.1 (Ph): cf 2
+	23.1.1 (Ph): cf 1
+Cf #2121: /home/deo/pyCHASM/Aaron/test/test_files/make_dirs/test_2/SS_dpen_Ph/R/ts2/Cf2121
+	5.1 (Ph): cf 2
+	18.1 (Ph): cf 1
+	21.1 (Ph): cf 2
+	23.1.1 (Ph): cf 1
+Cf #1221: /home/deo/pyCHASM/Aaron/test/test_files/make_dirs/test_2/SS_dpen_Ph/R/ts2/Cf1221
+	5.1 (Ph): cf 1
+	18.1 (Ph): cf 2
+	21.1 (Ph): cf 2
+	23.1.1 (Ph): cf 1
+Cf #2221: /home/deo/pyCHASM/Aaron/test/test_files/make_dirs/test_2/SS_dpen_Ph/R/ts2/Cf2221
+	5.1 (Ph): cf 2
+	18.1 (Ph): cf 2
+	21.1 (Ph): cf 2
+	23.1.1 (Ph): cf 1
+Cf #1112: /home/deo/pyCHASM/Aaron/test/test_files/make_dirs/test_2/SS_dpen_Ph/R/ts2/Cf1112
+	5.1 (Ph): cf 1
+	18.1 (Ph): cf 1
+	21.1 (Ph): cf 1
+	23.1.1 (Ph): cf 2
+Cf #2112: /home/deo/pyCHASM/Aaron/test/test_files/make_dirs/test_2/SS_dpen_Ph/R/ts2/Cf2112
+	5.1 (Ph): cf 2
+	18.1 (Ph): cf 1
+	21.1 (Ph): cf 1
+	23.1.1 (Ph): cf 2
+Cf #1212: /home/deo/pyCHASM/Aaron/test/test_files/make_dirs/test_2/SS_dpen_Ph/R/ts2/Cf1212
+	5.1 (Ph): cf 1
+	18.1 (Ph): cf 2
+	21.1 (Ph): cf 1
+	23.1.1 (Ph): cf 2
+Cf #2212: /home/deo/pyCHASM/Aaron/test/test_files/make_dirs/test_2/SS_dpen_Ph/R/ts2/Cf2212
+	5.1 (Ph): cf 2
+	18.1 (Ph): cf 2
+	21.1 (Ph): cf 1
+	23.1.1 (Ph): cf 2
+Cf #1122: /home/deo/pyCHASM/Aaron/test/test_files/make_dirs/test_2/SS_dpen_Ph/R/ts2/Cf1122
+	5.1 (Ph): cf 1
+	18.1 (Ph): cf 1
+	21.1 (Ph): cf 2
+	23.1.1 (Ph): cf 2
+Cf #2122: /home/deo/pyCHASM/Aaron/test/test_files/make_dirs/test_2/SS_dpen_Ph/R/ts2/Cf2122
+	5.1 (Ph): cf 2
+	18.1 (Ph): cf 1
+	21.1 (Ph): cf 2
+	23.1.1 (Ph): cf 2
+Cf #1222: /home/deo/pyCHASM/Aaron/test/test_files/make_dirs/test_2/SS_dpen_Ph/R/ts2/Cf1222
+	5.1 (Ph): cf 1
+	18.1 (Ph): cf 2
+	21.1 (Ph): cf 2
+	23.1.1 (Ph): cf 2
+Cf #2222: /home/deo/pyCHASM/Aaron/test/test_files/make_dirs/test_2/SS_dpen_Ph/R/ts2/Cf2222
+	5.1 (Ph): cf 2
+	18.1 (Ph): cf 2
+	21.1 (Ph): cf 2
+	23.1.1 (Ph): cf 2
+
+12: /home/deo/Aaron_libs/TS_geoms/asymmetric_hydrogenation/S_BINAP/R/ts1.xyz
+asymmetric_hydrogenation, None, 1
+lig: None
+sub: ('TMEN_Ph', {'18': 'Me', '19': 'Me', '20': 'Me', '21': 'Me', '5': 'Ph'})
+Cf #1: /home/deo/pyCHASM/Aaron/test/test_files/make_dirs/original/TMEN_Ph/R/ts1/Cf1
+	5.1 (Ph): cf 1
+Cf #2: /home/deo/pyCHASM/Aaron/test/test_files/make_dirs/original/TMEN_Ph/R/ts1/Cf2
+	5.1 (Ph): cf 2
+
+13: /home/deo/Aaron_libs/TS_geoms/asymmetric_hydrogenation/S_BINAP/R/ts1.xyz
+asymmetric_hydrogenation, None, 1
+lig: None
+sub: ('SS_dpen_Ph', {'18': 'Ph', '21': 'Ph', '5': 'Ph'})
+Cf #111: /home/deo/pyCHASM/Aaron/test/test_files/make_dirs/original/SS_dpen_Ph/R/ts1/Cf111
+	5.1 (Ph): cf 1
+	18.1 (Ph): cf 1
+	21.1 (Ph): cf 1
+Cf #211: /home/deo/pyCHASM/Aaron/test/test_files/make_dirs/original/SS_dpen_Ph/R/ts1/Cf211
+	5.1 (Ph): cf 2
+	18.1 (Ph): cf 1
+	21.1 (Ph): cf 1
+Cf #121: /home/deo/pyCHASM/Aaron/test/test_files/make_dirs/original/SS_dpen_Ph/R/ts1/Cf121
+	5.1 (Ph): cf 1
+	18.1 (Ph): cf 2
+	21.1 (Ph): cf 1
+Cf #221: /home/deo/pyCHASM/Aaron/test/test_files/make_dirs/original/SS_dpen_Ph/R/ts1/Cf221
+	5.1 (Ph): cf 2
+	18.1 (Ph): cf 2
+	21.1 (Ph): cf 1
+Cf #112: /home/deo/pyCHASM/Aaron/test/test_files/make_dirs/original/SS_dpen_Ph/R/ts1/Cf112
+	5.1 (Ph): cf 1
+	18.1 (Ph): cf 1
+	21.1 (Ph): cf 2
+Cf #212: /home/deo/pyCHASM/Aaron/test/test_files/make_dirs/original/SS_dpen_Ph/R/ts1/Cf212
+	5.1 (Ph): cf 2
+	18.1 (Ph): cf 1
+	21.1 (Ph): cf 2
+Cf #122: /home/deo/pyCHASM/Aaron/test/test_files/make_dirs/original/SS_dpen_Ph/R/ts1/Cf122
+	5.1 (Ph): cf 1
+	18.1 (Ph): cf 2
+	21.1 (Ph): cf 2
+Cf #222: /home/deo/pyCHASM/Aaron/test/test_files/make_dirs/original/SS_dpen_Ph/R/ts1/Cf222
+	5.1 (Ph): cf 2
+	18.1 (Ph): cf 2
+	21.1 (Ph): cf 2
+
+14: /home/deo/Aaron_libs/TS_geoms/asymmetric_hydrogenation/S_BINAP/R/ts1.xyz
+asymmetric_hydrogenation, None, 1
+lig: ('R_binap', {'map': ('R-BINAP', '')})
+sub: None
+Cf #111: /home/deo/pyCHASM/Aaron/test/test_files/make_dirs/R_binap/original/R/ts1/Cf111
+	23.18 (Ph): cf 1
+	3 (CHO): cf 1
+	23.37 (Ph): cf 1
+Cf #211: /home/deo/pyCHASM/Aaron/test/test_files/make_dirs/R_binap/original/R/ts1/Cf211
+	23.18 (Ph): cf 2
+	3 (CHO): cf 1
+	23.37 (Ph): cf 1
+Cf #121: /home/deo/pyCHASM/Aaron/test/test_files/make_dirs/R_binap/original/R/ts1/Cf121
+	23.18 (Ph): cf 1
+	3 (CHO): cf 2
+	23.37 (Ph): cf 1
+Cf #221: /home/deo/pyCHASM/Aaron/test/test_files/make_dirs/R_binap/original/R/ts1/Cf221
+	23.18 (Ph): cf 2
+	3 (CHO): cf 2
+	23.37 (Ph): cf 1
+Cf #112: /home/deo/pyCHASM/Aaron/test/test_files/make_dirs/R_binap/original/R/ts1/Cf112
+	23.18 (Ph): cf 1
+	3 (CHO): cf 1
+	23.37 (Ph): cf 2
+Cf #212: /home/deo/pyCHASM/Aaron/test/test_files/make_dirs/R_binap/original/R/ts1/Cf212
+	23.18 (Ph): cf 2
+	3 (CHO): cf 1
+	23.37 (Ph): cf 2
+Cf #122: /home/deo/pyCHASM/Aaron/test/test_files/make_dirs/R_binap/original/R/ts1/Cf122
+	23.18 (Ph): cf 1
+	3 (CHO): cf 2
+	23.37 (Ph): cf 2
+Cf #222: /home/deo/pyCHASM/Aaron/test/test_files/make_dirs/R_binap/original/R/ts1/Cf222
+	23.18 (Ph): cf 2
+	3 (CHO): cf 2
+	23.37 (Ph): cf 2
+
+15: /home/deo/Aaron_libs/TS_geoms/asymmetric_hydrogenation/S_BINAP/R/ts1.xyz
+asymmetric_hydrogenation, None, 1
+lig: ('R_binap', {'map': ('R-BINAP', '')})
+sub: ('TMEN_Ph', {'18': 'Me', '19': 'Me', '20': 'Me', '21': 'Me', '5': 'Ph'})
+Cf #1: /home/deo/pyCHASM/Aaron/test/test_files/make_dirs/R_binap/TMEN_Ph/R/ts1/Cf1
+	5.1 (Ph): cf 1
+Cf #2: /home/deo/pyCHASM/Aaron/test/test_files/make_dirs/R_binap/TMEN_Ph/R/ts1/Cf2
+	5.1 (Ph): cf 2
+
+16: /home/deo/Aaron_libs/TS_geoms/asymmetric_hydrogenation/S_BINAP/R/ts1.xyz
+asymmetric_hydrogenation, None, 1
+lig: ('R_binap', {'map': ('R-BINAP', '')})
+sub: ('SS_dpen_Ph', {'18': 'Ph', '21': 'Ph', '5': 'Ph'})
+Cf #111: /home/deo/pyCHASM/Aaron/test/test_files/make_dirs/R_binap/SS_dpen_Ph/R/ts1/Cf111
+	5.1 (Ph): cf 1
+	18.1 (Ph): cf 1
+	21.1 (Ph): cf 1
+Cf #211: /home/deo/pyCHASM/Aaron/test/test_files/make_dirs/R_binap/SS_dpen_Ph/R/ts1/Cf211
+	5.1 (Ph): cf 2
+	18.1 (Ph): cf 1
+	21.1 (Ph): cf 1
+Cf #121: /home/deo/pyCHASM/Aaron/test/test_files/make_dirs/R_binap/SS_dpen_Ph/R/ts1/Cf121
+	5.1 (Ph): cf 1
+	18.1 (Ph): cf 2
+	21.1 (Ph): cf 1
+Cf #221: /home/deo/pyCHASM/Aaron/test/test_files/make_dirs/R_binap/SS_dpen_Ph/R/ts1/Cf221
+	5.1 (Ph): cf 2
+	18.1 (Ph): cf 2
+	21.1 (Ph): cf 1
+Cf #112: /home/deo/pyCHASM/Aaron/test/test_files/make_dirs/R_binap/SS_dpen_Ph/R/ts1/Cf112
+	5.1 (Ph): cf 1
+	18.1 (Ph): cf 1
+	21.1 (Ph): cf 2
+Cf #212: /home/deo/pyCHASM/Aaron/test/test_files/make_dirs/R_binap/SS_dpen_Ph/R/ts1/Cf212
+	5.1 (Ph): cf 2
+	18.1 (Ph): cf 1
+	21.1 (Ph): cf 2
+Cf #122: /home/deo/pyCHASM/Aaron/test/test_files/make_dirs/R_binap/SS_dpen_Ph/R/ts1/Cf122
+	5.1 (Ph): cf 1
+	18.1 (Ph): cf 2
+	21.1 (Ph): cf 2
+Cf #222: /home/deo/pyCHASM/Aaron/test/test_files/make_dirs/R_binap/SS_dpen_Ph/R/ts1/Cf222
+	5.1 (Ph): cf 2
+	18.1 (Ph): cf 2
+	21.1 (Ph): cf 2
+
+17: /home/deo/Aaron_libs/TS_geoms/asymmetric_hydrogenation/S_BINAP/R/ts1.xyz
+asymmetric_hydrogenation, None, 1
+lig: ('test_1', {'3': 'Ph'})
+sub: None
+Cf #1: /home/deo/pyCHASM/Aaron/test/test_files/make_dirs/test_1/original/R/ts1/Cf1
+	25.1 (Ph): cf 1
+Cf #2: /home/deo/pyCHASM/Aaron/test/test_files/make_dirs/test_1/original/R/ts1/Cf2
+	25.1 (Ph): cf 2
+
+18: /home/deo/Aaron_libs/TS_geoms/asymmetric_hydrogenation/S_BINAP/R/ts1.xyz
+asymmetric_hydrogenation, None, 1
+lig: ('test_1', {'3': 'Ph'})
+sub: ('TMEN_Ph', {'18': 'Me', '19': 'Me', '20': 'Me', '21': 'Me', '5': 'Ph'})
+Cf #11: /home/deo/pyCHASM/Aaron/test/test_files/make_dirs/test_1/TMEN_Ph/R/ts1/Cf11
+	5.1 (Ph): cf 1
+	25.1 (Ph): cf 1
+Cf #21: /home/deo/pyCHASM/Aaron/test/test_files/make_dirs/test_1/TMEN_Ph/R/ts1/Cf21
+	5.1 (Ph): cf 2
+	25.1 (Ph): cf 1
+Cf #12: /home/deo/pyCHASM/Aaron/test/test_files/make_dirs/test_1/TMEN_Ph/R/ts1/Cf12
+	5.1 (Ph): cf 1
+	25.1 (Ph): cf 2
+Cf #22: /home/deo/pyCHASM/Aaron/test/test_files/make_dirs/test_1/TMEN_Ph/R/ts1/Cf22
+	5.1 (Ph): cf 2
+	25.1 (Ph): cf 2
+
+19: /home/deo/Aaron_libs/TS_geoms/asymmetric_hydrogenation/S_BINAP/R/ts1.xyz
+asymmetric_hydrogenation, None, 1
+lig: ('test_1', {'3': 'Ph'})
+sub: ('SS_dpen_Ph', {'18': 'Ph', '21': 'Ph', '5': 'Ph'})
+Cf #1111: /home/deo/pyCHASM/Aaron/test/test_files/make_dirs/test_1/SS_dpen_Ph/R/ts1/Cf1111
+	5.1 (Ph): cf 1
+	18.1 (Ph): cf 1
+	21.1 (Ph): cf 1
+	25.1 (Ph): cf 1
+Cf #2111: /home/deo/pyCHASM/Aaron/test/test_files/make_dirs/test_1/SS_dpen_Ph/R/ts1/Cf2111
+	5.1 (Ph): cf 2
+	18.1 (Ph): cf 1
+	21.1 (Ph): cf 1
+	25.1 (Ph): cf 1
+Cf #1211: /home/deo/pyCHASM/Aaron/test/test_files/make_dirs/test_1/SS_dpen_Ph/R/ts1/Cf1211
+	5.1 (Ph): cf 1
+	18.1 (Ph): cf 2
+	21.1 (Ph): cf 1
+	25.1 (Ph): cf 1
+Cf #2211: /home/deo/pyCHASM/Aaron/test/test_files/make_dirs/test_1/SS_dpen_Ph/R/ts1/Cf2211
+	5.1 (Ph): cf 2
+	18.1 (Ph): cf 2
+	21.1 (Ph): cf 1
+	25.1 (Ph): cf 1
+Cf #1121: /home/deo/pyCHASM/Aaron/test/test_files/make_dirs/test_1/SS_dpen_Ph/R/ts1/Cf1121
+	5.1 (Ph): cf 1
+	18.1 (Ph): cf 1
+	21.1 (Ph): cf 2
+	25.1 (Ph): cf 1
+Cf #2121: /home/deo/pyCHASM/Aaron/test/test_files/make_dirs/test_1/SS_dpen_Ph/R/ts1/Cf2121
+	5.1 (Ph): cf 2
+	18.1 (Ph): cf 1
+	21.1 (Ph): cf 2
+	25.1 (Ph): cf 1
+Cf #1221: /home/deo/pyCHASM/Aaron/test/test_files/make_dirs/test_1/SS_dpen_Ph/R/ts1/Cf1221
+	5.1 (Ph): cf 1
+	18.1 (Ph): cf 2
+	21.1 (Ph): cf 2
+	25.1 (Ph): cf 1
+Cf #2221: /home/deo/pyCHASM/Aaron/test/test_files/make_dirs/test_1/SS_dpen_Ph/R/ts1/Cf2221
+	5.1 (Ph): cf 2
+	18.1 (Ph): cf 2
+	21.1 (Ph): cf 2
+	25.1 (Ph): cf 1
+Cf #1112: /home/deo/pyCHASM/Aaron/test/test_files/make_dirs/test_1/SS_dpen_Ph/R/ts1/Cf1112
+	5.1 (Ph): cf 1
+	18.1 (Ph): cf 1
+	21.1 (Ph): cf 1
+	25.1 (Ph): cf 2
+Cf #2112: /home/deo/pyCHASM/Aaron/test/test_files/make_dirs/test_1/SS_dpen_Ph/R/ts1/Cf2112
+	5.1 (Ph): cf 2
+	18.1 (Ph): cf 1
+	21.1 (Ph): cf 1
+	25.1 (Ph): cf 2
+Cf #1212: /home/deo/pyCHASM/Aaron/test/test_files/make_dirs/test_1/SS_dpen_Ph/R/ts1/Cf1212
+	5.1 (Ph): cf 1
+	18.1 (Ph): cf 2
+	21.1 (Ph): cf 1
+	25.1 (Ph): cf 2
+Cf #2212: /home/deo/pyCHASM/Aaron/test/test_files/make_dirs/test_1/SS_dpen_Ph/R/ts1/Cf2212
+	5.1 (Ph): cf 2
+	18.1 (Ph): cf 2
+	21.1 (Ph): cf 1
+	25.1 (Ph): cf 2
+Cf #1122: /home/deo/pyCHASM/Aaron/test/test_files/make_dirs/test_1/SS_dpen_Ph/R/ts1/Cf1122
+	5.1 (Ph): cf 1
+	18.1 (Ph): cf 1
+	21.1 (Ph): cf 2
+	25.1 (Ph): cf 2
+Cf #2122: /home/deo/pyCHASM/Aaron/test/test_files/make_dirs/test_1/SS_dpen_Ph/R/ts1/Cf2122
+	5.1 (Ph): cf 2
+	18.1 (Ph): cf 1
+	21.1 (Ph): cf 2
+	25.1 (Ph): cf 2
+Cf #1222: /home/deo/pyCHASM/Aaron/test/test_files/make_dirs/test_1/SS_dpen_Ph/R/ts1/Cf1222
+	5.1 (Ph): cf 1
+	18.1 (Ph): cf 2
+	21.1 (Ph): cf 2
+	25.1 (Ph): cf 2
+Cf #2222: /home/deo/pyCHASM/Aaron/test/test_files/make_dirs/test_1/SS_dpen_Ph/R/ts1/Cf2222
+	5.1 (Ph): cf 2
+	18.1 (Ph): cf 2
+	21.1 (Ph): cf 2
+	25.1 (Ph): cf 2
+
+20: /home/deo/Aaron_libs/TS_geoms/asymmetric_hydrogenation/S_BINAP/R/ts1.xyz
+asymmetric_hydrogenation, None, 1
+lig: ('test_2', {'map': ('R-BINAP', ''), '1': 'Ph'})
+sub: None
+Cf #1: /home/deo/pyCHASM/Aaron/test/test_files/make_dirs/test_2/original/R/ts1/Cf1
+	23.1.1 (Ph): cf 1
+Cf #2: /home/deo/pyCHASM/Aaron/test/test_files/make_dirs/test_2/original/R/ts1/Cf2
+	23.1.1 (Ph): cf 2
+
+21: /home/deo/Aaron_libs/TS_geoms/asymmetric_hydrogenation/S_BINAP/R/ts1.xyz
+asymmetric_hydrogenation, None, 1
+lig: ('test_2', {'map': ('R-BINAP', ''), '1': 'Ph'})
+sub: ('TMEN_Ph', {'18': 'Me', '19': 'Me', '20': 'Me', '21': 'Me', '5': 'Ph'})
+Cf #11: /home/deo/pyCHASM/Aaron/test/test_files/make_dirs/test_2/TMEN_Ph/R/ts1/Cf11
+	5.1 (Ph): cf 1
+	23.1.1 (Ph): cf 1
+Cf #21: /home/deo/pyCHASM/Aaron/test/test_files/make_dirs/test_2/TMEN_Ph/R/ts1/Cf21
+	5.1 (Ph): cf 2
+	23.1.1 (Ph): cf 1
+Cf #12: /home/deo/pyCHASM/Aaron/test/test_files/make_dirs/test_2/TMEN_Ph/R/ts1/Cf12
+	5.1 (Ph): cf 1
+	23.1.1 (Ph): cf 2
+Cf #22: /home/deo/pyCHASM/Aaron/test/test_files/make_dirs/test_2/TMEN_Ph/R/ts1/Cf22
+	5.1 (Ph): cf 2
+	23.1.1 (Ph): cf 2
+
+22: /home/deo/Aaron_libs/TS_geoms/asymmetric_hydrogenation/S_BINAP/R/ts1.xyz
+asymmetric_hydrogenation, None, 1
+lig: ('test_2', {'map': ('R-BINAP', ''), '1': 'Ph'})
+sub: ('SS_dpen_Ph', {'18': 'Ph', '21': 'Ph', '5': 'Ph'})
+Cf #1111: /home/deo/pyCHASM/Aaron/test/test_files/make_dirs/test_2/SS_dpen_Ph/R/ts1/Cf1111
+	5.1 (Ph): cf 1
+	18.1 (Ph): cf 1
+	21.1 (Ph): cf 1
+	23.1.1 (Ph): cf 1
+Cf #2111: /home/deo/pyCHASM/Aaron/test/test_files/make_dirs/test_2/SS_dpen_Ph/R/ts1/Cf2111
+	5.1 (Ph): cf 2
+	18.1 (Ph): cf 1
+	21.1 (Ph): cf 1
+	23.1.1 (Ph): cf 1
+Cf #1211: /home/deo/pyCHASM/Aaron/test/test_files/make_dirs/test_2/SS_dpen_Ph/R/ts1/Cf1211
+	5.1 (Ph): cf 1
+	18.1 (Ph): cf 2
+	21.1 (Ph): cf 1
+	23.1.1 (Ph): cf 1
+Cf #2211: /home/deo/pyCHASM/Aaron/test/test_files/make_dirs/test_2/SS_dpen_Ph/R/ts1/Cf2211
+	5.1 (Ph): cf 2
+	18.1 (Ph): cf 2
+	21.1 (Ph): cf 1
+	23.1.1 (Ph): cf 1
+Cf #1121: /home/deo/pyCHASM/Aaron/test/test_files/make_dirs/test_2/SS_dpen_Ph/R/ts1/Cf1121
+	5.1 (Ph): cf 1
+	18.1 (Ph): cf 1
+	21.1 (Ph): cf 2
+	23.1.1 (Ph): cf 1
+Cf #2121: /home/deo/pyCHASM/Aaron/test/test_files/make_dirs/test_2/SS_dpen_Ph/R/ts1/Cf2121
+	5.1 (Ph): cf 2
+	18.1 (Ph): cf 1
+	21.1 (Ph): cf 2
+	23.1.1 (Ph): cf 1
+Cf #1221: /home/deo/pyCHASM/Aaron/test/test_files/make_dirs/test_2/SS_dpen_Ph/R/ts1/Cf1221
+	5.1 (Ph): cf 1
+	18.1 (Ph): cf 2
+	21.1 (Ph): cf 2
+	23.1.1 (Ph): cf 1
+Cf #2221: /home/deo/pyCHASM/Aaron/test/test_files/make_dirs/test_2/SS_dpen_Ph/R/ts1/Cf2221
+	5.1 (Ph): cf 2
+	18.1 (Ph): cf 2
+	21.1 (Ph): cf 2
+	23.1.1 (Ph): cf 1
+Cf #1112: /home/deo/pyCHASM/Aaron/test/test_files/make_dirs/test_2/SS_dpen_Ph/R/ts1/Cf1112
+	5.1 (Ph): cf 1
+	18.1 (Ph): cf 1
+	21.1 (Ph): cf 1
+	23.1.1 (Ph): cf 2
+Cf #2112: /home/deo/pyCHASM/Aaron/test/test_files/make_dirs/test_2/SS_dpen_Ph/R/ts1/Cf2112
+	5.1 (Ph): cf 2
+	18.1 (Ph): cf 1
+	21.1 (Ph): cf 1
+	23.1.1 (Ph): cf 2
+Cf #1212: /home/deo/pyCHASM/Aaron/test/test_files/make_dirs/test_2/SS_dpen_Ph/R/ts1/Cf1212
+	5.1 (Ph): cf 1
+	18.1 (Ph): cf 2
+	21.1 (Ph): cf 1
+	23.1.1 (Ph): cf 2
+Cf #2212: /home/deo/pyCHASM/Aaron/test/test_files/make_dirs/test_2/SS_dpen_Ph/R/ts1/Cf2212
+	5.1 (Ph): cf 2
+	18.1 (Ph): cf 2
+	21.1 (Ph): cf 1
+	23.1.1 (Ph): cf 2
+Cf #1122: /home/deo/pyCHASM/Aaron/test/test_files/make_dirs/test_2/SS_dpen_Ph/R/ts1/Cf1122
+	5.1 (Ph): cf 1
+	18.1 (Ph): cf 1
+	21.1 (Ph): cf 2
+	23.1.1 (Ph): cf 2
+Cf #2122: /home/deo/pyCHASM/Aaron/test/test_files/make_dirs/test_2/SS_dpen_Ph/R/ts1/Cf2122
+	5.1 (Ph): cf 2
+	18.1 (Ph): cf 1
+	21.1 (Ph): cf 2
+	23.1.1 (Ph): cf 2
+Cf #1222: /home/deo/pyCHASM/Aaron/test/test_files/make_dirs/test_2/SS_dpen_Ph/R/ts1/Cf1222
+	5.1 (Ph): cf 1
+	18.1 (Ph): cf 2
+	21.1 (Ph): cf 2
+	23.1.1 (Ph): cf 2
+Cf #2222: /home/deo/pyCHASM/Aaron/test/test_files/make_dirs/test_2/SS_dpen_Ph/R/ts1/Cf2222
+	5.1 (Ph): cf 2
+	18.1 (Ph): cf 2
+	21.1 (Ph): cf 2
+	23.1.1 (Ph): cf 2
+
+23: /home/deo/Aaron_libs/TS_geoms/asymmetric_hydrogenation/S_BINAP/R/ts3.xyz
+asymmetric_hydrogenation, None, 3
+lig: None
+sub: ('TMEN_Ph', {'18': 'Me', '19': 'Me', '20': 'Me', '21': 'Me', '5': 'Ph'})
+Cf #1: /home/deo/pyCHASM/Aaron/test/test_files/make_dirs/original/TMEN_Ph/R/ts3/Cf1
+	5.1 (Ph): cf 1
+Cf #2: /home/deo/pyCHASM/Aaron/test/test_files/make_dirs/original/TMEN_Ph/R/ts3/Cf2
+	5.1 (Ph): cf 2
+
+24: /home/deo/Aaron_libs/TS_geoms/asymmetric_hydrogenation/S_BINAP/R/ts3.xyz
+asymmetric_hydrogenation, None, 3
+lig: None
+sub: ('SS_dpen_Ph', {'18': 'Ph', '21': 'Ph', '5': 'Ph'})
+Cf #111: /home/deo/pyCHASM/Aaron/test/test_files/make_dirs/original/SS_dpen_Ph/R/ts3/Cf111
+	5.1 (Ph): cf 1
+	18.1 (Ph): cf 1
+	21.1 (Ph): cf 1
+Cf #211: /home/deo/pyCHASM/Aaron/test/test_files/make_dirs/original/SS_dpen_Ph/R/ts3/Cf211
+	5.1 (Ph): cf 2
+	18.1 (Ph): cf 1
+	21.1 (Ph): cf 1
+Cf #121: /home/deo/pyCHASM/Aaron/test/test_files/make_dirs/original/SS_dpen_Ph/R/ts3/Cf121
+	5.1 (Ph): cf 1
+	18.1 (Ph): cf 2
+	21.1 (Ph): cf 1
+Cf #221: /home/deo/pyCHASM/Aaron/test/test_files/make_dirs/original/SS_dpen_Ph/R/ts3/Cf221
+	5.1 (Ph): cf 2
+	18.1 (Ph): cf 2
+	21.1 (Ph): cf 1
+Cf #112: /home/deo/pyCHASM/Aaron/test/test_files/make_dirs/original/SS_dpen_Ph/R/ts3/Cf112
+	5.1 (Ph): cf 1
+	18.1 (Ph): cf 1
+	21.1 (Ph): cf 2
+Cf #212: /home/deo/pyCHASM/Aaron/test/test_files/make_dirs/original/SS_dpen_Ph/R/ts3/Cf212
+	5.1 (Ph): cf 2
+	18.1 (Ph): cf 1
+	21.1 (Ph): cf 2
+Cf #122: /home/deo/pyCHASM/Aaron/test/test_files/make_dirs/original/SS_dpen_Ph/R/ts3/Cf122
+	5.1 (Ph): cf 1
+	18.1 (Ph): cf 2
+	21.1 (Ph): cf 2
+Cf #222: /home/deo/pyCHASM/Aaron/test/test_files/make_dirs/original/SS_dpen_Ph/R/ts3/Cf222
+	5.1 (Ph): cf 2
+	18.1 (Ph): cf 2
+	21.1 (Ph): cf 2
+
+25: /home/deo/Aaron_libs/TS_geoms/asymmetric_hydrogenation/S_BINAP/R/ts3.xyz
+asymmetric_hydrogenation, None, 3
+lig: ('R_binap', {'map': ('R-BINAP', '')})
+sub: None
+Cf #111: /home/deo/pyCHASM/Aaron/test/test_files/make_dirs/R_binap/original/R/ts3/Cf111
+	23.18 (Ph): cf 1
+	3 (CHO): cf 1
+	23.37 (Ph): cf 1
+Cf #211: /home/deo/pyCHASM/Aaron/test/test_files/make_dirs/R_binap/original/R/ts3/Cf211
+	23.18 (Ph): cf 2
+	3 (CHO): cf 1
+	23.37 (Ph): cf 1
+Cf #121: /home/deo/pyCHASM/Aaron/test/test_files/make_dirs/R_binap/original/R/ts3/Cf121
+	23.18 (Ph): cf 1
+	3 (CHO): cf 2
+	23.37 (Ph): cf 1
+Cf #221: /home/deo/pyCHASM/Aaron/test/test_files/make_dirs/R_binap/original/R/ts3/Cf221
+	23.18 (Ph): cf 2
+	3 (CHO): cf 2
+	23.37 (Ph): cf 1
+Cf #112: /home/deo/pyCHASM/Aaron/test/test_files/make_dirs/R_binap/original/R/ts3/Cf112
+	23.18 (Ph): cf 1
+	3 (CHO): cf 1
+	23.37 (Ph): cf 2
+Cf #212: /home/deo/pyCHASM/Aaron/test/test_files/make_dirs/R_binap/original/R/ts3/Cf212
+	23.18 (Ph): cf 2
+	3 (CHO): cf 1
+	23.37 (Ph): cf 2
+Cf #122: /home/deo/pyCHASM/Aaron/test/test_files/make_dirs/R_binap/original/R/ts3/Cf122
+	23.18 (Ph): cf 1
+	3 (CHO): cf 2
+	23.37 (Ph): cf 2
+Cf #222: /home/deo/pyCHASM/Aaron/test/test_files/make_dirs/R_binap/original/R/ts3/Cf222
+	23.18 (Ph): cf 2
+	3 (CHO): cf 2
+	23.37 (Ph): cf 2
+
+26: /home/deo/Aaron_libs/TS_geoms/asymmetric_hydrogenation/S_BINAP/R/ts3.xyz
+asymmetric_hydrogenation, None, 3
+lig: ('R_binap', {'map': ('R-BINAP', '')})
+sub: ('TMEN_Ph', {'18': 'Me', '19': 'Me', '20': 'Me', '21': 'Me', '5': 'Ph'})
+Cf #1: /home/deo/pyCHASM/Aaron/test/test_files/make_dirs/R_binap/TMEN_Ph/R/ts3/Cf1
+	5.1 (Ph): cf 1
+Cf #2: /home/deo/pyCHASM/Aaron/test/test_files/make_dirs/R_binap/TMEN_Ph/R/ts3/Cf2
+	5.1 (Ph): cf 2
+
+27: /home/deo/Aaron_libs/TS_geoms/asymmetric_hydrogenation/S_BINAP/R/ts3.xyz
+asymmetric_hydrogenation, None, 3
+lig: ('R_binap', {'map': ('R-BINAP', '')})
+sub: ('SS_dpen_Ph', {'18': 'Ph', '21': 'Ph', '5': 'Ph'})
+Cf #111: /home/deo/pyCHASM/Aaron/test/test_files/make_dirs/R_binap/SS_dpen_Ph/R/ts3/Cf111
+	5.1 (Ph): cf 1
+	18.1 (Ph): cf 1
+	21.1 (Ph): cf 1
+Cf #211: /home/deo/pyCHASM/Aaron/test/test_files/make_dirs/R_binap/SS_dpen_Ph/R/ts3/Cf211
+	5.1 (Ph): cf 2
+	18.1 (Ph): cf 1
+	21.1 (Ph): cf 1
+Cf #121: /home/deo/pyCHASM/Aaron/test/test_files/make_dirs/R_binap/SS_dpen_Ph/R/ts3/Cf121
+	5.1 (Ph): cf 1
+	18.1 (Ph): cf 2
+	21.1 (Ph): cf 1
+Cf #221: /home/deo/pyCHASM/Aaron/test/test_files/make_dirs/R_binap/SS_dpen_Ph/R/ts3/Cf221
+	5.1 (Ph): cf 2
+	18.1 (Ph): cf 2
+	21.1 (Ph): cf 1
+Cf #112: /home/deo/pyCHASM/Aaron/test/test_files/make_dirs/R_binap/SS_dpen_Ph/R/ts3/Cf112
+	5.1 (Ph): cf 1
+	18.1 (Ph): cf 1
+	21.1 (Ph): cf 2
+Cf #212: /home/deo/pyCHASM/Aaron/test/test_files/make_dirs/R_binap/SS_dpen_Ph/R/ts3/Cf212
+	5.1 (Ph): cf 2
+	18.1 (Ph): cf 1
+	21.1 (Ph): cf 2
+Cf #122: /home/deo/pyCHASM/Aaron/test/test_files/make_dirs/R_binap/SS_dpen_Ph/R/ts3/Cf122
+	5.1 (Ph): cf 1
+	18.1 (Ph): cf 2
+	21.1 (Ph): cf 2
+Cf #222: /home/deo/pyCHASM/Aaron/test/test_files/make_dirs/R_binap/SS_dpen_Ph/R/ts3/Cf222
+	5.1 (Ph): cf 2
+	18.1 (Ph): cf 2
+	21.1 (Ph): cf 2
+
+28: /home/deo/Aaron_libs/TS_geoms/asymmetric_hydrogenation/S_BINAP/R/ts3.xyz
+asymmetric_hydrogenation, None, 3
+lig: ('test_1', {'3': 'Ph'})
+sub: None
+Cf #1: /home/deo/pyCHASM/Aaron/test/test_files/make_dirs/test_1/original/R/ts3/Cf1
+	25.1 (Ph): cf 1
+Cf #2: /home/deo/pyCHASM/Aaron/test/test_files/make_dirs/test_1/original/R/ts3/Cf2
+	25.1 (Ph): cf 2
+
+29: /home/deo/Aaron_libs/TS_geoms/asymmetric_hydrogenation/S_BINAP/R/ts3.xyz
+asymmetric_hydrogenation, None, 3
+lig: ('test_1', {'3': 'Ph'})
+sub: ('TMEN_Ph', {'18': 'Me', '19': 'Me', '20': 'Me', '21': 'Me', '5': 'Ph'})
+Cf #11: /home/deo/pyCHASM/Aaron/test/test_files/make_dirs/test_1/TMEN_Ph/R/ts3/Cf11
+	5.1 (Ph): cf 1
+	25.1 (Ph): cf 1
+Cf #21: /home/deo/pyCHASM/Aaron/test/test_files/make_dirs/test_1/TMEN_Ph/R/ts3/Cf21
+	5.1 (Ph): cf 2
+	25.1 (Ph): cf 1
+Cf #12: /home/deo/pyCHASM/Aaron/test/test_files/make_dirs/test_1/TMEN_Ph/R/ts3/Cf12
+	5.1 (Ph): cf 1
+	25.1 (Ph): cf 2
+Cf #22: /home/deo/pyCHASM/Aaron/test/test_files/make_dirs/test_1/TMEN_Ph/R/ts3/Cf22
+	5.1 (Ph): cf 2
+	25.1 (Ph): cf 2
+
+30: /home/deo/Aaron_libs/TS_geoms/asymmetric_hydrogenation/S_BINAP/R/ts3.xyz
+asymmetric_hydrogenation, None, 3
+lig: ('test_1', {'3': 'Ph'})
+sub: ('SS_dpen_Ph', {'18': 'Ph', '21': 'Ph', '5': 'Ph'})
+Cf #1111: /home/deo/pyCHASM/Aaron/test/test_files/make_dirs/test_1/SS_dpen_Ph/R/ts3/Cf1111
+	5.1 (Ph): cf 1
+	18.1 (Ph): cf 1
+	21.1 (Ph): cf 1
+	25.1 (Ph): cf 1
+Cf #2111: /home/deo/pyCHASM/Aaron/test/test_files/make_dirs/test_1/SS_dpen_Ph/R/ts3/Cf2111
+	5.1 (Ph): cf 2
+	18.1 (Ph): cf 1
+	21.1 (Ph): cf 1
+	25.1 (Ph): cf 1
+Cf #1211: /home/deo/pyCHASM/Aaron/test/test_files/make_dirs/test_1/SS_dpen_Ph/R/ts3/Cf1211
+	5.1 (Ph): cf 1
+	18.1 (Ph): cf 2
+	21.1 (Ph): cf 1
+	25.1 (Ph): cf 1
+Cf #2211: /home/deo/pyCHASM/Aaron/test/test_files/make_dirs/test_1/SS_dpen_Ph/R/ts3/Cf2211
+	5.1 (Ph): cf 2
+	18.1 (Ph): cf 2
+	21.1 (Ph): cf 1
+	25.1 (Ph): cf 1
+Cf #1121: /home/deo/pyCHASM/Aaron/test/test_files/make_dirs/test_1/SS_dpen_Ph/R/ts3/Cf1121
+	5.1 (Ph): cf 1
+	18.1 (Ph): cf 1
+	21.1 (Ph): cf 2
+	25.1 (Ph): cf 1
+Cf #2121: /home/deo/pyCHASM/Aaron/test/test_files/make_dirs/test_1/SS_dpen_Ph/R/ts3/Cf2121
+	5.1 (Ph): cf 2
+	18.1 (Ph): cf 1
+	21.1 (Ph): cf 2
+	25.1 (Ph): cf 1
+Cf #1221: /home/deo/pyCHASM/Aaron/test/test_files/make_dirs/test_1/SS_dpen_Ph/R/ts3/Cf1221
+	5.1 (Ph): cf 1
+	18.1 (Ph): cf 2
+	21.1 (Ph): cf 2
+	25.1 (Ph): cf 1
+Cf #2221: /home/deo/pyCHASM/Aaron/test/test_files/make_dirs/test_1/SS_dpen_Ph/R/ts3/Cf2221
+	5.1 (Ph): cf 2
+	18.1 (Ph): cf 2
+	21.1 (Ph): cf 2
+	25.1 (Ph): cf 1
+Cf #1112: /home/deo/pyCHASM/Aaron/test/test_files/make_dirs/test_1/SS_dpen_Ph/R/ts3/Cf1112
+	5.1 (Ph): cf 1
+	18.1 (Ph): cf 1
+	21.1 (Ph): cf 1
+	25.1 (Ph): cf 2
+Cf #2112: /home/deo/pyCHASM/Aaron/test/test_files/make_dirs/test_1/SS_dpen_Ph/R/ts3/Cf2112
+	5.1 (Ph): cf 2
+	18.1 (Ph): cf 1
+	21.1 (Ph): cf 1
+	25.1 (Ph): cf 2
+Cf #1212: /home/deo/pyCHASM/Aaron/test/test_files/make_dirs/test_1/SS_dpen_Ph/R/ts3/Cf1212
+	5.1 (Ph): cf 1
+	18.1 (Ph): cf 2
+	21.1 (Ph): cf 1
+	25.1 (Ph): cf 2
+Cf #2212: /home/deo/pyCHASM/Aaron/test/test_files/make_dirs/test_1/SS_dpen_Ph/R/ts3/Cf2212
+	5.1 (Ph): cf 2
+	18.1 (Ph): cf 2
+	21.1 (Ph): cf 1
+	25.1 (Ph): cf 2
+Cf #1122: /home/deo/pyCHASM/Aaron/test/test_files/make_dirs/test_1/SS_dpen_Ph/R/ts3/Cf1122
+	5.1 (Ph): cf 1
+	18.1 (Ph): cf 1
+	21.1 (Ph): cf 2
+	25.1 (Ph): cf 2
+Cf #2122: /home/deo/pyCHASM/Aaron/test/test_files/make_dirs/test_1/SS_dpen_Ph/R/ts3/Cf2122
+	5.1 (Ph): cf 2
+	18.1 (Ph): cf 1
+	21.1 (Ph): cf 2
+	25.1 (Ph): cf 2
+Cf #1222: /home/deo/pyCHASM/Aaron/test/test_files/make_dirs/test_1/SS_dpen_Ph/R/ts3/Cf1222
+	5.1 (Ph): cf 1
+	18.1 (Ph): cf 2
+	21.1 (Ph): cf 2
+	25.1 (Ph): cf 2
+Cf #2222: /home/deo/pyCHASM/Aaron/test/test_files/make_dirs/test_1/SS_dpen_Ph/R/ts3/Cf2222
+	5.1 (Ph): cf 2
+	18.1 (Ph): cf 2
+	21.1 (Ph): cf 2
+	25.1 (Ph): cf 2
+
+31: /home/deo/Aaron_libs/TS_geoms/asymmetric_hydrogenation/S_BINAP/R/ts3.xyz
+asymmetric_hydrogenation, None, 3
+lig: ('test_2', {'map': ('R-BINAP', ''), '1': 'Ph'})
+sub: None
+Cf #1: /home/deo/pyCHASM/Aaron/test/test_files/make_dirs/test_2/original/R/ts3/Cf1
+	23.1.1 (Ph): cf 1
+Cf #2: /home/deo/pyCHASM/Aaron/test/test_files/make_dirs/test_2/original/R/ts3/Cf2
+	23.1.1 (Ph): cf 2
+
+32: /home/deo/Aaron_libs/TS_geoms/asymmetric_hydrogenation/S_BINAP/R/ts3.xyz
+asymmetric_hydrogenation, None, 3
+lig: ('test_2', {'map': ('R-BINAP', ''), '1': 'Ph'})
+sub: ('TMEN_Ph', {'18': 'Me', '19': 'Me', '20': 'Me', '21': 'Me', '5': 'Ph'})
+Cf #11: /home/deo/pyCHASM/Aaron/test/test_files/make_dirs/test_2/TMEN_Ph/R/ts3/Cf11
+	5.1 (Ph): cf 1
+	23.1.1 (Ph): cf 1
+Cf #21: /home/deo/pyCHASM/Aaron/test/test_files/make_dirs/test_2/TMEN_Ph/R/ts3/Cf21
+	5.1 (Ph): cf 2
+	23.1.1 (Ph): cf 1
+Cf #12: /home/deo/pyCHASM/Aaron/test/test_files/make_dirs/test_2/TMEN_Ph/R/ts3/Cf12
+	5.1 (Ph): cf 1
+	23.1.1 (Ph): cf 2
+Cf #22: /home/deo/pyCHASM/Aaron/test/test_files/make_dirs/test_2/TMEN_Ph/R/ts3/Cf22
+	5.1 (Ph): cf 2
+	23.1.1 (Ph): cf 2
+
+33: /home/deo/Aaron_libs/TS_geoms/asymmetric_hydrogenation/S_BINAP/R/ts3.xyz
+asymmetric_hydrogenation, None, 3
+lig: ('test_2', {'map': ('R-BINAP', ''), '1': 'Ph'})
+sub: ('SS_dpen_Ph', {'18': 'Ph', '21': 'Ph', '5': 'Ph'})
+Cf #1111: /home/deo/pyCHASM/Aaron/test/test_files/make_dirs/test_2/SS_dpen_Ph/R/ts3/Cf1111
+	5.1 (Ph): cf 1
+	18.1 (Ph): cf 1
+	21.1 (Ph): cf 1
+	23.1.1 (Ph): cf 1
+Cf #2111: /home/deo/pyCHASM/Aaron/test/test_files/make_dirs/test_2/SS_dpen_Ph/R/ts3/Cf2111
+	5.1 (Ph): cf 2
+	18.1 (Ph): cf 1
+	21.1 (Ph): cf 1
+	23.1.1 (Ph): cf 1
+Cf #1211: /home/deo/pyCHASM/Aaron/test/test_files/make_dirs/test_2/SS_dpen_Ph/R/ts3/Cf1211
+	5.1 (Ph): cf 1
+	18.1 (Ph): cf 2
+	21.1 (Ph): cf 1
+	23.1.1 (Ph): cf 1
+Cf #2211: /home/deo/pyCHASM/Aaron/test/test_files/make_dirs/test_2/SS_dpen_Ph/R/ts3/Cf2211
+	5.1 (Ph): cf 2
+	18.1 (Ph): cf 2
+	21.1 (Ph): cf 1
+	23.1.1 (Ph): cf 1
+Cf #1121: /home/deo/pyCHASM/Aaron/test/test_files/make_dirs/test_2/SS_dpen_Ph/R/ts3/Cf1121
+	5.1 (Ph): cf 1
+	18.1 (Ph): cf 1
+	21.1 (Ph): cf 2
+	23.1.1 (Ph): cf 1
+Cf #2121: /home/deo/pyCHASM/Aaron/test/test_files/make_dirs/test_2/SS_dpen_Ph/R/ts3/Cf2121
+	5.1 (Ph): cf 2
+	18.1 (Ph): cf 1
+	21.1 (Ph): cf 2
+	23.1.1 (Ph): cf 1
+Cf #1221: /home/deo/pyCHASM/Aaron/test/test_files/make_dirs/test_2/SS_dpen_Ph/R/ts3/Cf1221
+	5.1 (Ph): cf 1
+	18.1 (Ph): cf 2
+	21.1 (Ph): cf 2
+	23.1.1 (Ph): cf 1
+Cf #2221: /home/deo/pyCHASM/Aaron/test/test_files/make_dirs/test_2/SS_dpen_Ph/R/ts3/Cf2221
+	5.1 (Ph): cf 2
+	18.1 (Ph): cf 2
+	21.1 (Ph): cf 2
+	23.1.1 (Ph): cf 1
+Cf #1112: /home/deo/pyCHASM/Aaron/test/test_files/make_dirs/test_2/SS_dpen_Ph/R/ts3/Cf1112
+	5.1 (Ph): cf 1
+	18.1 (Ph): cf 1
+	21.1 (Ph): cf 1
+	23.1.1 (Ph): cf 2
+Cf #2112: /home/deo/pyCHASM/Aaron/test/test_files/make_dirs/test_2/SS_dpen_Ph/R/ts3/Cf2112
+	5.1 (Ph): cf 2
+	18.1 (Ph): cf 1
+	21.1 (Ph): cf 1
+	23.1.1 (Ph): cf 2
+Cf #1212: /home/deo/pyCHASM/Aaron/test/test_files/make_dirs/test_2/SS_dpen_Ph/R/ts3/Cf1212
+	5.1 (Ph): cf 1
+	18.1 (Ph): cf 2
+	21.1 (Ph): cf 1
+	23.1.1 (Ph): cf 2
+Cf #2212: /home/deo/pyCHASM/Aaron/test/test_files/make_dirs/test_2/SS_dpen_Ph/R/ts3/Cf2212
+	5.1 (Ph): cf 2
+	18.1 (Ph): cf 2
+	21.1 (Ph): cf 1
+	23.1.1 (Ph): cf 2
+Cf #1122: /home/deo/pyCHASM/Aaron/test/test_files/make_dirs/test_2/SS_dpen_Ph/R/ts3/Cf1122
+	5.1 (Ph): cf 1
+	18.1 (Ph): cf 1
+	21.1 (Ph): cf 2
+	23.1.1 (Ph): cf 2
+Cf #2122: /home/deo/pyCHASM/Aaron/test/test_files/make_dirs/test_2/SS_dpen_Ph/R/ts3/Cf2122
+	5.1 (Ph): cf 2
+	18.1 (Ph): cf 1
+	21.1 (Ph): cf 2
+	23.1.1 (Ph): cf 2
+Cf #1222: /home/deo/pyCHASM/Aaron/test/test_files/make_dirs/test_2/SS_dpen_Ph/R/ts3/Cf1222
+	5.1 (Ph): cf 1
+	18.1 (Ph): cf 2
+	21.1 (Ph): cf 2
+	23.1.1 (Ph): cf 2
+Cf #2222: /home/deo/pyCHASM/Aaron/test/test_files/make_dirs/test_2/SS_dpen_Ph/R/ts3/Cf2222
+	5.1 (Ph): cf 2
+	18.1 (Ph): cf 2
+	21.1 (Ph): cf 2
+	23.1.1 (Ph): cf 2
+
+34: /home/deo/Aaron_libs/TS_geoms/asymmetric_hydrogenation/S_BINAP/S/ts2.xyz
+asymmetric_hydrogenation, None, 2
+lig: None
+sub: ('TMEN_Ph', {'18': 'Me', '19': 'Me', '20': 'Me', '21': 'Me', '5': 'Ph'})
+Cf #1: /home/deo/pyCHASM/Aaron/test/test_files/make_dirs/original/TMEN_Ph/S/ts2/Cf1
+	5.1 (Ph): cf 1
+Cf #2: /home/deo/pyCHASM/Aaron/test/test_files/make_dirs/original/TMEN_Ph/S/ts2/Cf2
+	5.1 (Ph): cf 2
+
+35: /home/deo/Aaron_libs/TS_geoms/asymmetric_hydrogenation/S_BINAP/S/ts2.xyz
+asymmetric_hydrogenation, None, 2
+lig: None
+sub: ('SS_dpen_Ph', {'18': 'Ph', '21': 'Ph', '5': 'Ph'})
+Cf #111: /home/deo/pyCHASM/Aaron/test/test_files/make_dirs/original/SS_dpen_Ph/S/ts2/Cf111
+	5.1 (Ph): cf 1
+	18.1 (Ph): cf 1
+	21.1 (Ph): cf 1
+Cf #211: /home/deo/pyCHASM/Aaron/test/test_files/make_dirs/original/SS_dpen_Ph/S/ts2/Cf211
+	5.1 (Ph): cf 2
+	18.1 (Ph): cf 1
+	21.1 (Ph): cf 1
+Cf #121: /home/deo/pyCHASM/Aaron/test/test_files/make_dirs/original/SS_dpen_Ph/S/ts2/Cf121
+	5.1 (Ph): cf 1
+	18.1 (Ph): cf 2
+	21.1 (Ph): cf 1
+Cf #221: /home/deo/pyCHASM/Aaron/test/test_files/make_dirs/original/SS_dpen_Ph/S/ts2/Cf221
+	5.1 (Ph): cf 2
+	18.1 (Ph): cf 2
+	21.1 (Ph): cf 1
+Cf #112: /home/deo/pyCHASM/Aaron/test/test_files/make_dirs/original/SS_dpen_Ph/S/ts2/Cf112
+	5.1 (Ph): cf 1
+	18.1 (Ph): cf 1
+	21.1 (Ph): cf 2
+Cf #212: /home/deo/pyCHASM/Aaron/test/test_files/make_dirs/original/SS_dpen_Ph/S/ts2/Cf212
+	5.1 (Ph): cf 2
+	18.1 (Ph): cf 1
+	21.1 (Ph): cf 2
+Cf #122: /home/deo/pyCHASM/Aaron/test/test_files/make_dirs/original/SS_dpen_Ph/S/ts2/Cf122
+	5.1 (Ph): cf 1
+	18.1 (Ph): cf 2
+	21.1 (Ph): cf 2
+Cf #222: /home/deo/pyCHASM/Aaron/test/test_files/make_dirs/original/SS_dpen_Ph/S/ts2/Cf222
+	5.1 (Ph): cf 2
+	18.1 (Ph): cf 2
+	21.1 (Ph): cf 2
+
+36: /home/deo/Aaron_libs/TS_geoms/asymmetric_hydrogenation/S_BINAP/S/ts2.xyz
+asymmetric_hydrogenation, None, 2
+lig: ('R_binap', {'map': ('R-BINAP', '')})
+sub: None
+Cf #111: /home/deo/pyCHASM/Aaron/test/test_files/make_dirs/R_binap/original/S/ts2/Cf111
+	23.18 (Ph): cf 1
+	3 (CHO): cf 1
+	23.37 (Ph): cf 1
+Cf #211: /home/deo/pyCHASM/Aaron/test/test_files/make_dirs/R_binap/original/S/ts2/Cf211
+	23.18 (Ph): cf 2
+	3 (CHO): cf 1
+	23.37 (Ph): cf 1
+Cf #121: /home/deo/pyCHASM/Aaron/test/test_files/make_dirs/R_binap/original/S/ts2/Cf121
+	23.18 (Ph): cf 1
+	3 (CHO): cf 2
+	23.37 (Ph): cf 1
+Cf #221: /home/deo/pyCHASM/Aaron/test/test_files/make_dirs/R_binap/original/S/ts2/Cf221
+	23.18 (Ph): cf 2
+	3 (CHO): cf 2
+	23.37 (Ph): cf 1
+Cf #112: /home/deo/pyCHASM/Aaron/test/test_files/make_dirs/R_binap/original/S/ts2/Cf112
+	23.18 (Ph): cf 1
+	3 (CHO): cf 1
+	23.37 (Ph): cf 2
+Cf #212: /home/deo/pyCHASM/Aaron/test/test_files/make_dirs/R_binap/original/S/ts2/Cf212
+	23.18 (Ph): cf 2
+	3 (CHO): cf 1
+	23.37 (Ph): cf 2
+Cf #122: /home/deo/pyCHASM/Aaron/test/test_files/make_dirs/R_binap/original/S/ts2/Cf122
+	23.18 (Ph): cf 1
+	3 (CHO): cf 2
+	23.37 (Ph): cf 2
+Cf #222: /home/deo/pyCHASM/Aaron/test/test_files/make_dirs/R_binap/original/S/ts2/Cf222
+	23.18 (Ph): cf 2
+	3 (CHO): cf 2
+	23.37 (Ph): cf 2
+
+37: /home/deo/Aaron_libs/TS_geoms/asymmetric_hydrogenation/S_BINAP/S/ts2.xyz
+asymmetric_hydrogenation, None, 2
+lig: ('R_binap', {'map': ('R-BINAP', '')})
+sub: ('TMEN_Ph', {'18': 'Me', '19': 'Me', '20': 'Me', '21': 'Me', '5': 'Ph'})
+Cf #1: /home/deo/pyCHASM/Aaron/test/test_files/make_dirs/R_binap/TMEN_Ph/S/ts2/Cf1
+	5.1 (Ph): cf 1
+Cf #2: /home/deo/pyCHASM/Aaron/test/test_files/make_dirs/R_binap/TMEN_Ph/S/ts2/Cf2
+	5.1 (Ph): cf 2
+
+38: /home/deo/Aaron_libs/TS_geoms/asymmetric_hydrogenation/S_BINAP/S/ts2.xyz
+asymmetric_hydrogenation, None, 2
+lig: ('R_binap', {'map': ('R-BINAP', '')})
+sub: ('SS_dpen_Ph', {'18': 'Ph', '21': 'Ph', '5': 'Ph'})
+Cf #111: /home/deo/pyCHASM/Aaron/test/test_files/make_dirs/R_binap/SS_dpen_Ph/S/ts2/Cf111
+	5.1 (Ph): cf 1
+	18.1 (Ph): cf 1
+	21.1 (Ph): cf 1
+Cf #211: /home/deo/pyCHASM/Aaron/test/test_files/make_dirs/R_binap/SS_dpen_Ph/S/ts2/Cf211
+	5.1 (Ph): cf 2
+	18.1 (Ph): cf 1
+	21.1 (Ph): cf 1
+Cf #121: /home/deo/pyCHASM/Aaron/test/test_files/make_dirs/R_binap/SS_dpen_Ph/S/ts2/Cf121
+	5.1 (Ph): cf 1
+	18.1 (Ph): cf 2
+	21.1 (Ph): cf 1
+Cf #221: /home/deo/pyCHASM/Aaron/test/test_files/make_dirs/R_binap/SS_dpen_Ph/S/ts2/Cf221
+	5.1 (Ph): cf 2
+	18.1 (Ph): cf 2
+	21.1 (Ph): cf 1
+Cf #112: /home/deo/pyCHASM/Aaron/test/test_files/make_dirs/R_binap/SS_dpen_Ph/S/ts2/Cf112
+	5.1 (Ph): cf 1
+	18.1 (Ph): cf 1
+	21.1 (Ph): cf 2
+Cf #212: /home/deo/pyCHASM/Aaron/test/test_files/make_dirs/R_binap/SS_dpen_Ph/S/ts2/Cf212
+	5.1 (Ph): cf 2
+	18.1 (Ph): cf 1
+	21.1 (Ph): cf 2
+Cf #122: /home/deo/pyCHASM/Aaron/test/test_files/make_dirs/R_binap/SS_dpen_Ph/S/ts2/Cf122
+	5.1 (Ph): cf 1
+	18.1 (Ph): cf 2
+	21.1 (Ph): cf 2
+Cf #222: /home/deo/pyCHASM/Aaron/test/test_files/make_dirs/R_binap/SS_dpen_Ph/S/ts2/Cf222
+	5.1 (Ph): cf 2
+	18.1 (Ph): cf 2
+	21.1 (Ph): cf 2
+
+39: /home/deo/Aaron_libs/TS_geoms/asymmetric_hydrogenation/S_BINAP/S/ts2.xyz
+asymmetric_hydrogenation, None, 2
+lig: ('test_1', {'3': 'Ph'})
+sub: None
+Cf #1: /home/deo/pyCHASM/Aaron/test/test_files/make_dirs/test_1/original/S/ts2/Cf1
+	25.1 (Ph): cf 1
+Cf #2: /home/deo/pyCHASM/Aaron/test/test_files/make_dirs/test_1/original/S/ts2/Cf2
+	25.1 (Ph): cf 2
+
+40: /home/deo/Aaron_libs/TS_geoms/asymmetric_hydrogenation/S_BINAP/S/ts2.xyz
+asymmetric_hydrogenation, None, 2
+lig: ('test_1', {'3': 'Ph'})
+sub: ('TMEN_Ph', {'18': 'Me', '19': 'Me', '20': 'Me', '21': 'Me', '5': 'Ph'})
+Cf #11: /home/deo/pyCHASM/Aaron/test/test_files/make_dirs/test_1/TMEN_Ph/S/ts2/Cf11
+	5.1 (Ph): cf 1
+	25.1 (Ph): cf 1
+Cf #21: /home/deo/pyCHASM/Aaron/test/test_files/make_dirs/test_1/TMEN_Ph/S/ts2/Cf21
+	5.1 (Ph): cf 2
+	25.1 (Ph): cf 1
+Cf #12: /home/deo/pyCHASM/Aaron/test/test_files/make_dirs/test_1/TMEN_Ph/S/ts2/Cf12
+	5.1 (Ph): cf 1
+	25.1 (Ph): cf 2
+Cf #22: /home/deo/pyCHASM/Aaron/test/test_files/make_dirs/test_1/TMEN_Ph/S/ts2/Cf22
+	5.1 (Ph): cf 2
+	25.1 (Ph): cf 2
+
+41: /home/deo/Aaron_libs/TS_geoms/asymmetric_hydrogenation/S_BINAP/S/ts2.xyz
+asymmetric_hydrogenation, None, 2
+lig: ('test_1', {'3': 'Ph'})
+sub: ('SS_dpen_Ph', {'18': 'Ph', '21': 'Ph', '5': 'Ph'})
+Cf #1111: /home/deo/pyCHASM/Aaron/test/test_files/make_dirs/test_1/SS_dpen_Ph/S/ts2/Cf1111
+	5.1 (Ph): cf 1
+	18.1 (Ph): cf 1
+	21.1 (Ph): cf 1
+	25.1 (Ph): cf 1
+Cf #2111: /home/deo/pyCHASM/Aaron/test/test_files/make_dirs/test_1/SS_dpen_Ph/S/ts2/Cf2111
+	5.1 (Ph): cf 2
+	18.1 (Ph): cf 1
+	21.1 (Ph): cf 1
+	25.1 (Ph): cf 1
+Cf #1211: /home/deo/pyCHASM/Aaron/test/test_files/make_dirs/test_1/SS_dpen_Ph/S/ts2/Cf1211
+	5.1 (Ph): cf 1
+	18.1 (Ph): cf 2
+	21.1 (Ph): cf 1
+	25.1 (Ph): cf 1
+Cf #2211: /home/deo/pyCHASM/Aaron/test/test_files/make_dirs/test_1/SS_dpen_Ph/S/ts2/Cf2211
+	5.1 (Ph): cf 2
+	18.1 (Ph): cf 2
+	21.1 (Ph): cf 1
+	25.1 (Ph): cf 1
+Cf #1121: /home/deo/pyCHASM/Aaron/test/test_files/make_dirs/test_1/SS_dpen_Ph/S/ts2/Cf1121
+	5.1 (Ph): cf 1
+	18.1 (Ph): cf 1
+	21.1 (Ph): cf 2
+	25.1 (Ph): cf 1
+Cf #2121: /home/deo/pyCHASM/Aaron/test/test_files/make_dirs/test_1/SS_dpen_Ph/S/ts2/Cf2121
+	5.1 (Ph): cf 2
+	18.1 (Ph): cf 1
+	21.1 (Ph): cf 2
+	25.1 (Ph): cf 1
+Cf #1221: /home/deo/pyCHASM/Aaron/test/test_files/make_dirs/test_1/SS_dpen_Ph/S/ts2/Cf1221
+	5.1 (Ph): cf 1
+	18.1 (Ph): cf 2
+	21.1 (Ph): cf 2
+	25.1 (Ph): cf 1
+Cf #2221: /home/deo/pyCHASM/Aaron/test/test_files/make_dirs/test_1/SS_dpen_Ph/S/ts2/Cf2221
+	5.1 (Ph): cf 2
+	18.1 (Ph): cf 2
+	21.1 (Ph): cf 2
+	25.1 (Ph): cf 1
+Cf #1112: /home/deo/pyCHASM/Aaron/test/test_files/make_dirs/test_1/SS_dpen_Ph/S/ts2/Cf1112
+	5.1 (Ph): cf 1
+	18.1 (Ph): cf 1
+	21.1 (Ph): cf 1
+	25.1 (Ph): cf 2
+Cf #2112: /home/deo/pyCHASM/Aaron/test/test_files/make_dirs/test_1/SS_dpen_Ph/S/ts2/Cf2112
+	5.1 (Ph): cf 2
+	18.1 (Ph): cf 1
+	21.1 (Ph): cf 1
+	25.1 (Ph): cf 2
+Cf #1212: /home/deo/pyCHASM/Aaron/test/test_files/make_dirs/test_1/SS_dpen_Ph/S/ts2/Cf1212
+	5.1 (Ph): cf 1
+	18.1 (Ph): cf 2
+	21.1 (Ph): cf 1
+	25.1 (Ph): cf 2
+Cf #2212: /home/deo/pyCHASM/Aaron/test/test_files/make_dirs/test_1/SS_dpen_Ph/S/ts2/Cf2212
+	5.1 (Ph): cf 2
+	18.1 (Ph): cf 2
+	21.1 (Ph): cf 1
+	25.1 (Ph): cf 2
+Cf #1122: /home/deo/pyCHASM/Aaron/test/test_files/make_dirs/test_1/SS_dpen_Ph/S/ts2/Cf1122
+	5.1 (Ph): cf 1
+	18.1 (Ph): cf 1
+	21.1 (Ph): cf 2
+	25.1 (Ph): cf 2
+Cf #2122: /home/deo/pyCHASM/Aaron/test/test_files/make_dirs/test_1/SS_dpen_Ph/S/ts2/Cf2122
+	5.1 (Ph): cf 2
+	18.1 (Ph): cf 1
+	21.1 (Ph): cf 2
+	25.1 (Ph): cf 2
+Cf #1222: /home/deo/pyCHASM/Aaron/test/test_files/make_dirs/test_1/SS_dpen_Ph/S/ts2/Cf1222
+	5.1 (Ph): cf 1
+	18.1 (Ph): cf 2
+	21.1 (Ph): cf 2
+	25.1 (Ph): cf 2
+Cf #2222: /home/deo/pyCHASM/Aaron/test/test_files/make_dirs/test_1/SS_dpen_Ph/S/ts2/Cf2222
+	5.1 (Ph): cf 2
+	18.1 (Ph): cf 2
+	21.1 (Ph): cf 2
+	25.1 (Ph): cf 2
+
+42: /home/deo/Aaron_libs/TS_geoms/asymmetric_hydrogenation/S_BINAP/S/ts2.xyz
+asymmetric_hydrogenation, None, 2
+lig: ('test_2', {'map': ('R-BINAP', ''), '1': 'Ph'})
+sub: None
+Cf #1: /home/deo/pyCHASM/Aaron/test/test_files/make_dirs/test_2/original/S/ts2/Cf1
+	23.1.1 (Ph): cf 1
+Cf #2: /home/deo/pyCHASM/Aaron/test/test_files/make_dirs/test_2/original/S/ts2/Cf2
+	23.1.1 (Ph): cf 2
+
+43: /home/deo/Aaron_libs/TS_geoms/asymmetric_hydrogenation/S_BINAP/S/ts2.xyz
+asymmetric_hydrogenation, None, 2
+lig: ('test_2', {'map': ('R-BINAP', ''), '1': 'Ph'})
+sub: ('TMEN_Ph', {'18': 'Me', '19': 'Me', '20': 'Me', '21': 'Me', '5': 'Ph'})
+Cf #11: /home/deo/pyCHASM/Aaron/test/test_files/make_dirs/test_2/TMEN_Ph/S/ts2/Cf11
+	5.1 (Ph): cf 1
+	23.1.1 (Ph): cf 1
+Cf #21: /home/deo/pyCHASM/Aaron/test/test_files/make_dirs/test_2/TMEN_Ph/S/ts2/Cf21
+	5.1 (Ph): cf 2
+	23.1.1 (Ph): cf 1
+Cf #12: /home/deo/pyCHASM/Aaron/test/test_files/make_dirs/test_2/TMEN_Ph/S/ts2/Cf12
+	5.1 (Ph): cf 1
+	23.1.1 (Ph): cf 2
+Cf #22: /home/deo/pyCHASM/Aaron/test/test_files/make_dirs/test_2/TMEN_Ph/S/ts2/Cf22
+	5.1 (Ph): cf 2
+	23.1.1 (Ph): cf 2
+
+44: /home/deo/Aaron_libs/TS_geoms/asymmetric_hydrogenation/S_BINAP/S/ts2.xyz
+asymmetric_hydrogenation, None, 2
+lig: ('test_2', {'map': ('R-BINAP', ''), '1': 'Ph'})
+sub: ('SS_dpen_Ph', {'18': 'Ph', '21': 'Ph', '5': 'Ph'})
+Cf #1111: /home/deo/pyCHASM/Aaron/test/test_files/make_dirs/test_2/SS_dpen_Ph/S/ts2/Cf1111
+	5.1 (Ph): cf 1
+	18.1 (Ph): cf 1
+	21.1 (Ph): cf 1
+	23.1.1 (Ph): cf 1
+Cf #2111: /home/deo/pyCHASM/Aaron/test/test_files/make_dirs/test_2/SS_dpen_Ph/S/ts2/Cf2111
+	5.1 (Ph): cf 2
+	18.1 (Ph): cf 1
+	21.1 (Ph): cf 1
+	23.1.1 (Ph): cf 1
+Cf #1211: /home/deo/pyCHASM/Aaron/test/test_files/make_dirs/test_2/SS_dpen_Ph/S/ts2/Cf1211
+	5.1 (Ph): cf 1
+	18.1 (Ph): cf 2
+	21.1 (Ph): cf 1
+	23.1.1 (Ph): cf 1
+Cf #2211: /home/deo/pyCHASM/Aaron/test/test_files/make_dirs/test_2/SS_dpen_Ph/S/ts2/Cf2211
+	5.1 (Ph): cf 2
+	18.1 (Ph): cf 2
+	21.1 (Ph): cf 1
+	23.1.1 (Ph): cf 1
+Cf #1121: /home/deo/pyCHASM/Aaron/test/test_files/make_dirs/test_2/SS_dpen_Ph/S/ts2/Cf1121
+	5.1 (Ph): cf 1
+	18.1 (Ph): cf 1
+	21.1 (Ph): cf 2
+	23.1.1 (Ph): cf 1
+Cf #2121: /home/deo/pyCHASM/Aaron/test/test_files/make_dirs/test_2/SS_dpen_Ph/S/ts2/Cf2121
+	5.1 (Ph): cf 2
+	18.1 (Ph): cf 1
+	21.1 (Ph): cf 2
+	23.1.1 (Ph): cf 1
+Cf #1221: /home/deo/pyCHASM/Aaron/test/test_files/make_dirs/test_2/SS_dpen_Ph/S/ts2/Cf1221
+	5.1 (Ph): cf 1
+	18.1 (Ph): cf 2
+	21.1 (Ph): cf 2
+	23.1.1 (Ph): cf 1
+Cf #2221: /home/deo/pyCHASM/Aaron/test/test_files/make_dirs/test_2/SS_dpen_Ph/S/ts2/Cf2221
+	5.1 (Ph): cf 2
+	18.1 (Ph): cf 2
+	21.1 (Ph): cf 2
+	23.1.1 (Ph): cf 1
+Cf #1112: /home/deo/pyCHASM/Aaron/test/test_files/make_dirs/test_2/SS_dpen_Ph/S/ts2/Cf1112
+	5.1 (Ph): cf 1
+	18.1 (Ph): cf 1
+	21.1 (Ph): cf 1
+	23.1.1 (Ph): cf 2
+Cf #2112: /home/deo/pyCHASM/Aaron/test/test_files/make_dirs/test_2/SS_dpen_Ph/S/ts2/Cf2112
+	5.1 (Ph): cf 2
+	18.1 (Ph): cf 1
+	21.1 (Ph): cf 1
+	23.1.1 (Ph): cf 2
+Cf #1212: /home/deo/pyCHASM/Aaron/test/test_files/make_dirs/test_2/SS_dpen_Ph/S/ts2/Cf1212
+	5.1 (Ph): cf 1
+	18.1 (Ph): cf 2
+	21.1 (Ph): cf 1
+	23.1.1 (Ph): cf 2
+Cf #2212: /home/deo/pyCHASM/Aaron/test/test_files/make_dirs/test_2/SS_dpen_Ph/S/ts2/Cf2212
+	5.1 (Ph): cf 2
+	18.1 (Ph): cf 2
+	21.1 (Ph): cf 1
+	23.1.1 (Ph): cf 2
+Cf #1122: /home/deo/pyCHASM/Aaron/test/test_files/make_dirs/test_2/SS_dpen_Ph/S/ts2/Cf1122
+	5.1 (Ph): cf 1
+	18.1 (Ph): cf 1
+	21.1 (Ph): cf 2
+	23.1.1 (Ph): cf 2
+Cf #2122: /home/deo/pyCHASM/Aaron/test/test_files/make_dirs/test_2/SS_dpen_Ph/S/ts2/Cf2122
+	5.1 (Ph): cf 2
+	18.1 (Ph): cf 1
+	21.1 (Ph): cf 2
+	23.1.1 (Ph): cf 2
+Cf #1222: /home/deo/pyCHASM/Aaron/test/test_files/make_dirs/test_2/SS_dpen_Ph/S/ts2/Cf1222
+	5.1 (Ph): cf 1
+	18.1 (Ph): cf 2
+	21.1 (Ph): cf 2
+	23.1.1 (Ph): cf 2
+Cf #2222: /home/deo/pyCHASM/Aaron/test/test_files/make_dirs/test_2/SS_dpen_Ph/S/ts2/Cf2222
+	5.1 (Ph): cf 2
+	18.1 (Ph): cf 2
+	21.1 (Ph): cf 2
+	23.1.1 (Ph): cf 2
+
+45: /home/deo/Aaron_libs/TS_geoms/asymmetric_hydrogenation/S_BINAP/S/ts1.xyz
+asymmetric_hydrogenation, None, 1
+lig: None
+sub: ('TMEN_Ph', {'18': 'Me', '19': 'Me', '20': 'Me', '21': 'Me', '5': 'Ph'})
+Cf #1: /home/deo/pyCHASM/Aaron/test/test_files/make_dirs/original/TMEN_Ph/S/ts1/Cf1
+	5.1 (Ph): cf 1
+Cf #2: /home/deo/pyCHASM/Aaron/test/test_files/make_dirs/original/TMEN_Ph/S/ts1/Cf2
+	5.1 (Ph): cf 2
+
+46: /home/deo/Aaron_libs/TS_geoms/asymmetric_hydrogenation/S_BINAP/S/ts1.xyz
+asymmetric_hydrogenation, None, 1
+lig: None
+sub: ('SS_dpen_Ph', {'18': 'Ph', '21': 'Ph', '5': 'Ph'})
+Cf #111: /home/deo/pyCHASM/Aaron/test/test_files/make_dirs/original/SS_dpen_Ph/S/ts1/Cf111
+	5.1 (Ph): cf 1
+	18.1 (Ph): cf 1
+	21.1 (Ph): cf 1
+Cf #211: /home/deo/pyCHASM/Aaron/test/test_files/make_dirs/original/SS_dpen_Ph/S/ts1/Cf211
+	5.1 (Ph): cf 2
+	18.1 (Ph): cf 1
+	21.1 (Ph): cf 1
+Cf #121: /home/deo/pyCHASM/Aaron/test/test_files/make_dirs/original/SS_dpen_Ph/S/ts1/Cf121
+	5.1 (Ph): cf 1
+	18.1 (Ph): cf 2
+	21.1 (Ph): cf 1
+Cf #221: /home/deo/pyCHASM/Aaron/test/test_files/make_dirs/original/SS_dpen_Ph/S/ts1/Cf221
+	5.1 (Ph): cf 2
+	18.1 (Ph): cf 2
+	21.1 (Ph): cf 1
+Cf #112: /home/deo/pyCHASM/Aaron/test/test_files/make_dirs/original/SS_dpen_Ph/S/ts1/Cf112
+	5.1 (Ph): cf 1
+	18.1 (Ph): cf 1
+	21.1 (Ph): cf 2
+Cf #212: /home/deo/pyCHASM/Aaron/test/test_files/make_dirs/original/SS_dpen_Ph/S/ts1/Cf212
+	5.1 (Ph): cf 2
+	18.1 (Ph): cf 1
+	21.1 (Ph): cf 2
+Cf #122: /home/deo/pyCHASM/Aaron/test/test_files/make_dirs/original/SS_dpen_Ph/S/ts1/Cf122
+	5.1 (Ph): cf 1
+	18.1 (Ph): cf 2
+	21.1 (Ph): cf 2
+Cf #222: /home/deo/pyCHASM/Aaron/test/test_files/make_dirs/original/SS_dpen_Ph/S/ts1/Cf222
+	5.1 (Ph): cf 2
+	18.1 (Ph): cf 2
+	21.1 (Ph): cf 2
+
+47: /home/deo/Aaron_libs/TS_geoms/asymmetric_hydrogenation/S_BINAP/S/ts1.xyz
+asymmetric_hydrogenation, None, 1
+lig: ('R_binap', {'map': ('R-BINAP', '')})
+sub: None
+Cf #111: /home/deo/pyCHASM/Aaron/test/test_files/make_dirs/R_binap/original/S/ts1/Cf111
+	23.18 (Ph): cf 1
+	3 (CHO): cf 1
+	23.37 (Ph): cf 1
+Cf #211: /home/deo/pyCHASM/Aaron/test/test_files/make_dirs/R_binap/original/S/ts1/Cf211
+	23.18 (Ph): cf 2
+	3 (CHO): cf 1
+	23.37 (Ph): cf 1
+Cf #121: /home/deo/pyCHASM/Aaron/test/test_files/make_dirs/R_binap/original/S/ts1/Cf121
+	23.18 (Ph): cf 1
+	3 (CHO): cf 2
+	23.37 (Ph): cf 1
+Cf #221: /home/deo/pyCHASM/Aaron/test/test_files/make_dirs/R_binap/original/S/ts1/Cf221
+	23.18 (Ph): cf 2
+	3 (CHO): cf 2
+	23.37 (Ph): cf 1
+Cf #112: /home/deo/pyCHASM/Aaron/test/test_files/make_dirs/R_binap/original/S/ts1/Cf112
+	23.18 (Ph): cf 1
+	3 (CHO): cf 1
+	23.37 (Ph): cf 2
+Cf #212: /home/deo/pyCHASM/Aaron/test/test_files/make_dirs/R_binap/original/S/ts1/Cf212
+	23.18 (Ph): cf 2
+	3 (CHO): cf 1
+	23.37 (Ph): cf 2
+Cf #122: /home/deo/pyCHASM/Aaron/test/test_files/make_dirs/R_binap/original/S/ts1/Cf122
+	23.18 (Ph): cf 1
+	3 (CHO): cf 2
+	23.37 (Ph): cf 2
+Cf #222: /home/deo/pyCHASM/Aaron/test/test_files/make_dirs/R_binap/original/S/ts1/Cf222
+	23.18 (Ph): cf 2
+	3 (CHO): cf 2
+	23.37 (Ph): cf 2
+
+48: /home/deo/Aaron_libs/TS_geoms/asymmetric_hydrogenation/S_BINAP/S/ts1.xyz
+asymmetric_hydrogenation, None, 1
+lig: ('R_binap', {'map': ('R-BINAP', '')})
+sub: ('TMEN_Ph', {'18': 'Me', '19': 'Me', '20': 'Me', '21': 'Me', '5': 'Ph'})
+Cf #1: /home/deo/pyCHASM/Aaron/test/test_files/make_dirs/R_binap/TMEN_Ph/S/ts1/Cf1
+	5.1 (Ph): cf 1
+Cf #2: /home/deo/pyCHASM/Aaron/test/test_files/make_dirs/R_binap/TMEN_Ph/S/ts1/Cf2
+	5.1 (Ph): cf 2
+
+49: /home/deo/Aaron_libs/TS_geoms/asymmetric_hydrogenation/S_BINAP/S/ts1.xyz
+asymmetric_hydrogenation, None, 1
+lig: ('R_binap', {'map': ('R-BINAP', '')})
+sub: ('SS_dpen_Ph', {'18': 'Ph', '21': 'Ph', '5': 'Ph'})
+Cf #111: /home/deo/pyCHASM/Aaron/test/test_files/make_dirs/R_binap/SS_dpen_Ph/S/ts1/Cf111
+	5.1 (Ph): cf 1
+	18.1 (Ph): cf 1
+	21.1 (Ph): cf 1
+Cf #211: /home/deo/pyCHASM/Aaron/test/test_files/make_dirs/R_binap/SS_dpen_Ph/S/ts1/Cf211
+	5.1 (Ph): cf 2
+	18.1 (Ph): cf 1
+	21.1 (Ph): cf 1
+Cf #121: /home/deo/pyCHASM/Aaron/test/test_files/make_dirs/R_binap/SS_dpen_Ph/S/ts1/Cf121
+	5.1 (Ph): cf 1
+	18.1 (Ph): cf 2
+	21.1 (Ph): cf 1
+Cf #221: /home/deo/pyCHASM/Aaron/test/test_files/make_dirs/R_binap/SS_dpen_Ph/S/ts1/Cf221
+	5.1 (Ph): cf 2
+	18.1 (Ph): cf 2
+	21.1 (Ph): cf 1
+Cf #112: /home/deo/pyCHASM/Aaron/test/test_files/make_dirs/R_binap/SS_dpen_Ph/S/ts1/Cf112
+	5.1 (Ph): cf 1
+	18.1 (Ph): cf 1
+	21.1 (Ph): cf 2
+Cf #212: /home/deo/pyCHASM/Aaron/test/test_files/make_dirs/R_binap/SS_dpen_Ph/S/ts1/Cf212
+	5.1 (Ph): cf 2
+	18.1 (Ph): cf 1
+	21.1 (Ph): cf 2
+Cf #122: /home/deo/pyCHASM/Aaron/test/test_files/make_dirs/R_binap/SS_dpen_Ph/S/ts1/Cf122
+	5.1 (Ph): cf 1
+	18.1 (Ph): cf 2
+	21.1 (Ph): cf 2
+Cf #222: /home/deo/pyCHASM/Aaron/test/test_files/make_dirs/R_binap/SS_dpen_Ph/S/ts1/Cf222
+	5.1 (Ph): cf 2
+	18.1 (Ph): cf 2
+	21.1 (Ph): cf 2
+
+50: /home/deo/Aaron_libs/TS_geoms/asymmetric_hydrogenation/S_BINAP/S/ts1.xyz
+asymmetric_hydrogenation, None, 1
+lig: ('test_1', {'3': 'Ph'})
+sub: None
+Cf #1: /home/deo/pyCHASM/Aaron/test/test_files/make_dirs/test_1/original/S/ts1/Cf1
+	25.1 (Ph): cf 1
+Cf #2: /home/deo/pyCHASM/Aaron/test/test_files/make_dirs/test_1/original/S/ts1/Cf2
+	25.1 (Ph): cf 2
+
+51: /home/deo/Aaron_libs/TS_geoms/asymmetric_hydrogenation/S_BINAP/S/ts1.xyz
+asymmetric_hydrogenation, None, 1
+lig: ('test_1', {'3': 'Ph'})
+sub: ('TMEN_Ph', {'18': 'Me', '19': 'Me', '20': 'Me', '21': 'Me', '5': 'Ph'})
+Cf #11: /home/deo/pyCHASM/Aaron/test/test_files/make_dirs/test_1/TMEN_Ph/S/ts1/Cf11
+	5.1 (Ph): cf 1
+	25.1 (Ph): cf 1
+Cf #21: /home/deo/pyCHASM/Aaron/test/test_files/make_dirs/test_1/TMEN_Ph/S/ts1/Cf21
+	5.1 (Ph): cf 2
+	25.1 (Ph): cf 1
+Cf #12: /home/deo/pyCHASM/Aaron/test/test_files/make_dirs/test_1/TMEN_Ph/S/ts1/Cf12
+	5.1 (Ph): cf 1
+	25.1 (Ph): cf 2
+Cf #22: /home/deo/pyCHASM/Aaron/test/test_files/make_dirs/test_1/TMEN_Ph/S/ts1/Cf22
+	5.1 (Ph): cf 2
+	25.1 (Ph): cf 2
+
+52: /home/deo/Aaron_libs/TS_geoms/asymmetric_hydrogenation/S_BINAP/S/ts1.xyz
+asymmetric_hydrogenation, None, 1
+lig: ('test_1', {'3': 'Ph'})
+sub: ('SS_dpen_Ph', {'18': 'Ph', '21': 'Ph', '5': 'Ph'})
+Cf #1111: /home/deo/pyCHASM/Aaron/test/test_files/make_dirs/test_1/SS_dpen_Ph/S/ts1/Cf1111
+	5.1 (Ph): cf 1
+	18.1 (Ph): cf 1
+	21.1 (Ph): cf 1
+	25.1 (Ph): cf 1
+Cf #2111: /home/deo/pyCHASM/Aaron/test/test_files/make_dirs/test_1/SS_dpen_Ph/S/ts1/Cf2111
+	5.1 (Ph): cf 2
+	18.1 (Ph): cf 1
+	21.1 (Ph): cf 1
+	25.1 (Ph): cf 1
+Cf #1211: /home/deo/pyCHASM/Aaron/test/test_files/make_dirs/test_1/SS_dpen_Ph/S/ts1/Cf1211
+	5.1 (Ph): cf 1
+	18.1 (Ph): cf 2
+	21.1 (Ph): cf 1
+	25.1 (Ph): cf 1
+Cf #2211: /home/deo/pyCHASM/Aaron/test/test_files/make_dirs/test_1/SS_dpen_Ph/S/ts1/Cf2211
+	5.1 (Ph): cf 2
+	18.1 (Ph): cf 2
+	21.1 (Ph): cf 1
+	25.1 (Ph): cf 1
+Cf #1121: /home/deo/pyCHASM/Aaron/test/test_files/make_dirs/test_1/SS_dpen_Ph/S/ts1/Cf1121
+	5.1 (Ph): cf 1
+	18.1 (Ph): cf 1
+	21.1 (Ph): cf 2
+	25.1 (Ph): cf 1
+Cf #2121: /home/deo/pyCHASM/Aaron/test/test_files/make_dirs/test_1/SS_dpen_Ph/S/ts1/Cf2121
+	5.1 (Ph): cf 2
+	18.1 (Ph): cf 1
+	21.1 (Ph): cf 2
+	25.1 (Ph): cf 1
+Cf #1221: /home/deo/pyCHASM/Aaron/test/test_files/make_dirs/test_1/SS_dpen_Ph/S/ts1/Cf1221
+	5.1 (Ph): cf 1
+	18.1 (Ph): cf 2
+	21.1 (Ph): cf 2
+	25.1 (Ph): cf 1
+Cf #2221: /home/deo/pyCHASM/Aaron/test/test_files/make_dirs/test_1/SS_dpen_Ph/S/ts1/Cf2221
+	5.1 (Ph): cf 2
+	18.1 (Ph): cf 2
+	21.1 (Ph): cf 2
+	25.1 (Ph): cf 1
+Cf #1112: /home/deo/pyCHASM/Aaron/test/test_files/make_dirs/test_1/SS_dpen_Ph/S/ts1/Cf1112
+	5.1 (Ph): cf 1
+	18.1 (Ph): cf 1
+	21.1 (Ph): cf 1
+	25.1 (Ph): cf 2
+Cf #2112: /home/deo/pyCHASM/Aaron/test/test_files/make_dirs/test_1/SS_dpen_Ph/S/ts1/Cf2112
+	5.1 (Ph): cf 2
+	18.1 (Ph): cf 1
+	21.1 (Ph): cf 1
+	25.1 (Ph): cf 2
+Cf #1212: /home/deo/pyCHASM/Aaron/test/test_files/make_dirs/test_1/SS_dpen_Ph/S/ts1/Cf1212
+	5.1 (Ph): cf 1
+	18.1 (Ph): cf 2
+	21.1 (Ph): cf 1
+	25.1 (Ph): cf 2
+Cf #2212: /home/deo/pyCHASM/Aaron/test/test_files/make_dirs/test_1/SS_dpen_Ph/S/ts1/Cf2212
+	5.1 (Ph): cf 2
+	18.1 (Ph): cf 2
+	21.1 (Ph): cf 1
+	25.1 (Ph): cf 2
+Cf #1122: /home/deo/pyCHASM/Aaron/test/test_files/make_dirs/test_1/SS_dpen_Ph/S/ts1/Cf1122
+	5.1 (Ph): cf 1
+	18.1 (Ph): cf 1
+	21.1 (Ph): cf 2
+	25.1 (Ph): cf 2
+Cf #2122: /home/deo/pyCHASM/Aaron/test/test_files/make_dirs/test_1/SS_dpen_Ph/S/ts1/Cf2122
+	5.1 (Ph): cf 2
+	18.1 (Ph): cf 1
+	21.1 (Ph): cf 2
+	25.1 (Ph): cf 2
+Cf #1222: /home/deo/pyCHASM/Aaron/test/test_files/make_dirs/test_1/SS_dpen_Ph/S/ts1/Cf1222
+	5.1 (Ph): cf 1
+	18.1 (Ph): cf 2
+	21.1 (Ph): cf 2
+	25.1 (Ph): cf 2
+Cf #2222: /home/deo/pyCHASM/Aaron/test/test_files/make_dirs/test_1/SS_dpen_Ph/S/ts1/Cf2222
+	5.1 (Ph): cf 2
+	18.1 (Ph): cf 2
+	21.1 (Ph): cf 2
+	25.1 (Ph): cf 2
+
+53: /home/deo/Aaron_libs/TS_geoms/asymmetric_hydrogenation/S_BINAP/S/ts1.xyz
+asymmetric_hydrogenation, None, 1
+lig: ('test_2', {'map': ('R-BINAP', ''), '1': 'Ph'})
+sub: None
+Cf #1: /home/deo/pyCHASM/Aaron/test/test_files/make_dirs/test_2/original/S/ts1/Cf1
+	23.1.1 (Ph): cf 1
+Cf #2: /home/deo/pyCHASM/Aaron/test/test_files/make_dirs/test_2/original/S/ts1/Cf2
+	23.1.1 (Ph): cf 2
+
+54: /home/deo/Aaron_libs/TS_geoms/asymmetric_hydrogenation/S_BINAP/S/ts1.xyz
+asymmetric_hydrogenation, None, 1
+lig: ('test_2', {'map': ('R-BINAP', ''), '1': 'Ph'})
+sub: ('TMEN_Ph', {'18': 'Me', '19': 'Me', '20': 'Me', '21': 'Me', '5': 'Ph'})
+Cf #11: /home/deo/pyCHASM/Aaron/test/test_files/make_dirs/test_2/TMEN_Ph/S/ts1/Cf11
+	5.1 (Ph): cf 1
+	23.1.1 (Ph): cf 1
+Cf #21: /home/deo/pyCHASM/Aaron/test/test_files/make_dirs/test_2/TMEN_Ph/S/ts1/Cf21
+	5.1 (Ph): cf 2
+	23.1.1 (Ph): cf 1
+Cf #12: /home/deo/pyCHASM/Aaron/test/test_files/make_dirs/test_2/TMEN_Ph/S/ts1/Cf12
+	5.1 (Ph): cf 1
+	23.1.1 (Ph): cf 2
+Cf #22: /home/deo/pyCHASM/Aaron/test/test_files/make_dirs/test_2/TMEN_Ph/S/ts1/Cf22
+	5.1 (Ph): cf 2
+	23.1.1 (Ph): cf 2
+
+55: /home/deo/Aaron_libs/TS_geoms/asymmetric_hydrogenation/S_BINAP/S/ts1.xyz
+asymmetric_hydrogenation, None, 1
+lig: ('test_2', {'map': ('R-BINAP', ''), '1': 'Ph'})
+sub: ('SS_dpen_Ph', {'18': 'Ph', '21': 'Ph', '5': 'Ph'})
+Cf #1111: /home/deo/pyCHASM/Aaron/test/test_files/make_dirs/test_2/SS_dpen_Ph/S/ts1/Cf1111
+	5.1 (Ph): cf 1
+	18.1 (Ph): cf 1
+	21.1 (Ph): cf 1
+	23.1.1 (Ph): cf 1
+Cf #2111: /home/deo/pyCHASM/Aaron/test/test_files/make_dirs/test_2/SS_dpen_Ph/S/ts1/Cf2111
+	5.1 (Ph): cf 2
+	18.1 (Ph): cf 1
+	21.1 (Ph): cf 1
+	23.1.1 (Ph): cf 1
+Cf #1211: /home/deo/pyCHASM/Aaron/test/test_files/make_dirs/test_2/SS_dpen_Ph/S/ts1/Cf1211
+	5.1 (Ph): cf 1
+	18.1 (Ph): cf 2
+	21.1 (Ph): cf 1
+	23.1.1 (Ph): cf 1
+Cf #2211: /home/deo/pyCHASM/Aaron/test/test_files/make_dirs/test_2/SS_dpen_Ph/S/ts1/Cf2211
+	5.1 (Ph): cf 2
+	18.1 (Ph): cf 2
+	21.1 (Ph): cf 1
+	23.1.1 (Ph): cf 1
+Cf #1121: /home/deo/pyCHASM/Aaron/test/test_files/make_dirs/test_2/SS_dpen_Ph/S/ts1/Cf1121
+	5.1 (Ph): cf 1
+	18.1 (Ph): cf 1
+	21.1 (Ph): cf 2
+	23.1.1 (Ph): cf 1
+Cf #2121: /home/deo/pyCHASM/Aaron/test/test_files/make_dirs/test_2/SS_dpen_Ph/S/ts1/Cf2121
+	5.1 (Ph): cf 2
+	18.1 (Ph): cf 1
+	21.1 (Ph): cf 2
+	23.1.1 (Ph): cf 1
+Cf #1221: /home/deo/pyCHASM/Aaron/test/test_files/make_dirs/test_2/SS_dpen_Ph/S/ts1/Cf1221
+	5.1 (Ph): cf 1
+	18.1 (Ph): cf 2
+	21.1 (Ph): cf 2
+	23.1.1 (Ph): cf 1
+Cf #2221: /home/deo/pyCHASM/Aaron/test/test_files/make_dirs/test_2/SS_dpen_Ph/S/ts1/Cf2221
+	5.1 (Ph): cf 2
+	18.1 (Ph): cf 2
+	21.1 (Ph): cf 2
+	23.1.1 (Ph): cf 1
+Cf #1112: /home/deo/pyCHASM/Aaron/test/test_files/make_dirs/test_2/SS_dpen_Ph/S/ts1/Cf1112
+	5.1 (Ph): cf 1
+	18.1 (Ph): cf 1
+	21.1 (Ph): cf 1
+	23.1.1 (Ph): cf 2
+Cf #2112: /home/deo/pyCHASM/Aaron/test/test_files/make_dirs/test_2/SS_dpen_Ph/S/ts1/Cf2112
+	5.1 (Ph): cf 2
+	18.1 (Ph): cf 1
+	21.1 (Ph): cf 1
+	23.1.1 (Ph): cf 2
+Cf #1212: /home/deo/pyCHASM/Aaron/test/test_files/make_dirs/test_2/SS_dpen_Ph/S/ts1/Cf1212
+	5.1 (Ph): cf 1
+	18.1 (Ph): cf 2
+	21.1 (Ph): cf 1
+	23.1.1 (Ph): cf 2
+Cf #2212: /home/deo/pyCHASM/Aaron/test/test_files/make_dirs/test_2/SS_dpen_Ph/S/ts1/Cf2212
+	5.1 (Ph): cf 2
+	18.1 (Ph): cf 2
+	21.1 (Ph): cf 1
+	23.1.1 (Ph): cf 2
+Cf #1122: /home/deo/pyCHASM/Aaron/test/test_files/make_dirs/test_2/SS_dpen_Ph/S/ts1/Cf1122
+	5.1 (Ph): cf 1
+	18.1 (Ph): cf 1
+	21.1 (Ph): cf 2
+	23.1.1 (Ph): cf 2
+Cf #2122: /home/deo/pyCHASM/Aaron/test/test_files/make_dirs/test_2/SS_dpen_Ph/S/ts1/Cf2122
+	5.1 (Ph): cf 2
+	18.1 (Ph): cf 1
+	21.1 (Ph): cf 2
+	23.1.1 (Ph): cf 2
+Cf #1222: /home/deo/pyCHASM/Aaron/test/test_files/make_dirs/test_2/SS_dpen_Ph/S/ts1/Cf1222
+	5.1 (Ph): cf 1
+	18.1 (Ph): cf 2
+	21.1 (Ph): cf 2
+	23.1.1 (Ph): cf 2
+Cf #2222: /home/deo/pyCHASM/Aaron/test/test_files/make_dirs/test_2/SS_dpen_Ph/S/ts1/Cf2222
+	5.1 (Ph): cf 2
+	18.1 (Ph): cf 2
+	21.1 (Ph): cf 2
+	23.1.1 (Ph): cf 2
+
+56: /home/deo/Aaron_libs/TS_geoms/asymmetric_hydrogenation/S_BINAP/S/ts3.xyz
+asymmetric_hydrogenation, None, 3
+lig: None
+sub: ('TMEN_Ph', {'18': 'Me', '19': 'Me', '20': 'Me', '21': 'Me', '5': 'Ph'})
+Cf #1: /home/deo/pyCHASM/Aaron/test/test_files/make_dirs/original/TMEN_Ph/S/ts3/Cf1
+	5.1 (Ph): cf 1
+Cf #2: /home/deo/pyCHASM/Aaron/test/test_files/make_dirs/original/TMEN_Ph/S/ts3/Cf2
+	5.1 (Ph): cf 2
+
+57: /home/deo/Aaron_libs/TS_geoms/asymmetric_hydrogenation/S_BINAP/S/ts3.xyz
+asymmetric_hydrogenation, None, 3
+lig: None
+sub: ('SS_dpen_Ph', {'18': 'Ph', '21': 'Ph', '5': 'Ph'})
+Cf #111: /home/deo/pyCHASM/Aaron/test/test_files/make_dirs/original/SS_dpen_Ph/S/ts3/Cf111
+	5.1 (Ph): cf 1
+	18.1 (Ph): cf 1
+	21.1 (Ph): cf 1
+Cf #211: /home/deo/pyCHASM/Aaron/test/test_files/make_dirs/original/SS_dpen_Ph/S/ts3/Cf211
+	5.1 (Ph): cf 2
+	18.1 (Ph): cf 1
+	21.1 (Ph): cf 1
+Cf #121: /home/deo/pyCHASM/Aaron/test/test_files/make_dirs/original/SS_dpen_Ph/S/ts3/Cf121
+	5.1 (Ph): cf 1
+	18.1 (Ph): cf 2
+	21.1 (Ph): cf 1
+Cf #221: /home/deo/pyCHASM/Aaron/test/test_files/make_dirs/original/SS_dpen_Ph/S/ts3/Cf221
+	5.1 (Ph): cf 2
+	18.1 (Ph): cf 2
+	21.1 (Ph): cf 1
+Cf #112: /home/deo/pyCHASM/Aaron/test/test_files/make_dirs/original/SS_dpen_Ph/S/ts3/Cf112
+	5.1 (Ph): cf 1
+	18.1 (Ph): cf 1
+	21.1 (Ph): cf 2
+Cf #212: /home/deo/pyCHASM/Aaron/test/test_files/make_dirs/original/SS_dpen_Ph/S/ts3/Cf212
+	5.1 (Ph): cf 2
+	18.1 (Ph): cf 1
+	21.1 (Ph): cf 2
+Cf #122: /home/deo/pyCHASM/Aaron/test/test_files/make_dirs/original/SS_dpen_Ph/S/ts3/Cf122
+	5.1 (Ph): cf 1
+	18.1 (Ph): cf 2
+	21.1 (Ph): cf 2
+Cf #222: /home/deo/pyCHASM/Aaron/test/test_files/make_dirs/original/SS_dpen_Ph/S/ts3/Cf222
+	5.1 (Ph): cf 2
+	18.1 (Ph): cf 2
+	21.1 (Ph): cf 2
+
+58: /home/deo/Aaron_libs/TS_geoms/asymmetric_hydrogenation/S_BINAP/S/ts3.xyz
+asymmetric_hydrogenation, None, 3
+lig: ('R_binap', {'map': ('R-BINAP', '')})
+sub: None
+Cf #111: /home/deo/pyCHASM/Aaron/test/test_files/make_dirs/R_binap/original/S/ts3/Cf111
+	23.18 (Ph): cf 1
+	3 (CHO): cf 1
+	23.37 (Ph): cf 1
+Cf #211: /home/deo/pyCHASM/Aaron/test/test_files/make_dirs/R_binap/original/S/ts3/Cf211
+	23.18 (Ph): cf 2
+	3 (CHO): cf 1
+	23.37 (Ph): cf 1
+Cf #121: /home/deo/pyCHASM/Aaron/test/test_files/make_dirs/R_binap/original/S/ts3/Cf121
+	23.18 (Ph): cf 1
+	3 (CHO): cf 2
+	23.37 (Ph): cf 1
+Cf #221: /home/deo/pyCHASM/Aaron/test/test_files/make_dirs/R_binap/original/S/ts3/Cf221
+	23.18 (Ph): cf 2
+	3 (CHO): cf 2
+	23.37 (Ph): cf 1
+Cf #112: /home/deo/pyCHASM/Aaron/test/test_files/make_dirs/R_binap/original/S/ts3/Cf112
+	23.18 (Ph): cf 1
+	3 (CHO): cf 1
+	23.37 (Ph): cf 2
+Cf #212: /home/deo/pyCHASM/Aaron/test/test_files/make_dirs/R_binap/original/S/ts3/Cf212
+	23.18 (Ph): cf 2
+	3 (CHO): cf 1
+	23.37 (Ph): cf 2
+Cf #122: /home/deo/pyCHASM/Aaron/test/test_files/make_dirs/R_binap/original/S/ts3/Cf122
+	23.18 (Ph): cf 1
+	3 (CHO): cf 2
+	23.37 (Ph): cf 2
+Cf #222: /home/deo/pyCHASM/Aaron/test/test_files/make_dirs/R_binap/original/S/ts3/Cf222
+	23.18 (Ph): cf 2
+	3 (CHO): cf 2
+	23.37 (Ph): cf 2
+
+59: /home/deo/Aaron_libs/TS_geoms/asymmetric_hydrogenation/S_BINAP/S/ts3.xyz
+asymmetric_hydrogenation, None, 3
+lig: ('R_binap', {'map': ('R-BINAP', '')})
+sub: ('TMEN_Ph', {'18': 'Me', '19': 'Me', '20': 'Me', '21': 'Me', '5': 'Ph'})
+Cf #1: /home/deo/pyCHASM/Aaron/test/test_files/make_dirs/R_binap/TMEN_Ph/S/ts3/Cf1
+	5.1 (Ph): cf 1
+Cf #2: /home/deo/pyCHASM/Aaron/test/test_files/make_dirs/R_binap/TMEN_Ph/S/ts3/Cf2
+	5.1 (Ph): cf 2
+
+60: /home/deo/Aaron_libs/TS_geoms/asymmetric_hydrogenation/S_BINAP/S/ts3.xyz
+asymmetric_hydrogenation, None, 3
+lig: ('R_binap', {'map': ('R-BINAP', '')})
+sub: ('SS_dpen_Ph', {'18': 'Ph', '21': 'Ph', '5': 'Ph'})
+Cf #111: /home/deo/pyCHASM/Aaron/test/test_files/make_dirs/R_binap/SS_dpen_Ph/S/ts3/Cf111
+	5.1 (Ph): cf 1
+	18.1 (Ph): cf 1
+	21.1 (Ph): cf 1
+Cf #211: /home/deo/pyCHASM/Aaron/test/test_files/make_dirs/R_binap/SS_dpen_Ph/S/ts3/Cf211
+	5.1 (Ph): cf 2
+	18.1 (Ph): cf 1
+	21.1 (Ph): cf 1
+Cf #121: /home/deo/pyCHASM/Aaron/test/test_files/make_dirs/R_binap/SS_dpen_Ph/S/ts3/Cf121
+	5.1 (Ph): cf 1
+	18.1 (Ph): cf 2
+	21.1 (Ph): cf 1
+Cf #221: /home/deo/pyCHASM/Aaron/test/test_files/make_dirs/R_binap/SS_dpen_Ph/S/ts3/Cf221
+	5.1 (Ph): cf 2
+	18.1 (Ph): cf 2
+	21.1 (Ph): cf 1
+Cf #112: /home/deo/pyCHASM/Aaron/test/test_files/make_dirs/R_binap/SS_dpen_Ph/S/ts3/Cf112
+	5.1 (Ph): cf 1
+	18.1 (Ph): cf 1
+	21.1 (Ph): cf 2
+Cf #212: /home/deo/pyCHASM/Aaron/test/test_files/make_dirs/R_binap/SS_dpen_Ph/S/ts3/Cf212
+	5.1 (Ph): cf 2
+	18.1 (Ph): cf 1
+	21.1 (Ph): cf 2
+Cf #122: /home/deo/pyCHASM/Aaron/test/test_files/make_dirs/R_binap/SS_dpen_Ph/S/ts3/Cf122
+	5.1 (Ph): cf 1
+	18.1 (Ph): cf 2
+	21.1 (Ph): cf 2
+Cf #222: /home/deo/pyCHASM/Aaron/test/test_files/make_dirs/R_binap/SS_dpen_Ph/S/ts3/Cf222
+	5.1 (Ph): cf 2
+	18.1 (Ph): cf 2
+	21.1 (Ph): cf 2
+
+61: /home/deo/Aaron_libs/TS_geoms/asymmetric_hydrogenation/S_BINAP/S/ts3.xyz
+asymmetric_hydrogenation, None, 3
+lig: ('test_1', {'3': 'Ph'})
+sub: None
+Cf #1: /home/deo/pyCHASM/Aaron/test/test_files/make_dirs/test_1/original/S/ts3/Cf1
+	25.1 (Ph): cf 1
+Cf #2: /home/deo/pyCHASM/Aaron/test/test_files/make_dirs/test_1/original/S/ts3/Cf2
+	25.1 (Ph): cf 2
+
+62: /home/deo/Aaron_libs/TS_geoms/asymmetric_hydrogenation/S_BINAP/S/ts3.xyz
+asymmetric_hydrogenation, None, 3
+lig: ('test_1', {'3': 'Ph'})
+sub: ('TMEN_Ph', {'18': 'Me', '19': 'Me', '20': 'Me', '21': 'Me', '5': 'Ph'})
+Cf #11: /home/deo/pyCHASM/Aaron/test/test_files/make_dirs/test_1/TMEN_Ph/S/ts3/Cf11
+	5.1 (Ph): cf 1
+	25.1 (Ph): cf 1
+Cf #21: /home/deo/pyCHASM/Aaron/test/test_files/make_dirs/test_1/TMEN_Ph/S/ts3/Cf21
+	5.1 (Ph): cf 2
+	25.1 (Ph): cf 1
+Cf #12: /home/deo/pyCHASM/Aaron/test/test_files/make_dirs/test_1/TMEN_Ph/S/ts3/Cf12
+	5.1 (Ph): cf 1
+	25.1 (Ph): cf 2
+Cf #22: /home/deo/pyCHASM/Aaron/test/test_files/make_dirs/test_1/TMEN_Ph/S/ts3/Cf22
+	5.1 (Ph): cf 2
+	25.1 (Ph): cf 2
+
+63: /home/deo/Aaron_libs/TS_geoms/asymmetric_hydrogenation/S_BINAP/S/ts3.xyz
+asymmetric_hydrogenation, None, 3
+lig: ('test_1', {'3': 'Ph'})
+sub: ('SS_dpen_Ph', {'18': 'Ph', '21': 'Ph', '5': 'Ph'})
+Cf #1111: /home/deo/pyCHASM/Aaron/test/test_files/make_dirs/test_1/SS_dpen_Ph/S/ts3/Cf1111
+	5.1 (Ph): cf 1
+	18.1 (Ph): cf 1
+	21.1 (Ph): cf 1
+	25.1 (Ph): cf 1
+Cf #2111: /home/deo/pyCHASM/Aaron/test/test_files/make_dirs/test_1/SS_dpen_Ph/S/ts3/Cf2111
+	5.1 (Ph): cf 2
+	18.1 (Ph): cf 1
+	21.1 (Ph): cf 1
+	25.1 (Ph): cf 1
+Cf #1211: /home/deo/pyCHASM/Aaron/test/test_files/make_dirs/test_1/SS_dpen_Ph/S/ts3/Cf1211
+	5.1 (Ph): cf 1
+	18.1 (Ph): cf 2
+	21.1 (Ph): cf 1
+	25.1 (Ph): cf 1
+Cf #2211: /home/deo/pyCHASM/Aaron/test/test_files/make_dirs/test_1/SS_dpen_Ph/S/ts3/Cf2211
+	5.1 (Ph): cf 2
+	18.1 (Ph): cf 2
+	21.1 (Ph): cf 1
+	25.1 (Ph): cf 1
+Cf #1121: /home/deo/pyCHASM/Aaron/test/test_files/make_dirs/test_1/SS_dpen_Ph/S/ts3/Cf1121
+	5.1 (Ph): cf 1
+	18.1 (Ph): cf 1
+	21.1 (Ph): cf 2
+	25.1 (Ph): cf 1
+Cf #2121: /home/deo/pyCHASM/Aaron/test/test_files/make_dirs/test_1/SS_dpen_Ph/S/ts3/Cf2121
+	5.1 (Ph): cf 2
+	18.1 (Ph): cf 1
+	21.1 (Ph): cf 2
+	25.1 (Ph): cf 1
+Cf #1221: /home/deo/pyCHASM/Aaron/test/test_files/make_dirs/test_1/SS_dpen_Ph/S/ts3/Cf1221
+	5.1 (Ph): cf 1
+	18.1 (Ph): cf 2
+	21.1 (Ph): cf 2
+	25.1 (Ph): cf 1
+Cf #2221: /home/deo/pyCHASM/Aaron/test/test_files/make_dirs/test_1/SS_dpen_Ph/S/ts3/Cf2221
+	5.1 (Ph): cf 2
+	18.1 (Ph): cf 2
+	21.1 (Ph): cf 2
+	25.1 (Ph): cf 1
+Cf #1112: /home/deo/pyCHASM/Aaron/test/test_files/make_dirs/test_1/SS_dpen_Ph/S/ts3/Cf1112
+	5.1 (Ph): cf 1
+	18.1 (Ph): cf 1
+	21.1 (Ph): cf 1
+	25.1 (Ph): cf 2
+Cf #2112: /home/deo/pyCHASM/Aaron/test/test_files/make_dirs/test_1/SS_dpen_Ph/S/ts3/Cf2112
+	5.1 (Ph): cf 2
+	18.1 (Ph): cf 1
+	21.1 (Ph): cf 1
+	25.1 (Ph): cf 2
+Cf #1212: /home/deo/pyCHASM/Aaron/test/test_files/make_dirs/test_1/SS_dpen_Ph/S/ts3/Cf1212
+	5.1 (Ph): cf 1
+	18.1 (Ph): cf 2
+	21.1 (Ph): cf 1
+	25.1 (Ph): cf 2
+Cf #2212: /home/deo/pyCHASM/Aaron/test/test_files/make_dirs/test_1/SS_dpen_Ph/S/ts3/Cf2212
+	5.1 (Ph): cf 2
+	18.1 (Ph): cf 2
+	21.1 (Ph): cf 1
+	25.1 (Ph): cf 2
+Cf #1122: /home/deo/pyCHASM/Aaron/test/test_files/make_dirs/test_1/SS_dpen_Ph/S/ts3/Cf1122
+	5.1 (Ph): cf 1
+	18.1 (Ph): cf 1
+	21.1 (Ph): cf 2
+	25.1 (Ph): cf 2
+Cf #2122: /home/deo/pyCHASM/Aaron/test/test_files/make_dirs/test_1/SS_dpen_Ph/S/ts3/Cf2122
+	5.1 (Ph): cf 2
+	18.1 (Ph): cf 1
+	21.1 (Ph): cf 2
+	25.1 (Ph): cf 2
+Cf #1222: /home/deo/pyCHASM/Aaron/test/test_files/make_dirs/test_1/SS_dpen_Ph/S/ts3/Cf1222
+	5.1 (Ph): cf 1
+	18.1 (Ph): cf 2
+	21.1 (Ph): cf 2
+	25.1 (Ph): cf 2
+Cf #2222: /home/deo/pyCHASM/Aaron/test/test_files/make_dirs/test_1/SS_dpen_Ph/S/ts3/Cf2222
+	5.1 (Ph): cf 2
+	18.1 (Ph): cf 2
+	21.1 (Ph): cf 2
+	25.1 (Ph): cf 2
+
+64: /home/deo/Aaron_libs/TS_geoms/asymmetric_hydrogenation/S_BINAP/S/ts3.xyz
+asymmetric_hydrogenation, None, 3
+lig: ('test_2', {'map': ('R-BINAP', ''), '1': 'Ph'})
+sub: None
+Cf #1: /home/deo/pyCHASM/Aaron/test/test_files/make_dirs/test_2/original/S/ts3/Cf1
+	23.1.1 (Ph): cf 1
+Cf #2: /home/deo/pyCHASM/Aaron/test/test_files/make_dirs/test_2/original/S/ts3/Cf2
+	23.1.1 (Ph): cf 2
+
+65: /home/deo/Aaron_libs/TS_geoms/asymmetric_hydrogenation/S_BINAP/S/ts3.xyz
+asymmetric_hydrogenation, None, 3
+lig: ('test_2', {'map': ('R-BINAP', ''), '1': 'Ph'})
+sub: ('TMEN_Ph', {'18': 'Me', '19': 'Me', '20': 'Me', '21': 'Me', '5': 'Ph'})
+Cf #11: /home/deo/pyCHASM/Aaron/test/test_files/make_dirs/test_2/TMEN_Ph/S/ts3/Cf11
+	5.1 (Ph): cf 1
+	23.1.1 (Ph): cf 1
+Cf #21: /home/deo/pyCHASM/Aaron/test/test_files/make_dirs/test_2/TMEN_Ph/S/ts3/Cf21
+	5.1 (Ph): cf 2
+	23.1.1 (Ph): cf 1
+Cf #12: /home/deo/pyCHASM/Aaron/test/test_files/make_dirs/test_2/TMEN_Ph/S/ts3/Cf12
+	5.1 (Ph): cf 1
+	23.1.1 (Ph): cf 2
+Cf #22: /home/deo/pyCHASM/Aaron/test/test_files/make_dirs/test_2/TMEN_Ph/S/ts3/Cf22
+	5.1 (Ph): cf 2
+	23.1.1 (Ph): cf 2
+
+66: /home/deo/Aaron_libs/TS_geoms/asymmetric_hydrogenation/S_BINAP/S/ts3.xyz
+asymmetric_hydrogenation, None, 3
+lig: ('test_2', {'map': ('R-BINAP', ''), '1': 'Ph'})
+sub: ('SS_dpen_Ph', {'18': 'Ph', '21': 'Ph', '5': 'Ph'})
+Cf #1111: /home/deo/pyCHASM/Aaron/test/test_files/make_dirs/test_2/SS_dpen_Ph/S/ts3/Cf1111
+	5.1 (Ph): cf 1
+	18.1 (Ph): cf 1
+	21.1 (Ph): cf 1
+	23.1.1 (Ph): cf 1
+Cf #2111: /home/deo/pyCHASM/Aaron/test/test_files/make_dirs/test_2/SS_dpen_Ph/S/ts3/Cf2111
+	5.1 (Ph): cf 2
+	18.1 (Ph): cf 1
+	21.1 (Ph): cf 1
+	23.1.1 (Ph): cf 1
+Cf #1211: /home/deo/pyCHASM/Aaron/test/test_files/make_dirs/test_2/SS_dpen_Ph/S/ts3/Cf1211
+	5.1 (Ph): cf 1
+	18.1 (Ph): cf 2
+	21.1 (Ph): cf 1
+	23.1.1 (Ph): cf 1
+Cf #2211: /home/deo/pyCHASM/Aaron/test/test_files/make_dirs/test_2/SS_dpen_Ph/S/ts3/Cf2211
+	5.1 (Ph): cf 2
+	18.1 (Ph): cf 2
+	21.1 (Ph): cf 1
+	23.1.1 (Ph): cf 1
+Cf #1121: /home/deo/pyCHASM/Aaron/test/test_files/make_dirs/test_2/SS_dpen_Ph/S/ts3/Cf1121
+	5.1 (Ph): cf 1
+	18.1 (Ph): cf 1
+	21.1 (Ph): cf 2
+	23.1.1 (Ph): cf 1
+Cf #2121: /home/deo/pyCHASM/Aaron/test/test_files/make_dirs/test_2/SS_dpen_Ph/S/ts3/Cf2121
+	5.1 (Ph): cf 2
+	18.1 (Ph): cf 1
+	21.1 (Ph): cf 2
+	23.1.1 (Ph): cf 1
+Cf #1221: /home/deo/pyCHASM/Aaron/test/test_files/make_dirs/test_2/SS_dpen_Ph/S/ts3/Cf1221
+	5.1 (Ph): cf 1
+	18.1 (Ph): cf 2
+	21.1 (Ph): cf 2
+	23.1.1 (Ph): cf 1
+Cf #2221: /home/deo/pyCHASM/Aaron/test/test_files/make_dirs/test_2/SS_dpen_Ph/S/ts3/Cf2221
+	5.1 (Ph): cf 2
+	18.1 (Ph): cf 2
+	21.1 (Ph): cf 2
+	23.1.1 (Ph): cf 1
+Cf #1112: /home/deo/pyCHASM/Aaron/test/test_files/make_dirs/test_2/SS_dpen_Ph/S/ts3/Cf1112
+	5.1 (Ph): cf 1
+	18.1 (Ph): cf 1
+	21.1 (Ph): cf 1
+	23.1.1 (Ph): cf 2
+Cf #2112: /home/deo/pyCHASM/Aaron/test/test_files/make_dirs/test_2/SS_dpen_Ph/S/ts3/Cf2112
+	5.1 (Ph): cf 2
+	18.1 (Ph): cf 1
+	21.1 (Ph): cf 1
+	23.1.1 (Ph): cf 2
+Cf #1212: /home/deo/pyCHASM/Aaron/test/test_files/make_dirs/test_2/SS_dpen_Ph/S/ts3/Cf1212
+	5.1 (Ph): cf 1
+	18.1 (Ph): cf 2
+	21.1 (Ph): cf 1
+	23.1.1 (Ph): cf 2
+Cf #2212: /home/deo/pyCHASM/Aaron/test/test_files/make_dirs/test_2/SS_dpen_Ph/S/ts3/Cf2212
+	5.1 (Ph): cf 2
+	18.1 (Ph): cf 2
+	21.1 (Ph): cf 1
+	23.1.1 (Ph): cf 2
+Cf #1122: /home/deo/pyCHASM/Aaron/test/test_files/make_dirs/test_2/SS_dpen_Ph/S/ts3/Cf1122
+	5.1 (Ph): cf 1
+	18.1 (Ph): cf 1
+	21.1 (Ph): cf 2
+	23.1.1 (Ph): cf 2
+Cf #2122: /home/deo/pyCHASM/Aaron/test/test_files/make_dirs/test_2/SS_dpen_Ph/S/ts3/Cf2122
+	5.1 (Ph): cf 2
+	18.1 (Ph): cf 1
+	21.1 (Ph): cf 2
+	23.1.1 (Ph): cf 2
+Cf #1222: /home/deo/pyCHASM/Aaron/test/test_files/make_dirs/test_2/SS_dpen_Ph/S/ts3/Cf1222
+	5.1 (Ph): cf 1
+	18.1 (Ph): cf 2
+	21.1 (Ph): cf 2
+	23.1.1 (Ph): cf 2
+Cf #2222: /home/deo/pyCHASM/Aaron/test/test_files/make_dirs/test_2/SS_dpen_Ph/S/ts3/Cf2222
+	5.1 (Ph): cf 2
+	18.1 (Ph): cf 2
+	21.1 (Ph): cf 2
+	23.1.1 (Ph): cf 2
+

@@ -1,0 +1,19 @@
+custom=Intel
+wall=36
+reaction_type=asymmetric_hydrogenation
+template=S_BINAP
+selectivity=R;S
+solvent_model=smd
+solvent=2-propanol
+method=wb97xd
+denfit=0
+basis=C H O P N 6-31G*
+basis=Ru SDD
+ecp=Ru SDD
+charge=0
+&Ligands
+S_binap: none
+&
+&Substrates
+TMEN_Ph: 18=Me 19=Me 20=Me 21=Me 5=Ph
+&
