@@ -1,8 +1,11 @@
 import glob
+import hashlib
 import json
 import os
 import re
 from copy import copy
+
+from fabric.connection import Connection
 
 import Aaron.json_extension as json_ext
 from AaronTools.catalyst import Catalyst
@@ -106,16 +109,32 @@ class CatalystMetaData:
             basename += "{}.".format(self.selectivity)
         basename += "ts{}.".format(self.ts_number)
         if conf_spec is None:
-            conf_spec = self._get_cf_dir_num()
+            conf_spec = self._get_cf_num()
         basename += "cf{}".format(conf_spec)
         return basename
 
-    def get_relative_path(self):
+    def get_cf_dir(self, conf_spec=None):
+        """
+        Get SHA-256 hash of conformer number, convert to base-10, and return
+        the first three digits as a string. This limits the number of sub-
+        directories to 1,000, so we won't accidentally hit the OS limit on
+        number of subdirectories or cause unnecessary performance issues with
+        shell commands or completion.
+
+        Returns: str(3-digit integer)
+        """
+        rv = self._get_cf_num(conf_spec=conf_spec)
+        rv = hashlib.sha256(bytes(rv, "utf-8")).hexdigest()
+        rv = str(int(rv, base=16))[:3]
+        return rv
+
+    def get_relative_path(self, conf_spec=None):
         cat_change = os.path.join(
             self.ligand_change[0], self.substrate_change[0]
         )
-        rv = self.ts_directory.split(cat_change)[-1][1:]
-        return os.path.join(cat_change, rv)
+        ts = self.ts_directory.split(cat_change)[-1][1:]
+        cf = self.get_cf_dir(conf_spec)
+        return os.path.join(cat_change, ts, cf)
 
     def get_catalyst_name(self, conf_spec=None):
         """
@@ -123,10 +142,10 @@ class CatalystMetaData:
             associated with self.catalyst if None
         """
         basename = self.get_basename(conf_spec)
-        cf_dir = "cf{}".format(self._get_cf_dir_num(conf_spec))
+        cf_dir = self.get_cf_dir(conf_spec)
         return os.path.join(self.ts_directory, cf_dir, basename)
 
-    def _get_cf_dir_num(self, conf_spec=None):
+    def _get_cf_num(self, conf_spec=None):
         """
         :conf_spec: the Catalyst().conf_spec dictionary, uses the one
             associated with self.catalyst if None
@@ -178,6 +197,7 @@ class CatalystMetaData:
                     for lig in self.catalyst.components["ligand"]:
                         old_keys += list(lig.key_atoms)
                 new_lig = self.load_lib_ligand(name)
+                new_lig.tag("changed")
                 self.catalyst.map_ligand(new_lig, old_keys)
             # substitutions
             for atom, sub in change.items():
@@ -198,7 +218,8 @@ class CatalystMetaData:
                         ]
                     )
                     atom = str(int(atom) + n_before_lig)
-                self.catalyst.substitute(sub, atom)
+                sub = self.catalyst.substitute(sub, atom)
+                sub.tag("changed")
                 requested_changes += [atom + ".1"]
         return requested_changes
 
@@ -209,7 +230,8 @@ class CatalystMetaData:
             # substitutions
             for atom, sub in change.items():
                 requested_changes += [atom + ".1"]
-                self.catalyst.substitute(sub, atom)
+                sub = self.catalyst.substitute(sub, atom)
+                sub.tag("changed")
         return requested_changes
 
     def generate_structure(self, old_aaron=False):
@@ -273,9 +295,7 @@ class CatalystMetaData:
                 for key in self.catalyst.conf_spec:
                     sub = self.catalyst.find_substituent(key)
                     print(key, sub.name, sub.atoms[0].name)
-        self.catalyst.name = os.path.join(
-            self.ts_directory, self.get_basename()
-        )
+        self.catalyst.name = self.get_catalyst_name()
         return self.catalyst
 
     def _get_log_names(self, top_dir=None, old_aaron=False):
@@ -428,9 +448,8 @@ class Reaction:
             self.con_thresh = params["con_thresh"]
         if "top_dir" in params:
             self.top_dir = params["top_dir"]
-
-    def set_up(self, top_dir=None):
-        self.make_directories(top_dir)
+            if os.path.isfile(self.top_dir):
+                self.top_dir = os.path.dirname(self.top_dir)
 
     def get_templates(self):
         """
@@ -474,13 +493,15 @@ class Reaction:
                         templates += [(path, d, f)]
         self.template_XYZ = templates
 
-    def generate_structure_data(self):
+    def generate_structure_data(self, top_dir=None):
         """
         Generates catalyst metadata for requested mapping/substitution
         combinations. See CatalystMetaData for data structure info
 
         Sets self.catalyst_data = [CatalystMetaData(), ...]
         """
+        if top_dir is None:
+            top_dir = self.top_dir
         self.catalyst_data = []
         if not self.template_XYZ:
             self.get_templates()
@@ -563,58 +584,26 @@ class Reaction:
             else:
                 self.by_sub_change[cat.substrate_change[0]] = [cat]
 
-    def make_directories(self, top_dir=None):
-        """
-        :top_dir:   the directory in which to put generated directories
-        """
-        if top_dir is None:
-            top_dir = self.top_dir
-        if os.path.isfile(top_dir):
-            top_dir = os.path.dirname(os.path.abspath(top_dir))
-        if not os.access(top_dir, os.W_OK):
-            try:
-                os.makedirs(top_dir)
-            except OSError:
-                msg = "Directory write permission denied:\n  {}"
-                raise OSError(msg.format(top_dir))
-        self.top_dir = top_dir
-
-        if not self.catalyst_data:
-            self.generate_structure_data()
-        for cat_data in self.catalyst_data:
             # generate child directory name
-            lig_str = cat_data.ligand_change[0]
-            sub_str = cat_data.substrate_change[0]
+            lig_str = cat.ligand_change[0]
+            sub_str = cat.substrate_change[0]
             # child_dir is top/lig_spec/sub_spec...
             child_dir = os.path.join(top_dir, lig_str, sub_str)
             # ...[/selectivity]...
-            if cat_data.selectivity:
-                child_dir = os.path.join(child_dir, cat_data.selectivity)
+            if cat.selectivity:
+                child_dir = os.path.join(child_dir, cat.selectivity)
             # .../ts#
-            dir_up, tname = os.path.split(cat_data.template_file)
+            dir_up, tname = os.path.split(cat.template_file)
             dir_up = os.path.basename(dir_up)
             tname = os.path.splitext(tname)[0]
             if tname.lower().startswith("ts"):
                 # template files are ts structures
                 child_dir = os.path.join(child_dir, tname)
-                try:
-                    os.makedirs(child_dir, mode=0o755)
-                except FileExistsError:
-                    pass
-                cat_data.ts_number = int(tname[2:])
             elif dir_up.lower().startswith("ts"):
                 # template files are conformer structures within ts directory
                 child_dir = os.path.join(child_dir, dir_up)
-                try:
-                    os.makedirs(child_dir, mode=0o755)
-                except FileExistsError:
-                    pass
-                cat_data.ts_number = int(dir_up[2:])
-            cat_data.ts_directory = child_dir
-            try:
-                os.makedirs(os.path.join(child_dir, "json"))
-            except FileExistsError:
-                pass
+                cat.ts_number = int(dir_up[2:])
+            cat.ts_directory = child_dir
 
     def make_conformers(self, top_dir=None, old_aaron=False):
         # generate structure data and make directories
@@ -692,17 +681,30 @@ class Reaction:
 
 class ClusterOpts:
     """
-    Attributes:
-        queue_type
-        n_procs     number of processors for steps2-5
-        wall        walltime in hours for steps2-5
-        short_procs number of cores for step1
-        short_wall  walltime in hours for step1
+    :qcmd:          command to submit job
+    :qcmd_regex:    regex to get job ID from output of :qcmd:
+    :top_dir:       local directory to store files
+    :host:          cluster host (where to submit jobs)
+    :transfer_host: host to use to transfer files (defaults to :host:)
+    :remote_dir:    directory to store computation files
+    :queue_type:    queuing software used by cluster
+    :queue:         name of queue to submit to
+    :n_procs:       number of cores for default jobs
+    :short_procs:   number of cores for low jobs
+    :wall:          wall time for default jobs
+    :short_wall:    number of cores for low jobs
+    :n_nodes:       number of nodes for default jobs
+    :short_nodes:   number of nodes for low jobs
+    :memory:        memory requested (can be function)
+    :exec_memory:   memory requested for computation (can be function)
     """
 
     def __init__(self, params=None):
+        self.qcmd = ""
+        self.qcmd_regex = ""
         self.top_dir = None
         self.host = None
+        self.transfer_host = None
         self.remote_dir = None
         self.queue_type = None
         self.queue = None
@@ -717,9 +719,19 @@ class ClusterOpts:
         if params is None:
             return
 
+        if "qcmd" in params:
+            self.qcmd = params["qcmd"]
+        if "qcmd_regex" in params:
+            self.qcmd_regex = params["qcmd_regex"]
         if "remote_dir" in params:
             self.remote_dir = params["remote_dir"]
             self.host = params["host"]
+            if "transfer_host" in params:
+                self.transfer_host = params["transfer_host"]
+            else:
+                self.transfer_host = self.host
+        if "top_dir" in params:
+            self.top_dir = params["top_dir"]
 
         self.queue_type = params["queue_type"]
         self.queue = params["queue"]
@@ -735,15 +747,9 @@ class ClusterOpts:
         if "n_nodes" in params:
             self.n_nodes = params["n_nodes"]
         if "memory" in params:
-            memory = params["memory"]
-            if "$" in memory:
-                memory = self._parse_function(memory, params, as_int=True)
-            self.memory = memory
+            self.memory = params["memory"]
         if "exec_memory" in params:
-            memory = params["exec_memory"]
-            if "{" in memory:
-                memory = self._parse_function(memory, params, as_int=True)
-            self.exec_memory = memory
+            self.exec_memory = params["exec_memory"]
 
     def _parse_function(self, func, params, as_int=False):
         original = func

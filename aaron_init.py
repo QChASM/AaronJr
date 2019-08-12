@@ -1,4 +1,5 @@
 import argparse
+import os
 
 from Aaron.options import ClusterOpts, Reaction, Theory
 from AaronTools.const import HOME, QCHASM
@@ -19,11 +20,11 @@ class AaronInit:
         self.args = args
 
         self.params = self.read_aaron_input(infile)
+        if "top_dir" not in self.params:
+            self.params["top_dir"] = os.path.dirname(os.path.abspath(infile))
         self.cluster_opts = ClusterOpts(self.params)
         self.theory = Theory(self.params)
         self.theory = Theory.by_step[0.0]
-        if "top_dir" not in self.params:
-            self.params["top_dir"] = infile
         self.reaction = Reaction(self.params)
 
         if "gen" in self.params:

@@ -3,8 +3,7 @@ import os
 
 import Aaron.job as job
 import Aaron.options as options
-from AaronTools.json_extension import JSONDecoder as ATDecoder
-from AaronTools.json_extension import JSONEncoder as ATEncoder
+from AaronTools.json_extension import ATDecoder, ATEncoder
 
 
 class JSONEncoder(json.JSONEncoder):
