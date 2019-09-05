@@ -1,45 +1,29 @@
 import glob
 import json
 import os
-import re
-import subprocess
+import pickle
 import warnings
 
 import numpy as np
 from fabric.connection import Connection
-from fireworks import Firework, LaunchPad, PyTask, TemplateWriterTask
-from jinja2 import Template
+from fireworks import Firework, LaunchPad, Workflow
+from fireworks.core.rocket_launcher import launch_rocket, rapidfire
+from invoke.exceptions import UnexpectedExit
 
 import Aaron.json_extension as json_ext
+from Aaron.firetasks import workflow
+from AaronTools.comp_output import CompOutput
 from AaronTools.const import AARONLIB
 
 warnings.filterwarnings("ignore", message=".*EllipticCurve.*")
-
-
-def qsub(cmd, regex, host=None):
-    if host is not None:
-        with Connection(host) as c:
-            result = c.run(cmd)
-    else:
-        result = subprocess.run(cmd)
-    return re.search(regex, result.stdout, re.M).group(1), result.stderr
-
-
-def remote_run(host, cmd):
-    with Connection(host) as c:
-        result = c.run(cmd)
-    return result.stdout, result.stderr
-
-
-def remote_put(host, source, target):
-    with Connection(host) as c:
-        c.put(source, remote=target)
+warnings.filterwarnings("ignore", module=".*queue.*")
+LAUNCHPAD = LaunchPad.auto_load()
 
 
 class Job:
     """
     Attributes
-    :cluster_opts:
+    :theory:
     :catalyst_data: CatalystMetaData() associated with ts structure
     :catalyst:      Catalyst() of the current conformer
     :name:          str with the full path and base name (without 3.log, etc)
@@ -57,7 +41,7 @@ class Job:
     status_stop = ["done", "skipped", "failed", "repeat"]
 
     @classmethod
-    def update_json(cls, fname):
+    def update_json(cls, fname="jobs.json"):
         """
         updates json tracking of all jobs
         """
@@ -65,7 +49,7 @@ class Job:
             json.dump(cls.all_jobs, f, cls=json_ext.JSONEncoder, indent=2)
 
     @classmethod
-    def read_json(cls, fname):
+    def read_json(cls, fname="jobs.json"):
         """
         loads all_jobs from json
         """
@@ -75,19 +59,17 @@ class Job:
         except (FileNotFoundError, OSError):
             pass
 
-    def __init__(
-        self, catalyst_data, theory, cluster_opts, step=None, overwrite=False
-    ):
+    def __init__(self, catalyst_data, theory, step=None, overwrite=False):
+        self.wf = None
         self.catalyst_data = catalyst_data
         if self.catalyst_data.catalyst is None:
             self.catalyst_data.generate_structure()
         self.theory = theory
-        self.cluster_opts = cluster_opts
 
         job_key = self.catalyst_data.get_basename()
         if not overwrite and job_key in Job.all_jobs:
             for key, val in Job.all_jobs[job_key].__dict__.items():
-                if key in ["catalyst_data", "theory", "cluster_opts"]:
+                if key in ["catalyst_data", "theory"]:
                     continue
                 self.__dict__[key] = val
             Job.all_jobs[job_key] = self
@@ -103,8 +85,73 @@ class Job:
         self.conv_attempt = 1
         self.status = "start"
         self.msg = []
+        self.other = {}
 
         Job.all_jobs[self.catalyst_data.get_basename()] = self
+
+    # private utilities
+    def _step(self, step=None):
+        if step is None:
+            step = self.step
+        if int(step) == step:
+            return int(step)
+        return step
+
+    def _step_list(self):
+        rv = sorted(
+            list(self.theory.by_step.keys())
+            + [
+                float(i)
+                for i in range(1, 5)
+                if float(i) not in self.theory.by_step.keys()
+            ]
+        )
+        return rv
+
+    def _get_submit_dir(self, step=None):
+        theory = self.get_theory(step)
+        submit_dir = os.path.join(
+            theory.top_dir, self.catalyst_data.get_relative_path()
+        )
+        if theory.remote_dir:
+            submit_dir = os.path.join(
+                theory.remote_dir, self.catalyst_data.get_relative_path()
+            )
+        return submit_dir
+
+    def _get_local_dir(self, step=None):
+        return os.path.join(
+            self.get_theory().top_dir, self.catalyst_data.get_relative_path()
+        )
+
+    def _revert_to_step_2(self, update_geometry=False, update_from=None):
+        if self.cycle >= Job.MAX_CYCLE:
+            self.status = "killed"
+            self.msg += ["WARN: Too many cycles, job killed"]
+        else:
+            self.cycle += 1
+            self.attempt = 1
+            self.msg += ["Reverting to step 2"]
+            self.revert(
+                step=2,
+                update_geometry=update_geometry,
+                update_from=update_from,
+            )
+            self.write()
+
+    # utilities
+    def basename_with_step(self, step=None):
+        return "{}.{}".format(
+            self.catalyst_data.get_basename(), self._step(step)
+        )
+
+    def get_dirs(self, step=None):
+        submit_dir = self._get_submit_dir(step)
+        local_dir = submit_dir
+        theory = self.get_theory(step)
+        if theory.remote_dir:
+            local_dir = self._get_local_dir(step)
+        return submit_dir, local_dir
 
     def get_theory(self, step=None):
         """
@@ -114,9 +161,167 @@ class Job:
         """
         if step is None:
             return self.theory.get_step(self.step)
-        else:
-            return self.theory.get_step(step)
+        return self.theory.get_step(step)
 
+    def write(self, style="com", step=None, **kwargs):
+        """
+        Writes the job's current geometry to a file.
+        """
+        if step is None:
+            step = self.step
+        theory = self.get_theory()
+        kwargs["fname"] = os.path.join(
+            self._get_submit_dir(), self.basename_with_step()
+        )
+        self.catalyst_data.catalyst.write(
+            style=style, step=step, theory=theory, **kwargs
+        )
+
+    def examine_reaction(self, update_from="log"):
+        """
+        Determines if constrained atoms are too close/ too far apart. If so,
+        fixes the issue and restarts from step 2 with the adjusted structure
+
+        Returns:
+            True if constraints are all fine, false otherwise
+        """
+        cat = self.catalyst_data.catalyst
+        # examine constraints
+        result = cat.examine_constraints()
+        if not result:
+            return True
+        # fix geometry
+        if update_from == "log":
+            update_from = cat.name + ".2.log"
+        elif update_from == "xyz":
+            update_from = cat.name + ".2.xyz"
+        cat.update_geometry(update_from)
+        bad_con = set([])
+        msg = (
+            "{}: Bad distances in reaction center detected, "
+            "updating structure\n".format(self.basename_with_step())
+        )
+        for i, j, d in result:
+            bad_con.add((i, j, d))
+            d *= 0.1
+            cat.change_distance(
+                cat.atoms[i], cat.atoms[j], dist=d, adjust=True
+            )
+            msg += "...Adjusting distance of {}-{} bond by {} A\n".format(
+                i + 1, j + 1, d
+            )
+        self.msg += [msg[:-1]]
+        # restart from step 2
+        self._revert_to_step_2(update_geometry=False)
+        return False
+
+    def examine_connectivity(self, log):
+        com = os.path.join(
+            self.get_theory(2).top_dir,
+            self.catalyst_data.get_relative_path(),
+            "{}.2.com".format(self.catalyst_data.get_basename()),
+        )
+        formed, broken = log.geometry.compare_connectivity(com)
+        if not formed and not broken:
+            return True
+        self.update_geometry(update_from=com)
+        catalyst = self.catalyst_data.catalyst
+        if "original_constraints" not in self.other:
+            self.other["original_constraints"] = catalyst.get_constraints()
+        for i, j in formed.union(broken):
+            a = catalyst.find_exact(i)[0]
+            b = catalyst.find_exact(j)[0]
+            a.constraint.add(b, a.dist(b))
+            b.constraint.add(a, b.dist(a))
+        self._revert_to_step_2(update_geometry=False)
+        return False
+
+    def remove_after(self, step):
+        for fname in glob.glob(self.catalyst_data.catalyst.name + ".*"):
+            fsplit = fname.split(".")
+            if fsplit[-1] not in ["com", "job", "log"]:
+                continue
+            ftype = fsplit.pop()
+            fstep = fsplit.pop()
+            tmp = fsplit.pop()
+            if not tmp.startswith("cf") and tmp.isnumeric():
+                fstep = tmp + "." + fstep
+            fstep = float(fstep)
+
+            if fstep >= step and ftype == "log":
+                os.rename(fname, fname + ".bkp")
+            elif fstep >= step:
+                os.remove(fname)
+
+    def remote_run(self, cmd, hide=None):
+        host = self.get_theory().host
+        with Connection(host) as c:
+            result = c.run(cmd, hide=hide)
+        return result.stdout, result.stderr
+
+    def remote_put(self, source, target):
+        host = self.get_theory().transfer_host
+        with Connection(host) as c:
+            c.put(source, remote=target)
+
+    def remote_get(self, source, target):
+        host = self.get_theory().transfer_host
+        with Connection(host) as c:
+            c.get(source, target)
+        return target
+
+    def get_spec(self, step=None):
+        """
+        Generates spec dict for storing in FW or for lookup
+        """
+        if step is None:
+            step = self.step
+        rv = {"step": step}
+        theory = self.get_theory(step)
+        cat_data = self.catalyst_data
+        for key, val in theory.__dict__.items():
+            if not val:
+                continue
+            if key in [
+                "top_dir",
+                "host",
+                "transfer_host",
+                "remote_dir",
+                "queue_type",
+                "queue",
+                "params",
+            ]:
+                continue
+            if key == "basis":
+                tmp = {}
+                for element in [a.element for a in cat_data.catalyst.atoms]:
+                    tmp[element] = val[element]
+                val = tmp
+            if isinstance(val, str) and "{" in val:
+                val = theory.parse_function(val, theory.params, as_int=True)
+            rv[key] = val
+
+        for key, val in cat_data.__dict__.items():
+            if key in ["catalyst_change", "ts_directory"]:
+                continue
+            if key == "template_file":
+                if AARONLIB in val:
+                    val = os.path.relpath(val, start=AARONLIB)
+                    val = os.path.join("$AARONLIB", val)
+            rv[key] = val
+        return rv
+
+    def next_step(self):
+        """
+        Returns the next step greater than the current step in user-defined steps
+        and steps 1-4
+        """
+        for step in self._step_list():
+            if step <= self.step:
+                continue
+            return int(step) if int(step) == step else step
+
+    # error handling
     def fix_convergence_error(self, error_code, progress):
         """
         Determines what should be done for a geometry convergence error, and
@@ -143,7 +348,7 @@ class Job:
         # clean up old stuff
         if error_code != "CALDSU" and "INDO" in guess:
             del guess["INDO"]
-        if progress.count("YES") != 3 and "nolinear" in opt:
+        if progress.count(True) != 3 and "nolinear" in opt:
             del opt["nolinear"]
 
         # make changes
@@ -159,7 +364,7 @@ class Job:
                 if "INDO" not in guess:
                     guess["INDO"] = ""
                     change_maxstep = False
-            elif progress.count("YES") == 3:
+            elif progress.count(True) == 3:
                 if "nolinear" not in opt:
                     opt["nolinear"] = ""
                     change_maxstep = False
@@ -186,10 +391,8 @@ class Job:
             if "guess" in route_kwargs:
                 del route_kwargs["guess"]
             route_kwargs["opt"] = {"maxstep": 15}
-            return False
         elif self.status == "failed":
             self.get_theory().route_kwargs = {}
-            return False
         else:
             if opt:
                 route_kwargs["opt"] = opt
@@ -205,7 +408,7 @@ class Job:
         self.conv_attempt += 1
         return True
 
-    def fix_error(self, error_code, progress):
+    def fix_error(self, log):
         """
         Handles errors classified by error_code. Determines changes to
         route_kwargs and whether a job should be restarted, reverted to
@@ -219,6 +422,8 @@ class Job:
         """
         theory = self.get_theory()
         route_kwargs = theory.route_kwargs
+        error_code = log.error
+        progress = [v["converged"] for v in log.gradient.values()]
         # clean route_kwargs
         try:
             del route_kwargs["scf"]["xqc"]
@@ -254,7 +459,7 @@ class Job:
                 self.revert(step=2)
             elif self.status == "revert":
                 self.msg += [msg + " Too many cycles, skipping."]
-                self.status == "failed"
+                self.status = "failed"
             else:
                 self.msg += [msg + " Too many attempts, skipping."]
             return
@@ -297,15 +502,30 @@ class Job:
 
         # problem with checkpoint file
         if error_code == "CHK":
-            fname = self.catalyst_data.get_catalyst_name() + ".{}.chk".format(
-                self.step
+            fname = os.path.join(
+                self.catalyst_data.get_relative_path(),
+                "{}.chk".format(self.basename_with_step()),
             )
-            if os.path.isfile(fname):
+            found = False
+            if theory.remote_dir:
+                fname = os.path.join(theory.remote_dir, fname)
+                try:
+                    self.remote_run("ls {}".format(fname), hide="both")
+                    found = True
+                except UnexpectedExit:
+                    pass
+            else:
+                fname = os.path.join(theory.top_dir, fname)
+                found = os.path.isfile(fname)
+            if found:
                 # corrupted checkpoint file
                 self.msg += [
                     "Problem with checkpoint file, recalculating force constants."
                 ]
-                os.remove(fname)
+                if theory.remote_dir:
+                    self.remote_run("rm -f {}".format(fname), hide="out")
+                else:
+                    os.remove(fname)
                 if "opt" in route_kwargs:
                     if "readfc" in route_kwargs["opt"]:
                         del route_kwargs["opt"]["readfc"]
@@ -351,7 +571,7 @@ class Job:
             self.msg += ["Error imposing constraints. Attempting to fix."]
             self.update_geometry()
             cat = self.catalyst_data.catalyst
-            for i, j, dist in cat.get_constraints():
+            for i, j, _ in cat.get_constraints():
                 cat.atoms[i].coords = np.round(cat.atoms[i].coords, 4)
                 cat.atoms[j].coords = np.round(cat.atoms[j].coords, 4)
             self.attempt += 1
@@ -386,60 +606,20 @@ class Job:
                 "Node(s) out of memory. Increase memory requested in Aaron input file"
             )
 
-    def examine_reaction(self, update_from="log"):
-        """
-        Determines if constrained atoms are too close/ too far apart. If so,
-        fixes the issue and restarts from step 2 with the adjusted structure
-
-        Returns:
-            None if constraints are all fine
-            set(tuple(atom1, atom2, flag)) if bad constraints detected
-        """
-        cat = self.catalyst_data.catalyst
-        # examine constraints
-        result = cat.examine_constraints()
-        if len(result) == 0:
-            return None
-        # fix geometry
-        if update_from == "log":
-            cat.update_geometry(cat.name + ".2.log")
-        elif update_from == "xyz":
-            cat.update_geometry(cat.name + ".2.xyz")
-        rv = set([])
-        msg = (
-            "{}: Bad distances in reaction center detected, "
-            "updating structure\n".format(self.catalyst_data.get_basename())
-        )
-        for i, j, d in result:
-            rv.add((i, j, d))
-            d *= 0.1
-            cat.change_distance(
-                cat.atoms[i], cat.atoms[j], dist=d, adjust=True
-            )
-            msg += "...Adjusting distance of {}-{} bond by {} A\n".format(
-                i + 1, j + 1, d
-            )
-        self.msg += [msg[:-1]]
-        # restart from step 2
-        if self.cycle >= Job.MAX_CYCLE:
-            self.status = "killed"
-            self.msg += ["WARN: Too many cycles, job killed"]
-        else:
-            self.cycle += 1
-            self.attempt = 1
-            self.msg += ["Reverting to step 2"]
-            self.revert(step=2)
-        return rv
-
+    # workflow and updates
     def update_geometry(self, update_from=None):
         cat = self.catalyst_data.catalyst
         if update_from is None:
-            fname = cat.name + ".{}.log".format(self.step)
-        else:
-            fname = update_from
+            update_from = cat.name + ".{}.log".format(self._step)
+        elif isinstance(update_from, CompOutput):
+            update_from = update_from.geometry
         try:
-            cat.update_geometry(fname)
+            cat.update_geometry(update_from)
         except (RuntimeError, FileNotFoundError) as err:
+            if isinstance(update_from, str):
+                fname = update_from
+            else:
+                fname = update_from.name
             self.msg += [
                 "WARN: Cannot update geometry from {} ({}). Keeping current"
                 " geometry as-is".format(os.path.basename(fname), err)
@@ -448,6 +628,7 @@ class Job:
     def revert(self, step, update_geometry=True, update_from=None):
         if update_geometry:
             self.update_geometry(update_from)
+            self.write()
         self.step = step
         self.remove_after(step)
         self.status = "2submit"
@@ -459,158 +640,115 @@ class Job:
         self.write()
         self.status = "2submit"
 
-    def remove_after(self, step):
-        for fname in glob.glob(self.catalyst_data.catalyst.name + ".*"):
-            fsplit = fname.split(".")
-            if fsplit[-1] not in ["com", "job", "log"]:
-                continue
-            ftype = fsplit.pop()
-            fstep = fsplit.pop()
-            tmp = fsplit.pop()
-            if not tmp.startswith("cf") and tmp.isnumeric():
-                fstep = tmp + "." + fstep
-            fstep = float(fstep)
-
-            if fstep >= step and ftype == "log":
-                os.rename(fname, fname + ".bkp")
-            elif fstep >= step:
-                os.remove(fname)
-
-    def write(self, style="com", step=None, **kwargs):
-        """
-        Writes the job's current geometry to a file.
-        """
+    def find_fw_ids(self, step=None):
         if step is None:
             step = self.step
-        self.catalyst_data.catalyst.write(
-            style=style, step=step, theory=self.theory, **kwargs
-        )
+        spec_query = {"name": self.basename_with_step(step)}
+        for key, val in self.get_spec(step).items():
+            if key in ["status", "catalyst"]:
+                continue
+            spec_query["spec." + key] = val
+        rv = LAUNCHPAD.get_fw_ids(query=spec_query)
+        return rv
 
-    def submit(self, step=None, **kwargs):
+    def check_status(self):
+        """
+        Finds current fw with latest step for this job
+        """
+        fw = None
+        for step in self._step_list():
+            if step < self.step:
+                continue
+            submit_dir, local_dir = self.get_dirs(step)
+            if not os.access(local_dir, os.W_OK):
+                os.makedirs(local_dir)
+            if self.get_theory(step).remote_dir:
+                try:
+                    # get com then log,
+                    # in case still queued, will fail after com has been got
+                    com = "{}.com".format(self.basename_with_step(step))
+                    log = "{}.log".format(self.basename_with_step(step))
+                    self.remote_get(
+                        os.path.join(submit_dir, com),
+                        os.path.join(local_dir, com),
+                    )
+                    self.remote_get(
+                        os.path.join(submit_dir, log),
+                        os.path.join(local_dir, log),
+                    )
+                except FileNotFoundError:
+                    pass
+            try:
+                rv = self.find_fw_ids(step)
+            except IndexError:
+                # if we are here, fw has same value as before try block
+                break
+            for fw_id in rv:
+                fw = LAUNCHPAD.get_fw_by_id(fw_id)
+                if fw.state == "DEFUSED":
+                    fw = None
+                    continue
+                break
+        if fw:
+            self.step = fw.spec["step"]
+            self.wf = LAUNCHPAD.get_wf_by_fw_id(fw.fw_id)
+        if fw and fw.state == "FIZZLED":
+            raise RuntimeError(
+                "Issue running job. Please check executable and qadapter templates for errors."
+            )
+        return fw
+
+    def submit(self, parent_fw_id=None, step=None, **kwargs):
+        """
+        Submits job and starts monitoring. Jobs for new steps appended to Job.wf
+
+        :parent_fw_id: the fw_id for the parent step (default: last fw in the workflow)
+        :step: the step to do (default: self.step)
+
+        **kwargs: for passing extra route_kwargs
+        """
         self.status = "pending"
-        if step is not None:
-            self.step = step
-        catalyst = self.catalyst_data.catalyst
-        # freeze/relax everything but substitutions for step 1
-        if int(self.step) == 1:
-            skip_step1 = True
-            catalyst.freeze()
-            # relax substitutions
-            for atom in catalyst.atoms:
-                if "changed" in atom.tags:
-                    catalyst.relax(atom)
-                    skip_step1 = False
-        # if no substitutions were made, we can go straight to step 2
-        if skip_step1:
-            self.step = 2
-            catalyst.relax()
-        # build com file
-        self.write()
-        # make and launch firework
-        if self.cluster_opts.remote_dir:
-            tasks = self.transfer_task()
+        # find
+        fw = self.check_status()
+        fname = os.path.join(self._get_local_dir(step), "job.pkl")
+        if not fw:
+            fw = Firework(
+                workflow.SubmitTask(job=fname, step=step, kwargs=kwargs),
+                name=self.basename_with_step(),
+                spec=self.get_spec(),
+            )
+            if self.wf is None:
+                self.wf = Workflow(
+                    [fw], name=self.catalyst_data.get_basename()
+                )
+                LAUNCHPAD.add_wf(self.wf)
+            else:
+                if parent_fw_id is None:
+                    parent_fw_id = self.wf.fws[-1].fw_id
+                LAUNCHPAD.append_wf(Workflow([fw]), [parent_fw_id])
+        # launch
+        with open(fname, "wb") as f:
+            pickle.dump(self, f)
+        rapidfire(LAUNCHPAD, nlaunches=0)
+
+    def launch_job(self, fw_id):
+        print("  Submitting...")
+        submit_dir = self._get_submit_dir()
+        qlaunch_cmd = "qlaunch -r -q {} --launch_dir {} singleshot --fw_id {}".format(
+            os.path.join(submit_dir, "qadapter.yaml"), submit_dir, fw_id
+        )
+        if self.get_theory().remote_dir:
+            out, err = self.remote_run(qlaunch_cmd, hide="both")
+            if out:
+                print("out:", out)
+            for e in err.split("\n"):
+                if (
+                    "specified in qadapter but it is not present in template"
+                    in e
+                    or ".format(subs_key, self.template_file)" in e
+                    or e.strip() == ""
+                ):
+                    continue
+                print("err", e.strip())
         else:
-            tasks = []
-        tasks += self.qprep_task()
-        fw = Firework(tasks, name=self.catalyst_data.get_basename())
-        LaunchPad().add_wf(fw)
-
-    def qadapter_task(self):
-        opts = self.cluster_opts
-        params = opts.__dict__.copy()
-        if self.step < 2:
-            if "n_procs" in params and "short_procs" in params:
-                params["n_procs"] = params["short_procs"]
-            if "wall" in params and "short_wall" in params:
-                params["wall"] = params["short_wall"]
-        if self.step > 4:
-            if "n_procs" in params and "long_procs" in params:
-                params["n_procs"] = params["long_procs"]
-            if "wall" in params and "long_wall" in params:
-                params["wall"] = params["long_wall"]
-        params["n_procs"] = re.search("\d+", params["n_procs"]).group(0)
-
-        if "{" in opts.exec_memory:
-            params["exec_memory"] = opts._parse_function(
-                opts.exec_memory, params, as_int=True
-            )
-        if "{" in opts.memory:
-            params["memory"] = opts._parse_function(
-                opts.memory, params, as_int=True
-            )
-        params["job_name"] = "{}.{}".format(
-            self.catalyst_data.get_basename(), self.step
-        )
-
-        template_task = TemplateWriterTask(
-            template_file="G09_template.txt",
-            template_dir=AARONLIB,
-            context=params,
-            output_file=os.path.join(
-                opts.top_dir,
-                self.catalyst_data.get_relative_path(),
-                "G09_exec",
-            ),
-        )
-
-        return [template_task]
-
-    def transfer_task(self):
-        remote_dir = os.path.join(
-            self.cluster_opts.remote_dir,
-            self.catalyst_data.get_relative_path(),
-        )
-        local_com = "{}.{}.com".format(
-            self.catalyst_data.get_catalyst_name(), self.step
-        )
-        tasks = []
-        tasks.append(
-            PyTask(
-                func="Aaron.job.remote_run",
-                args=[
-                    self.cluster_opts.transfer_host,
-                    "mkdir -p {}".format(remote_dir),
-                ],
-            )
-        )
-        tasks.append(
-            PyTask(
-                func="Aaron.job.remote_put",
-                args=[self.cluster_opts.transfer_host, local_com, remote_dir],
-            )
-        )
-        return tasks
-
-    def qprep_task(self):
-        opts = self.cluster_opts
-        if opts.remote_dir:
-            work_dir = opts.remote_dir
-        else:
-            work_dir = opts.top_dir
-        work_dir = os.path.join(
-            work_dir, self.catalyst_data.get_relative_path()
-        )
-
-        qcmd = self.cluster_opts.qcmd.format(
-            queue=opts.queue,
-            wall=opts.short_wall if self.step < 2 else opts.wall,
-            procs=opts.short_nodes if self.step < 2 else opts.n_procs,
-            job_name="{}.{}.com".format(
-                self.catalyst_data.get_basename(), self.step
-            ),
-        )
-        qcmd = 'cd "{}" && {}'.format(work_dir, qcmd)
-
-        if opts.remote_dir:
-            task = PyTask(
-                func="Aaron.job.qsub",
-                args=[qcmd, opts.qcmd_regex, opts.host],
-                stored_data_varname="submit_result",
-            )
-        else:
-            task = PyTask(
-                func="Aaron.job.qsub",
-                args=[qcmd, opts.qcmd_regex],
-                stored_data_varname="submit_result",
-            )
-        return [task]
+            os.system(qlaunch_cmd)
