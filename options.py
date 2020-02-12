@@ -787,6 +787,11 @@ class Theory:
         return cls.by_step[step]
 
     @classmethod
+    def set_top_dir(cls, top_dir):
+        for theory in cls.by_step.values():
+            theory.top_dir = top_dir
+
+    @classmethod
     def write_com(cls, geometry, step=0.0, **kwargs):
         if float(step) in cls.by_step:
             obj = cls.by_step[float(step)]

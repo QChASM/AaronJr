@@ -13,10 +13,10 @@ class TestAaronInit(TestWithTimer):
     def setUp(self):
         super().setUp()
         self.init = AaronInit(
-            os.path.join(prefix, "test_files/S-binap.in"), quiet=True
+            os.path.join(prefix, "ref_files/S-binap.in"), quiet=True
         )
         self.test_geom = Geometry(
-            os.path.join(prefix, "test_files/S_binap-TMEN_Ph.R.ts1.Cf1.2.log")
+            os.path.join(prefix, "ref_files/S_binap-TMEN_Ph.R.ts1.Cf1.2.log")
         )
         self.test_geom.comment = "F:44-8-3-4"
         self.test_geom.parse_comment()

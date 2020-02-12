@@ -14,10 +14,10 @@ prefix = prefix.replace("AaronTools", "Aaron", 1)
 
 
 class TestJob(TestWithTimer):
-    init = AaronInit(os.path.join(prefix, "test_files/simple.in"), quiet=True)
+    init = AaronInit(os.path.join(prefix, "ref_files/simple.in"), quiet=True)
     reaction = init.reaction
     theory = init.theory
-    theory.top_dir = os.path.join(prefix, "test_files/job_test")
+    theory.set_top_dir(os.path.join(prefix, "test_files/job_test"))
 
     reaction.generate_structure_data(theory.top_dir)
     catalyst_data = reaction.catalyst_data

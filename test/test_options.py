@@ -12,7 +12,7 @@ class TestReaction(TestWithTimer):
     def setUp(self):
         super().setUp()
         self.init = AaronInit(
-            os.path.join(prefix, "test_files/S-binap.in"), quiet=True
+            os.path.join(prefix, "ref_files/S-binap.in"), quiet=True
         )
         self.reaction = self.init.reaction
         self.theory = self.init.theory
