@@ -2,10 +2,9 @@ import glob
 import hashlib
 import json
 import os
+import pickle
 import re
 from copy import copy
-
-from fabric.connection import Connection
 
 import Aaron.json_extension as json_ext
 from AaronTools.catalyst import Catalyst
@@ -42,7 +41,6 @@ class CatalystMetaData:
         ts_number=None,
         ts_directory=None,
         catalyst=None,
-        status=None,
         catalyst_change=None,
     ):
         self.template_file = template_file
@@ -68,8 +66,8 @@ class CatalystMetaData:
             else:
                 num = re.search("(\d+)$", path).group(1)
             self.ts_number = int(num)
-        self.status = status
         self.catalyst_change = catalyst_change
+        self.conf_spec = 1
 
     def __lt__(self, other):
         def get_str(thing):
@@ -90,7 +88,7 @@ class CatalystMetaData:
         else:
             return False
 
-    def get_basename(self, conf_spec=None):
+    def get_basename(self):
         """
         :conf_spec: the Catalyst().conf_spec dictionary, uses the one
             associated with self.catalyst if None
@@ -108,12 +106,10 @@ class CatalystMetaData:
         if self.selectivity:
             basename += "{}.".format(self.selectivity)
         basename += "ts{}.".format(self.ts_number)
-        if conf_spec is None:
-            conf_spec = self._get_cf_num()
-        basename += "cf{}".format(conf_spec)
+        basename += "cf{}".format(self._get_cf_num())
         return basename
 
-    def get_cf_dir(self, conf_spec=None):
+    def get_cf_dir(self):
         """
         Get SHA-256 hash of conformer number, convert to base-10, and return
         the first three digits as a string. This limits the number of sub-
@@ -123,50 +119,27 @@ class CatalystMetaData:
 
         Returns: str(3-digit integer)
         """
-        rv = self._get_cf_num(conf_spec=conf_spec)
+        rv = self._get_cf_num()
         rv = hashlib.sha256(bytes(rv, "utf-8")).hexdigest()
         rv = str(int(rv, base=16))[:3]
         return rv
 
-    def get_relative_path(self, conf_spec=None):
+    def get_relative_path(self):
         cat_change = os.path.join(
             self.ligand_change[0], self.substrate_change[0]
         )
         ts = self.ts_directory.split(cat_change)[-1][1:]
-        cf = self.get_cf_dir(conf_spec)
+        cf = self.get_cf_dir()
         return os.path.join(cat_change, ts, cf)
 
-    def get_catalyst_name(self, conf_spec=None):
+    def get_catalyst_name(self):
         """
         :conf_spec: the Catalyst().conf_spec dictionary, uses the one
             associated with self.catalyst if None
         """
-        basename = self.get_basename(conf_spec)
-        cf_dir = self.get_cf_dir(conf_spec)
+        basename = self.get_basename()
+        cf_dir = self.get_cf_dir()
         return os.path.join(self.ts_directory, cf_dir, basename)
-
-    def _get_cf_num(self, conf_spec=None):
-        """
-        :conf_spec: the Catalyst().conf_spec dictionary, uses the one
-            associated with self.catalyst if None
-        """
-        if conf_spec is None:
-            conf_spec = self.catalyst.conf_spec
-        match = re.search(".*/cf(\d+).xyz", self.template_file, flags=re.I)
-        if match is None:
-            s = ""
-        else:
-            s = match.group(1) + "-"
-        for start, (conf_num, skip) in sorted(conf_spec.items()):
-            s += str(conf_num)
-        return s
-
-    def _get_nconfs(self):
-        nconfs = 1
-        for start in self.catalyst.conf_spec:
-            sub = self.catalyst.find_substituent(start)
-            nconfs *= sub.conf_num
-        return nconfs
 
     def load_lib_ligand(self, lig_name):
         """
@@ -184,6 +157,71 @@ class CatalystMetaData:
                 return Component(p)
         else:
             raise FileNotFoundError("Could not find ligand: " + name)
+
+    def pickle_update(self):
+        if not self.ts_directory:
+            return False
+        fname = os.path.join(self.ts_directory, "pickle")
+        if not self.catalyst and not os.access(fname, os.W_OK):
+            with open(fname, "wb") as f:
+                pickle.dump(self, f)
+
+    def generate_structure(self, old_aaron=False):
+        """
+        Generates a mapped/substituted catalyst structure from the information
+        stored in a CatalystMetaData object
+
+        Returns: Catalyst()
+        """
+        if self.pickle_update():
+            return self.catalyst
+        self.catalyst = Catalyst(self.template_file)
+        if self.ligand_change is None and self.substrate_change is None:
+            if old_aaron:
+                self.conf_spec = {}
+            return self.catalyst
+        # do mappings/substitution
+        requested_changes = self._do_ligand_change()
+        requested_changes += self._do_substrate_change()
+        self.catalyst_change = requested_changes
+
+        # try to get better starting structure
+        self.catalyst.remove_clash()
+        self.catalyst.minimize()
+
+        # only do conformers for requested changes if old_aaron
+        if old_aaron and requested_changes:
+            self.conf_spec = {}
+            for sub in requested_changes:
+                sub = self.catalyst.find_substituent(sub)
+                if sub:
+                    self.conf_spec[sub.end] = (1, [])
+        self.catalyst.name = self.get_catalyst_name()
+        return self.catalyst
+
+    def _get_cf_num(self):
+        """
+        :conf_spec: the Catalyst().conf_spec dictionary, uses the one
+            associated with self.catalyst if None
+        """
+        match = re.search(".*/cf(\d+).xyz", self.template_file, flags=re.I)
+        if match is None:
+            s = ""
+        else:
+            s = match.group(1) + "-"
+        if isinstance(self.conf_spec, dict):
+            for start, (conf_num, skip) in sorted(self.conf_spec.items()):
+                s += str(conf_num)
+        else:
+            s += str(self.conf_spec)
+        return s
+
+    def _get_nconfs(self):
+        nconfs = 1
+        for start in self.conf_spec:
+            sub = self.catalyst.find_substituent(start)
+            nconfs *= sub.conf_num
+        return nconfs
 
     def _do_ligand_change(self):
         requested_changes = []
@@ -220,7 +258,7 @@ class CatalystMetaData:
                     atom = str(int(atom) + n_before_lig)
                 sub = self.catalyst.substitute(sub, atom)
                 sub.tag("changed")
-                requested_changes += [atom + ".1"]
+                requested_changes += [atom]
         return requested_changes
 
     def _do_substrate_change(self):
@@ -229,74 +267,10 @@ class CatalystMetaData:
             sub, change = self.substrate_change
             # substitutions
             for atom, sub in change.items():
-                requested_changes += [atom + ".1"]
+                requested_changes += [atom]
                 sub = self.catalyst.substitute(sub, atom)
                 sub.tag("changed")
         return requested_changes
-
-    def generate_structure(self, old_aaron=False):
-        """
-        Generates a mapped/substituted catalyst structure from the information
-        stored in a CatalystMetaData object
-
-        Returns: Catalyst()
-
-        :cat_data: CatalystMetaData() used to generate the structure
-        """
-        if self.catalyst is None:
-            try:
-                self._read_json()
-                if self.catalyst:
-                    return self.catalyst
-            except BaseException:
-                pass
-            self.catalyst = Catalyst(self.template_file)
-        if self.ligand_change is None and self.substrate_change is None:
-            if old_aaron:
-                self.catalyst.conf_spec = {}
-            return self.catalyst
-        # do mappings/substitution
-        requested_changes = self._do_ligand_change()
-        requested_changes += self._do_substrate_change()
-        self.catalyst_change = requested_changes
-
-        # try to get better starting structure
-        self.catalyst.remove_clash()
-        self.catalyst.minimize()
-
-        # only do conformers for requested changes if old_aaron
-        debug = False
-        if old_aaron and requested_changes:
-            if debug:
-                for key in self.catalyst.conf_spec:
-                    sub = self.catalyst.find_substituent(key)
-                    print(key, sub.name, sub.atoms[0].name)
-                print(requested_changes)
-            to_delete = []
-            try:
-                tmp = []
-                for c in requested_changes:
-                    tmp += self.catalyst.find_exact(c)
-                requested_changes = tmp
-            except LookupError:
-                raise LookupError(c)
-            for key in self.catalyst.conf_spec:
-                try:
-                    sub = self.catalyst.find_substituent(key)
-                except LookupError:
-                    pass
-                if sub.atoms[0] not in requested_changes:
-                    to_delete += [key]
-                elif sub.conf_num is not None and sub.conf_num <= 1:
-                    to_delete += [key]
-            for key in to_delete:
-                del self.catalyst.conf_spec[key]
-            if debug:
-                for key in self.catalyst.conf_spec:
-                    sub = self.catalyst.find_substituent(key)
-                    print(key, sub.name, sub.atoms[0].name)
-        self.catalyst.name = self.get_catalyst_name()
-        return self.catalyst
 
     def _get_log_names(self, top_dir=None, old_aaron=False):
         """
@@ -387,7 +361,7 @@ class CatalystMetaData:
             self.ts_directory,
             os.path.basename(self.template_file).rsplit(".", maxsplit=1)[0],
         )
-        with open(name + ".json", "w") as f:
+        with open(os.path.join(name, ".json"), "w") as f:
             json.dump(self, f, cls=json_ext.JSONEncoder)
 
     def _read_json(self):
@@ -395,7 +369,7 @@ class CatalystMetaData:
             self.ts_directory,
             os.path.basename(self.template_file).rsplit(".", maxsplit=1)[0],
         )
-        with open(name + ".json") as f:
+        with open(os.path.join(name, ".json")) as f:
             obj = json.load(f, cls=json_ext.JSONDecoder)
             for key, val in obj.__dict__.items():
                 if key == "ts_directory":
@@ -431,7 +405,6 @@ class Reaction:
         self.by_lig_change = {}
         self.by_sub_change = {}
         self.con_thresh = None
-        self.top_dir = ""
         if params is None:
             return
 
@@ -446,10 +419,6 @@ class Reaction:
             self.substrate = params["substrate"]
         if "con_thresh" in params:
             self.con_thresh = params["con_thresh"]
-        if "top_dir" in params:
-            self.top_dir = params["top_dir"]
-            if os.path.isfile(self.top_dir):
-                self.top_dir = os.path.dirname(self.top_dir)
 
     def get_templates(self):
         """
@@ -465,7 +434,7 @@ class Reaction:
             # get relative path
             path = "TS_geoms/{}/{}".format(self.reaction_type, self.template)
             if sel:
-                path += "/{}".format(sel)
+                path = os.path.join(path, sel)
             # try to find in user's library
             if os.access(os.path.join(AARONLIB, path), os.R_OK):
                 path = os.path.join(AARONLIB, path)
@@ -493,16 +462,13 @@ class Reaction:
                         templates += [(path, d, f)]
         self.template_XYZ = templates
 
-    def generate_structure_data(self, top_dir=None):
+    def generate_structure_data(self, top_dir):
         """
         Generates catalyst metadata for requested mapping/substitution
         combinations. See CatalystMetaData for data structure info
 
         Sets self.catalyst_data = [CatalystMetaData(), ...]
         """
-        if top_dir is None:
-            top_dir = self.top_dir
-        self.catalyst_data = []
         if not self.template_XYZ:
             self.get_templates()
         for i, template in enumerate(self.template_XYZ):
@@ -531,7 +497,7 @@ class Reaction:
                             reaction_type=self,
                             selectivity=selectivity,
                             ligand_change=lig_change,
-                            substrate_change=("original_substrate", None),
+                            substrate_change=("orig", None),
                         )
                     ]
                 for sub_change in self.substrate.items():
@@ -567,8 +533,8 @@ class Reaction:
                         template_file=template_file,
                         reaction_type=self,
                         selectivity=selectivity,
-                        ligand_change=("original_ligand", None),
-                        substrate_change=("original_substrate", None),
+                        ligand_change=("orig", None),
+                        substrate_change=("orig", None),
                     )
                 ]
 
@@ -605,54 +571,13 @@ class Reaction:
                 cat.ts_number = int(dir_up[2:])
             cat.ts_directory = child_dir
 
-    def make_conformers(self, top_dir=None, old_aaron=False):
-        # generate structure data and make directories
-        if top_dir is None:
-            top_dir = self.top_dir
-        else:
-            self.top_dir = top_dir
-        if not self.catalyst_data:
-            # make_directories calls generate_structure_data() if needed
-            self.make_directories(top_dir=top_dir)
-        else:
-            for cat_data in self.catalyst_data:
-                if cat_data.ts_directory is None:
-                    self.make_directories(top_dir=top_dir)
-                    break
-
-        n = len(self.catalyst_data)
-        for i, cat_data in enumerate(self.catalyst_data):
-            cat_data.generate_structure(old_aaron=old_aaron)
-            catalyst = cat_data.catalyst
-            m = cat_data._get_nconfs()
-            j = -1
-            while True:
-                j += 1
-                utils.progress_bar(
-                    (j / m) + i, n, name="Generating Conformers"
-                )
-                cf_num = cat_data._get_cf_dir_num()
-                cat_name = (
-                    os.path.join(
-                        cat_data.ts_directory, "json/cf{}".format(cf_num)
-                    )
-                    + ".json"
-                )
-                with open(cat_name, "w") as f:
-                    json.dump(cat_data, f, cls=json_ext.JSONEncoder)
-                if not catalyst.next_conformer():
-                    break
-        utils.clean_progress_bar()
-
-    def load_from_logs(self, top_dir=None, old_aaron=False):
+    def load_from_logs(self, top_dir, old_aaron=False):
         new_cat_data = []
         cat_change_done = []
-        if top_dir is None:
-            top_dir = self.top_dir
         if not self.template_XYZ:
             self.get_templates()
         if not self.catalyst_data:
-            self.generate_structure_data()
+            self.generate_structure_data(top_dir)
         while len(self.catalyst_data):
             cat_data = self.catalyst_data.pop()
             if cat_data.substrate_change[1]:
@@ -672,112 +597,11 @@ class Reaction:
                     if tmp.substrate_change[1]:
                         tmp.ligand_change = tmp.ligand_change[0], None
                     elif tmp.ligand_change[1]:
-                        tmp.substrate_change = "original_substrate", None
+                        tmp.substrate_change = "orig", None
                 new_cat_data += [tmp]
         self.catalyst_data = new_cat_data
         for cd in self.catalyst_data:
             print(cd.__dict__, end="\n\n")
-
-
-class ClusterOpts:
-    """
-    :qcmd:          command to submit job
-    :qcmd_regex:    regex to get job ID from output of :qcmd:
-    :top_dir:       local directory to store files
-    :host:          cluster host (where to submit jobs)
-    :transfer_host: host to use to transfer files (defaults to :host:)
-    :remote_dir:    directory to store computation files
-    :queue_type:    queuing software used by cluster
-    :queue:         name of queue to submit to
-    :n_procs:       number of cores for default jobs
-    :short_procs:   number of cores for low jobs
-    :wall:          wall time for default jobs
-    :short_wall:    number of cores for low jobs
-    :n_nodes:       number of nodes for default jobs
-    :short_nodes:   number of nodes for low jobs
-    :memory:        memory requested (can be function)
-    :exec_memory:   memory requested for computation (can be function)
-    """
-
-    def __init__(self, params=None):
-        self.qcmd = ""
-        self.qcmd_regex = ""
-        self.top_dir = None
-        self.host = None
-        self.transfer_host = None
-        self.remote_dir = None
-        self.queue_type = None
-        self.queue = None
-        self.n_procs = None
-        self.short_procs = None
-        self.wall = None
-        self.short_wall = None
-        self.n_nodes = 1
-        self.short_nodes = 1
-        self.memory = 0
-        self.exec_memory = 0
-        if params is None:
-            return
-
-        if "qcmd" in params:
-            self.qcmd = params["qcmd"]
-        if "qcmd_regex" in params:
-            self.qcmd_regex = params["qcmd_regex"]
-        if "remote_dir" in params:
-            self.remote_dir = params["remote_dir"]
-            self.host = params["host"]
-            if "transfer_host" in params:
-                self.transfer_host = params["transfer_host"]
-            else:
-                self.transfer_host = self.host
-        if "top_dir" in params:
-            self.top_dir = params["top_dir"]
-
-        self.queue_type = params["queue_type"]
-        self.queue = params["queue"]
-        self.n_procs = params["n_procs"]
-        self.wall = params["wall"]
-
-        if "short_procs" in params:
-            self.short_procs = params["short_procs"]
-        if "short_wall" in params:
-            self.short_wall = params["short_wall"]
-        if "short_nodes" in params:
-            self.short_nodes = params["short_nodes"]
-        if "n_nodes" in params:
-            self.n_nodes = params["n_nodes"]
-        if "memory" in params:
-            self.memory = params["memory"]
-        if "exec_memory" in params:
-            self.exec_memory = params["exec_memory"]
-
-    def _parse_function(self, func, params, as_int=False):
-        original = func
-        groups = re.match("{(.*?)}", func).groups()
-        for func in groups:
-            all_subst = []
-            subst = ""
-            new_func = func
-            for i, f in enumerate(func):
-                if f == "$":
-                    subst = f
-                    continue
-                if subst and re.match("[a-zA-Z_]", f):
-                    subst += f
-                    continue
-                elif subst:
-                    all_subst += [subst]
-                    subst = ""
-            for subst in all_subst:
-                val = subst[1:]
-                val = re.match("-?\d+\.?\d*", params[val]).group(0)
-                new_func = new_func.replace(subst, val)
-            if as_int:
-                new_func = int(eval(new_func))
-            else:
-                new_func = eval(new_func)
-            original = original.replace("{" + func + "}", str(new_func))
-        return original
 
 
 class Theory:
@@ -794,6 +618,18 @@ class Theory:
     :gen_basis:     path to gen basis files
     :route_kwargs:  other kwargs
     :_unique_basis: the basis set name, if for all atoms
+
+    :top_dir:       local directory to store files
+    :remote_dir:    directory to store computation files
+    :host:          cluster host (where to submit jobs)
+    :transfer_host: host to use to transfer files (defaults to :host:)
+    :queue_type:    queuing software used by cluster
+    :queue:         name of queue to submit to
+    :procs:         number of cores per node
+    :nodes:         number of nodes
+    :wall:          wall time
+    :memory:        memory requested (can be function)
+    :exec_memory:   memory requested for computation (can be function)
     """
 
     nobasis = ["AM1", "PM3", "PM3MM", "PM6", "PDDG", "PM7"]
@@ -803,56 +639,92 @@ class Theory:
     # class methods
     @classmethod
     def read_params(cls, params):
+        if "host" in params and "transfer_host" not in params:
+            params["transfer_host"] = params["host"]
         for name, info in params.items():
             step = name.split("_")[0]
             try:
                 step = float(step)
+                name = "_".join(name.split("_")[1:])
             except ValueError:
-                if step.lower() == "low":
+                if step.lower() in ["low", "short"]:
                     step = 1.0
+                    name = "_".join(name.split("_")[1:])
                 elif step.lower() == "high":
                     step = 5.0
+                    name = "_".join(name.split("_")[1:])
                 else:
                     step = 0.0  # default
             # change to correct Theory instance
             if step not in cls.by_step:
                 cls.by_step[step] = cls()
+                cls.by_step[step].params = params
             obj = cls.by_step[step]
             obj.step = step
-            if "method" in name.lower():
+
+            # cluster options
+            if name.lower() == "remote_dir":
+                obj.remote_dir = info
+            elif name.lower() == "user":
+                obj.user = info
+            elif name.lower() == "host":
+                obj.host = info
+            elif name.lower() == "transfer_host":
+                obj.transfer_host = info
+            elif name.lower() == "top_dir":
+                obj.top_dir = info
+            elif name.lower() == "queue_type":
+                obj.queue_type = info
+            elif name.lower() == "queue":
+                obj.queue = info
+            elif re.search("^(n_?)?procs$", name.strip(), re.I):
+                obj.ppnode = info
+            elif re.search("^(n_?)?nodes$", name.strip(), re.I):
+                obj.nodes = info
+            elif re.search("^wall([ _]?time)?", name.strip(), re.I):
+                obj.walltime = info
+            elif name.lower() == "memory":
+                obj.mem = info
+            elif name.lower() == "exec_memory":
+                obj.exec_mem = info
+
+            # theory options
+            elif name.lower() == "method":
                 obj.method = info
-            elif "basis" in name.lower():
+            elif name.lower() == "basis":
                 obj.set_basis(info)
-            elif "ecp" in name.lower():
+            elif name.lower() == "ecp":
                 obj.set_ecp(info)
-            elif "temperature" in name.lower():
+            elif name.lower() == "temperature":
                 obj.route_kwargs["temperature"] = float(info)
-            elif "solvent_model" in name.lower():
+            elif name.lower() == "solvent_model":
                 if "scrf" in obj.route_kwargs:
                     obj.route_kwargs["scrf"][info] = ""
                 else:
                     obj.route_kwargs["scrf"] = {info: ""}
-            elif "solvent" in name.lower():
+            elif name.lower() == "solvent":
                 if "scrf" in obj.route_kwargs:
                     obj.route_kwargs["scrf"]["solvent"] = info
                 else:
                     obj.route_kwargs["scrf"]["solvent"] = info
-            elif "charge" in name.lower():
+            elif name.lower() == "charge":
                 obj.route_kwargs["charge"] = int(info)
-            elif "mult" in name.lower():
+            elif re.search("^mult(iplicity)?$", name.strip(), re.I):
                 obj.route_kwargs["mult"] = int(info)
-            elif "grid" in name.lower():
+            elif re.search("^(int(egration)?_?)?grid$", name.strip(), re.I):
                 obj.route_kwargs["int"] = {"grid": info}
-            elif re.search("emp(erical_?)?disp(ersion)?", name, re.I):
+            elif re.search(
+                "^emp(erical_?)?disp(ersion)?$", name.strip(), re.I
+            ):
                 obj.route_kwargs["EmpericalDispersion"] = info
-            elif re.search("den(sity_?)?fit(ting)", name, re.I):
+            elif re.search("^den(sity_?)?fit(ting)$", name.strip(), re.I):
                 try:
                     denfit = bool(int(info))
                 except ValueError:
                     denfit = bool(info)
                 if denfit:
                     obj.route_kwargs["denfit"] = ""
-            elif "additional_opt" in name.lower():
+            elif re.search("^add(itional)?_?opt(ions?)?$", name.strip(), re.I):
                 obj.route_kwargs[""] = info
 
         # cascade defaults to steps without settings
@@ -872,6 +744,10 @@ class Theory:
             return
         else:
             defaults = cls.by_step[0.0]
+            defaults.procs = int(re.findall("\d+", str(defaults.nodes))[0])
+            defaults.procs *= int(re.findall("\d+", str(defaults.ppnode))[0])
+            if not defaults.exec_mem:
+                defaults.exec_mem = defaults.mem
         # add keyword defaults
         if "" not in defaults.route_kwargs:
             defaults.route_kwargs[""] = ""
@@ -885,8 +761,10 @@ class Theory:
         for step, obj in cls.by_step.items():
             if step == 0.0:
                 continue
+            if not obj.exec_mem:
+                obj.exec_mem = obj.mem
             for key, val in obj.__dict__.items():
-                if val == "route_kwargs":
+                if val in ["route_kwargs", "procs"]:
                     # do these after
                     continue
                 if val is not None:
@@ -898,6 +776,8 @@ class Theory:
                     # don't overwrite
                     continue
                 obj.route_kwargs[key] = val
+            obj.procs = int(re.findall("\d+", str(obj.nodes))[0])
+            obj.procs *= int(re.findall("\d+", str(obj.ppnode))[0])
 
     @classmethod
     def get_step(cls, step):
@@ -979,6 +859,11 @@ class Theory:
         :kwargs: additional keyword=value arguments for header
         """
         theory = cls.get_step(step)
+        if "fname" in kwargs:
+            fname = kwargs["fname"]
+            del kwargs["fname"]
+        else:
+            fname = geometry.name
         # get comment
         if "comment" in kwargs:
             comment = kwargs["comment"]
@@ -990,7 +875,7 @@ class Theory:
 
         # checkfile
         if step > 1:
-            header = "%chk={}.chk\n".format(geometry.name)
+            header = "%chk={}.chk\n".format(fname)
         else:
             header = ""
 
@@ -1049,9 +934,13 @@ class Theory:
                 "temperature"
             ]
 
+        # screen unneeded keywords
+        skip_keys = Theory._skip_keys.copy()
+        if step < 2:
+            skip_keys += ["scrf"]
         # other keywords
         route_dict = utils.add_dict(
-            route_dict, theory.route_kwargs, skip=Theory._skip_keys
+            route_dict, theory.route_kwargs, skip=skip_keys
         )
         # from **kwargs parameters
         route_dict = utils.add_dict(route_dict, kwargs, skip=Theory._skip_keys)
@@ -1094,8 +983,59 @@ class Theory:
         self.route_kwargs = {}
         self._unique_basis = None
 
+        self.top_dir = None
+        self.user = None
+        self.host = None
+        self.transfer_host = None
+        self.remote_dir = None
+        self.queue_type = None
+        self.queue = None
+        self.nodes = 1
+        self.ppnode = None
+        self.walltime = None
+        self.mem = None
+        self.exec_mem = None
+
+        self.params = params
+
+        if params is None:
+            return
         if params is not None:
             Theory.read_params(params)
+
+    def parse_function(self, func, params=None, as_int=False):
+        original = func
+        if params is None:
+            params = self.params
+        groups = re.match("{(.*?)}", func).groups()
+        for func in groups:
+            all_subst = []
+            subst = ""
+            new_func = func
+            for i, f in enumerate(func):
+                if f == "$":
+                    subst = f
+                    continue
+                if subst and re.match("[a-zA-Z_]", f):
+                    subst += f
+                    continue
+                elif subst:
+                    all_subst += [subst]
+                    subst = ""
+            for subst in all_subst:
+                val = subst[1:]
+                try:
+                    val = re.match(r"-?\d+\.?\d*", params[val]).group(0)
+                except AttributeError:
+                    tmp = self.parse_function(params[val], params, as_int)
+                    val = re.match(r"-?\d+\.?\d*", tmp).group(0)
+                new_func = new_func.replace(subst, val)
+            if as_int:
+                new_func = int(eval(new_func))
+            else:
+                new_func = eval(new_func)
+            original = original.replace("{" + func + "}", str(new_func))
+        return original
 
     def set_basis(self, spec):
         """

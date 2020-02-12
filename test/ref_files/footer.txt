@@ -5,10 +5,7 @@
 
 B 3 4 F
 B 3 8 F
-B 4 3 F
 B 8 44 F
-B 8 3 F
-B 44 8 F
 
 C H N O P 0
 6-31G*

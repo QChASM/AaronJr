@@ -1,17 +1,23 @@
 #! /usr/bin/env python3
+import os
 import unittest
 
 from Aaron.aaron_init import AaronInit
 from AaronTools.geometry import Geometry
+from AaronTools.test import TestWithTimer, prefix
+
+prefix = prefix.replace("AaronTools", "Aaron", 1)
 
 
-class TestAaronInit(unittest.TestCase):
+class TestAaronInit(TestWithTimer):
     def setUp(self):
-        """
-        initializes aaron instance
-        """
-        self.init = AaronInit("test_files/S-binap.in")
-        self.test_geom = Geometry("test_files/S_binap-TMEN_Ph.R.ts1.Cf1.2.log")
+        super().setUp()
+        self.init = AaronInit(
+            os.path.join(prefix, "test_files/S-binap.in"), quiet=True
+        )
+        self.test_geom = Geometry(
+            os.path.join(prefix, "test_files/S_binap-TMEN_Ph.R.ts1.Cf1.2.log")
+        )
         self.test_geom.comment = "F:44-8-3-4"
         self.test_geom.parse_comment()
 
@@ -38,26 +44,26 @@ class TestAaronInit(unittest.TestCase):
                     )
                     value = "({})".format(value)
                 if value:
-                    rv += ["{}={}".format(key, value)]
+                    rv += ["\t{}={}".format(key, value)]
                 else:
-                    rv += [key]
-            return ", ".join(rv) + "\n"
+                    rv += ["\t{}".format(key)]
+            return ",\n".join(rv) + "\n"
 
         test_str = ""
         for d in sorted(self.init.__dict__):
             name, value = d, self.init.__dict__[d]
             if name == "theory":
                 for step, theory in sorted(value.by_step.items()):
-                    test_str += "{} ({}): {}".format(
+                    test_str += "{} ({}): \n{}".format(
                         name, step, make_str(theory.__dict__)
                     )
-            elif name in ["cluster_opts", "reaction"]:
-                test_str += "{}: {}".format(name, make_str(value.__dict__))
+            elif name == "reaction":
+                test_str += "{}: \n{}".format(name, make_str(value.__dict__))
             elif isinstance(value, dict):
-                test_str += "{}: {}".format(name, make_str(value))
+                test_str += "{}: \n{}".format(name, make_str(value))
             else:
                 test_str += name + ": " + str(value) + "\n"
-        with open("ref_files/test_init.txt") as f:
+        with open(os.path.join(prefix, "ref_files/test_init.txt")) as f:
             self.assertEqual(test_str, f.read())
 
     def test_footer(self):
@@ -69,7 +75,7 @@ class TestAaronInit(unittest.TestCase):
                 theory = self.init.theory.by_step[0.0]
             test_str += theory.make_footer(self.test_geom, step=float(step))
             test_str += "=" * 12 + "\n"
-        with open("ref_files/footer.txt") as f:
+        with open(os.path.join(prefix, "ref_files/footer.txt")) as f:
             self.assertEqual(test_str, f.read())
 
     def test_header(self):
@@ -83,7 +89,7 @@ class TestAaronInit(unittest.TestCase):
             test_str += "=" * 12 + "\n"
         with open("tmp.txt", "w") as f:
             f.write(test_str)
-        with open("ref_files/header.txt") as f:
+        with open(os.path.join(prefix, "ref_files/header.txt")) as f:
             self.assertEqual(test_str, f.read())
 
     def test_write_com(self):

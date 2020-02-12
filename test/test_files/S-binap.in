@@ -1,7 +1,7 @@
 custom=Intel
 wall=36
 reaction_type=asymmetric_hydrogenation
-template=S_BINAP
+template=5a_XYZ
 selectivity=R;S
 solvent_model=smd
 solvent=2-propanol

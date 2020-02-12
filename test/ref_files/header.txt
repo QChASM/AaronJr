@@ -1,24 +1,24 @@
-#PM6 nosym opt scrf=(smd,solvent=2-propanol)
+#PM6 nosym opt
 
 step 1
 
 0,1
 ============
-%chk=test_files/S_binap-TMEN_Ph.R.ts1.Cf1.2.chk
+%chk=/home/deo/pyChASM/Aaron/test/test_files/S_binap-TMEN_Ph.R.ts1.Cf1.2.chk
 #wb97xd/genecp opt=(maxcyc=1000,modredundant) scrf=(smd,solvent=2-propanol)
 
 step 2
 
 0,1
 ============
-%chk=test_files/S_binap-TMEN_Ph.R.ts1.Cf1.2.chk
+%chk=/home/deo/pyChASM/Aaron/test/test_files/S_binap-TMEN_Ph.R.ts1.Cf1.2.chk
 #wb97xd/genecp opt=(calcfc,maxcyc=1000,ts) scrf=(smd,solvent=2-propanol)
 
 step 3
 
 0,1
 ============
-%chk=test_files/S_binap-TMEN_Ph.R.ts1.Cf1.2.chk
+%chk=/home/deo/pyChASM/Aaron/test/test_files/S_binap-TMEN_Ph.R.ts1.Cf1.2.chk
 #wb97xd/genecp freq=(hpmodes,noraman,temperature=298.0) scrf=(smd,solvent=2-propanol)
 
 step 4

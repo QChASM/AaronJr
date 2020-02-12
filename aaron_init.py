@@ -1,7 +1,7 @@
 import argparse
 import os
 
-from Aaron.options import ClusterOpts, Reaction, Theory
+from Aaron.options import Reaction, Theory
 from AaronTools.const import HOME, QCHASM
 
 
@@ -15,28 +15,36 @@ class AaronInit:
     :reaction:      Reaction() - contains
     """
 
-    def __init__(self, infile, args=None):
+    def __init__(self, infile, args=None, quiet=False):
         self.jobname = infile
         self.args = args
 
+        if not quiet:
+            print("Reading input file...")
         self.params = self.read_aaron_input(infile)
         if "top_dir" not in self.params:
             self.params["top_dir"] = os.path.dirname(os.path.abspath(infile))
-        self.cluster_opts = ClusterOpts(self.params)
         self.theory = Theory(self.params)
         self.theory = Theory.by_step[0.0]
+        if not quiet:
+            print("Setting up reaction...")
         self.reaction = Reaction(self.params)
 
         if "gen" in self.params:
             for theory in self.theory.by_step.values():
                 theory.set_gen_basis(self.params["gen"])
+        if not quiet:
+            print("Starting workflow")
 
     def read_aaron_input(self, infile):
         def parse(f, params, custom=None):
             profile_found = False
+            ligand_section = False
+            substrate_section = False
+
             for line in f:
                 line = line.strip()
-                if line == "":
+                if line == "" or line.startswith("#"):
                     continue
 
                 # skip to correct profile
@@ -51,29 +59,36 @@ class AaronInit:
                     elif profile_found and "=" not in line:
                         break
 
+                # ligand and substrate sections
+                if (ligand_section or substrate_section) and (
+                    line == "&" or line == ""
+                ):
+                    ligand_section = False
+                    substrate_section = False
+                    continue
                 # ligand mapping and substitution
                 if line.lower() == "&ligands":
-                    line = f.readline().strip()
-                    while line != "&" and line != "":
-                        line = line.split(":")
-                        name = line[0].strip()
-                        info = line[1].strip().split()
-                        if "ligand" not in params:
-                            params["ligand"] = {}
-                        params["ligand"][name] = info
-                        line = f.readline().strip()
+                    ligand_section = True
+                    continue
+                if ligand_section:
+                    line = line.split(":")
+                    name = line[0].strip()
+                    info = line[1].strip().split()
+                    if "ligand" not in params:
+                        params["ligand"] = {}
+                    params["ligand"][name] = info
                     continue
                 # substrate substitutions
                 if line.lower() == "&substrates":
-                    line = f.readline().strip()
-                    while line != "&" and line != "":
-                        line = line.split(":")
-                        name = line[0].strip()
-                        info = line[1].strip().split()
-                        if "substrate" not in params:
-                            params["substrate"] = {}
-                        params["substrate"][name] = info
-                        line = f.readline().strip()
+                    substrate_section = True
+                    continue
+                if substrate_section:
+                    line = line.split(":")
+                    name = line[0].strip()
+                    info = line[1].strip().split()
+                    if "substrate" not in params:
+                        params["substrate"] = {}
+                    params["substrate"][name] = info
                     continue
 
                 # store key=value setting pairs
@@ -97,14 +112,14 @@ class AaronInit:
 
         # fill missing parameters from user profile
         try:
-            with open(HOME + ".aaronrc") as f:
+            with open(os.path.join(HOME, ".aaronrc")) as f:
                 parse(f, params, params["custom"])
         except FileNotFoundError:
             pass
 
         # fill missing parameters from QCHASM defaults
         try:
-            with open(QCHASM + "Aaron/.aaronrc") as f:
+            with open(os.path.join(QCHASM, "Aaron/.aaronrc")) as f:
                 parse(f, params, params["custom"])
         except FileNotFoundError:
             pass
@@ -201,5 +216,4 @@ if __name__ == "__main__":
     )
 
     args = args.parse_args()
-    print(type(args))
     init = AaronInit(args.input_file, args)
