@@ -89,10 +89,6 @@ class CatalystMetaData:
             return False
 
     def get_basename(self):
-        """
-        :conf_spec: the Catalyst().conf_spec dictionary, uses the one
-            associated with self.catalyst if None
-        """
         basename = ""
         # first part is lig-sub
         if self.ligand_change is not None:
@@ -133,10 +129,6 @@ class CatalystMetaData:
         return os.path.join(cat_change, ts, cf)
 
     def get_catalyst_name(self):
-        """
-        :conf_spec: the Catalyst().conf_spec dictionary, uses the one
-            associated with self.catalyst if None
-        """
         basename = self.get_basename()
         cf_dir = self.get_cf_dir()
         return os.path.join(self.ts_directory, cf_dir, basename)
@@ -161,10 +153,21 @@ class CatalystMetaData:
     def pickle_update(self):
         if not self.ts_directory:
             return False
-        fname = os.path.join(self.ts_directory, "pickle")
-        if not self.catalyst and not os.access(fname, os.W_OK):
+        os.makedirs(self.ts_directory, exist_ok=True)
+        fname = os.path.join(
+            self.ts_directory, "{}_pickle".format(self.get_basename)
+        )
+        if not self.catalyst and os.access(fname, os.W_OK):
+            with open(fname, "rb") as f:
+                print("Loading {} from pickle".format(self.get_basename()))
+                self = pickle.load(f)
+            return True
+        elif self.catalyst and os.access(fname, os.W_OK):
             with open(fname, "wb") as f:
                 pickle.dump(self, f)
+            return True
+        elif not os.access(fname, os.W_OK):
+            return False
 
     def generate_structure(self, old_aaron=False):
         """
@@ -197,6 +200,7 @@ class CatalystMetaData:
                 if sub:
                     self.conf_spec[sub.end] = (1, [])
         self.catalyst.name = self.get_catalyst_name()
+        self.pickle_update()
         return self.catalyst
 
     def _get_cf_num(self):
@@ -963,10 +967,8 @@ class Theory:
                         tmp += [k]
                     elif v:
                         tmp += [v]
-                if len(tmp) > 1:
+                if len(tmp) > 0:
                     val = "({})".format(",".join(tmp))
-                elif len(tmp) == 1:
-                    val = tmp[0]
                 else:
                     val = ""
             if key and val:

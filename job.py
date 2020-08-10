@@ -1,9 +1,8 @@
 import glob
 import io
-import json
 import os
-import pickle
 import warnings
+from random import random
 
 import numpy as np
 from fabric.connection import Connection
@@ -12,9 +11,9 @@ from fireworks.user_objects.queue_adapters.common_adapter import CommonAdapter
 from invoke.exceptions import UnexpectedExit
 from jinja2 import Environment, FileSystemLoader
 
-import Aaron.json_extension as json_ext
 from AaronTools.comp_output import CompOutput
 from AaronTools.const import AARONLIB
+from AaronTools.geometry import Geometry
 
 warnings.filterwarnings("ignore", message=".*EllipticCurve.*")
 warnings.filterwarnings("ignore", module=".*queue.*")
@@ -28,7 +27,7 @@ class Job:
     :theory:
     :catalyst_data: CatalystMetaData() associated with ts structure
     :catalyst:      Catalyst() of the current conformer
-    :name:          str with the full path and base name (without 3.log, etc)
+    :name:          str with the full path and base name (without .3.log, etc)
     :step:          the current step
     :status:        job status
     :attempt:       the step2 attempt number for the current cycle
@@ -41,25 +40,6 @@ class Job:
     MAX_CYCLE = 5
     all_jobs = {}
     stop_status_list = ["finished", "skipped", "killed"]
-
-    @classmethod
-    def update_json(cls, fname="jobs.json"):
-        """
-        updates json tracking of all jobs
-        """
-        with open(fname, "w") as f:
-            json.dump(cls.all_jobs, f, cls=json_ext.JSONEncoder, indent=2)
-
-    @classmethod
-    def read_json(cls, fname="jobs.json"):
-        """
-        loads all_jobs from json
-        """
-        try:
-            with open(fname) as f:
-                cls.all_jobs = json.load(f, cls=json_ext.JSONDecoder)
-        except (FileNotFoundError, OSError):
-            pass
 
     def __init__(self, catalyst_data, theory, step=None, overwrite=False):
         self.wf = None
@@ -100,6 +80,13 @@ class Job:
         Job.all_jobs[self.catalyst_data.get_basename()] = self
 
     # utilities
+    def _fix_names(self, struct):
+        """
+        Applies names for self.catalyst_data.catalyst.atoms to struct.atoms
+        """
+        for a, b in zip(self.catalyst_data.catalyst.atoms, struct.atoms):
+            b.name = a.name
+
     def _step(self, step=None):
         if step is None:
             step = self.step
@@ -222,7 +209,7 @@ class Job:
             route_kwargs.pop("guess", None)
             return False
         # if not revert or fail
-        self.status = "2submit"
+        self.status = "pending"
         route_kwargs.pop("opt", None)
         route_kwargs.pop("guess", None)
         if opt:
@@ -244,10 +231,16 @@ class Job:
         :error_code: Attribute detected by CompOutput() for job's logfile
         :progress: Also detected by CompOutput(), the convergence progress
         """
+        if log.geometry:
+            update_geometry = True
+        else:
+            update_geometry = False
         theory = self.get_theory()
         route_kwargs = theory.route_kwargs
         error_code = log.error
-        progress = [v["converged"] for v in log.gradient.values()]
+        progress = []
+        if log.gradient:
+            progress = [v["converged"] for v in log.gradient.values()]
         # clean route_kwargs
         try:
             del route_kwargs["scf"]["xqc"]
@@ -274,18 +267,22 @@ class Job:
                 msg = "Geometry convergence error."
             if self.fix_convergence_error(error_code, progress):
                 self.msg += [msg + " Restarting."]
-                self.restart()
+                self.attempt += 0.2
+                self.restart(update_geometry=update_geometry)
             elif self.status == "revert" and self.cycle < Job.MAX_CYCLE:
                 self.msg += [msg + " Reverting to step 2"]
-                self.update_geometry()
+                if update_geometry:
+                    self.update_geometry()
                 self.attempt = 1
                 self.cycle += 1
-                self.revert(step=2)
+                self.revert(step=2, update_geometry=update_geometry)
             elif self.status == "revert":
                 self.msg += [msg + " Too many cycles, skipping."]
                 self.status = "killed"
-            else:
-                self.msg += [msg + " Too many attempts, skipping."]
+            elif self.attempt < Job.MAX_ATTEMPT:
+                self.msg += [msg + " Restarting."]
+                self.attempt += 0.2
+                self.restart(update_geometry=update_geometry)
             return
 
         # SCF convergence error
@@ -296,15 +293,16 @@ class Job:
                 if "opt" in route_kwargs and "maxstep" in route_kwargs["opt"]:
                     route_kwargs["opt"]["maxstep"] = 15
                 self.attempt += 1
-                self.restart()
+                self.restart(update_geometry=update_geometry)
             else:
                 self.msg += [
                     "SCF convergence error. Reverting to step 2 with current geometry."
                 ]
-                self.update_geometry()
+                if update_geometry:
+                    self.update_geometry()
                 self.cycle += 1
                 self.attempt = 1
-                self.revert(step=2)
+                self.revert(step=2, update_geometry=update_geometry)
             return
 
         # Wrong number of eigen values
@@ -321,7 +319,7 @@ class Job:
             else:
                 route_kwargs["opt"]["maxstep"] = 15
             self.attempt += 1
-            self.restart()
+            self.restart(update_geometry=update_geometry)
             return
 
         # problem with checkpoint file
@@ -356,21 +354,22 @@ class Job:
                     route_kwargs["opt"]["calcfc"] = ""
                 else:
                     route_kwargs["opt"] = {"calcfc": ""}
-                self.restart()
+                self.restart(update_geometry=update_geometry)
                 self.attempt += 0.5
             else:
                 # some other problem... just try step from scratch
                 self.msg += [
                     "FileIO error, restarting step with fresh *.com file"
                 ]
-                self.revert(self.step)
+                self.revert(self.step, update_geometry=update_geometry)
                 self.attempt += 2
             return
 
         # Geometry related errors
         if error_code == "CLASH":
             self.msg += ["Atoms too close. Fixing and restarting."]
-            self.update_geometry()
+            if update_geometry:
+                self.update_geometry()
             bad_subs = self.catalyst_data.catalyst.remove_clash()
             if bad_subs:
                 self.status = "skipped"
@@ -384,16 +383,17 @@ class Job:
         if error_code == "REDUND":
             self.msg += ["Bend failed for angle. Restarting"]
             self.attempt += 1
-            self.restart()
+            self.restart(update_geometry=update_geometry)
             return
         if error_code == "FBX":
             self.msg += ["Flat angle/dihedral error. Attempting to fix."]
             self.attempt += 1
-            self.restart()
+            self.restart(update_geometry=update_geometry)
             return
         if error_code == "CONSTR":
             self.msg += ["Error imposing constraints. Attempting to fix."]
-            self.update_geometry()
+            if update_geometry:
+                self.update_geometry()
             cat = self.catalyst_data.catalyst
             for i, j, _ in cat.get_constraints():
                 cat.atoms[i].coords = np.round(cat.atoms[i].coords, 4)
@@ -409,7 +409,7 @@ class Job:
             # on the same node as before (TODO: node-specific submission)
             self.msg += ["Error allocating memory on node. Restarting."]
             self.attempt += 0.5
-            self.restart()
+            self.restart(update_geometry=update_geometry)
             return
         if error_code == "QUOTA":
             raise RuntimeError(
@@ -432,8 +432,8 @@ class Job:
 
     def examine_reaction(self, update_from="log", adjust=0.1):
         """
-        Determines if constrained atoms are too close/ too far apart. If so,
-        fixes the issue and restarts from step 2 with the adjusted structure
+        Determines if constrained atoms are too close/ too far apart.
+        If so, fixes the issue
 
         Returns:
             True if constraints are all fine, false otherwise
@@ -442,21 +442,19 @@ class Job:
         # examine constraints
         bad_list = cat.examine_constraints()
         if not bad_list:
-            return None
+            return True
         # fix geometry
         if update_from == "log":
             update_from = cat.name + ".2.log"
         elif update_from == "xyz":
             update_from = cat.name + ".2.xyz"
         cat.update_geometry(update_from)
-        bad_con = set([])
         msg = (
             "{}: Bad distances in reaction center detected,"
             " updating structure\n".format(self.basename_with_step())
         )
         for i, j, d in bad_list:
             d *= adjust
-            bad_con.add((i, j, d))
             cat.change_distance(
                 cat.atoms[i], cat.atoms[j], dist=d, adjust=True
             )
@@ -466,14 +464,14 @@ class Job:
         self.msg += [msg[:-1]]
         # restart from step 2
         self.revert_to_step_2(update_geometry=False)
-        return bad_con
+        return False
 
     def revert_to_step_2(self, update_geometry=False, update_from=None):
         if self.cycle >= Job.MAX_CYCLE:
             self.status = "killed"
             self.msg += ["WARN: Too many cycles, job killed"]
         else:
-            self.status = "2submit"
+            self.status = "pending"
             self.cycle += 1
             self.attempt = 1
             self.msg += ["Reverting to step 2"]
@@ -484,13 +482,17 @@ class Job:
             )
             self.write()
 
-    def examine_connectivity(self, log):
+    def examine_connectivity(self, log, return_bad=True):
         com = os.path.join(
             self.get_theory(2).top_dir,
             self.catalyst_data.get_relative_path(),
             "{}.2.com".format(self.catalyst_data.get_basename()),
         )
-        formed, broken = log.geometry.compare_connectivity(com)
+        com = Geometry(com)
+        self._fix_names(com)
+        formed, broken = log.geometry.compare_connectivity(
+            com, return_idx=True
+        )
         if not formed and not broken:
             return True
         self.update_geometry(update_from=com)
@@ -498,11 +500,13 @@ class Job:
         if "original_constraints" not in self.other:
             self.other["original_constraints"] = catalyst.get_constraints()
         for i, j in formed.union(broken):
-            a = catalyst.find_exact(i)[0]
-            b = catalyst.find_exact(j)[0]
-            a.constraint.add(b, a.dist(b))
-            b.constraint.add(a, b.dist(a))
+            a = catalyst.atoms[i]
+            b = catalyst.atoms[j]
+            a.constraint.add((b, a.dist(b)))
+            b.constraint.add((a, b.dist(a)))
         self.revert_to_step_2(update_geometry=False)
+        if return_bad:
+            return formed, broken
         return False
 
     def update_geometry(self, update_from=None):
@@ -533,14 +537,14 @@ class Job:
             self.write()
         self.step = step
         self.remove_after(step)
-        self.status = "2submit"
+        self.status = "pending"
 
     def restart(self, update_geometry=True, update_from=None):
         if update_geometry:
             self.update_geometry(update_from)
         self.remove_after(self.step)
         self.write()
-        self.status = "2submit"
+        self.status = "pending"
 
     def remove_after(self, step):
         for fname in glob.glob(self.catalyst_data.catalyst.name + ".*"):
@@ -635,13 +639,14 @@ class Job:
             rv[key] = val
 
         for key, val in cat_data.__dict__.items():
-            if key in ["catalyst_change", "ts_directory"]:
+            if key in ["catalyst_change", "catalyst", "ts_directory"]:
                 continue
             if key == "template_file":
                 if AARONLIB in val:
                     val = os.path.relpath(val, start=AARONLIB)
                     val = os.path.join("$AARONLIB", val)
             rv[key] = val
+        rv["relative_path"] = cat_data.get_relative_path()
         return rv
 
     def find_fw(self, step=None):
@@ -649,7 +654,7 @@ class Job:
             step = self.step
         spec_query = {"name": self.basename_with_step(step)}
         for key, val in self.get_spec(step).items():
-            if key in ["job_status", "catalyst"]:
+            if key in ["job_status"]:
                 continue
             spec_query["spec." + key] = val
         rv = LAUNCHPAD.get_fw_ids(query=spec_query)
@@ -687,6 +692,7 @@ class Job:
                 # if we are here, fw has same value as before try block
                 break
         if fw:
+            self.current_fw_id = fw.fw_id
             self.step = fw.spec["step"]
             self.wf = LAUNCHPAD.get_wf_by_fw_id(fw.fw_id)
             # fix job attributes in case of restart
@@ -695,21 +701,26 @@ class Job:
                     self.__dict__[key] = val
         return fw
 
-    def add_firework(self, parent_fw_id=None, step=None, **kwargs):
+    def add_firework(
+        self, parent_fw_id=None, step=None, force=False, **kwargs
+    ):
         """
-        Adds firework to DB for queue submission
+        Adds firework to DB for queue submission, unless it already exists
+        Returns added/found firework
 
         :parent_fw_id: the fw_id for the parent step (default: last fw in the workflow)
         :step: the step to do (default: self.step)
+        :force: force creation of new firework (for error handling)
 
         **kwargs: for passing extra route_kwargs
         """
-        self.status = "pending"
-        new_fw = False
+        fw = None
         # find
-        fw = self.check_status()
+        if not force:
+            fw = self.check_status()
+        if force and not parent_fw_id:
+            parent_fw_id = self.check_status()
         if not fw:
-            new_fw = True
             fw = self._make_fw(step, **kwargs)
             if self.wf is None:
                 self.wf = Workflow(
@@ -719,7 +730,8 @@ class Job:
             else:
                 LAUNCHPAD.append_wf(Workflow([fw]), [parent_fw_id])
         self.current_fw_id = fw.fw_id
-        return new_fw
+        self.status = "pending"
+        return fw
 
     def launch_job(self, fw_id=None):
         fw_id = fw_id or self.current_fw_id
@@ -804,6 +816,13 @@ class Job:
             )
         opts["job_name"] = self.basename_with_step()
         opts["rocket_launch"] = "rlaunch singleshot"
+        opts["scr_dir"] = os.path.join(
+            "/scratch/vmi38398",
+            str(
+                abs(hash("{}_{}".format(self.basename_with_step(), random())))
+            ),
+        )
+        opts["work_dir"] = self._get_submit_dir()
 
         # create qadapter
         if theory.remote_dir:
@@ -836,9 +855,19 @@ class Job:
         # make and return script task
         environment = Environment(loader=FileSystemLoader(AARONLIB))
         template = environment.get_template("G09_template.txt")
-        return [ScriptTask(script=template.render(**opts).split("\n"))]
+        return [
+            ScriptTask(
+                script=" && ".join(
+                    [
+                        line
+                        for line in template.render(**opts).split("\n")
+                        if line.strip()
+                    ]
+                )
+            )
+        ]
 
-    def monitor_current_fw(self):
+    def monitor_current_fw(self, restart_fizzled=False):
         """
         Creates a monitoring task for attaching to the sumitted job
         Possible FW states:
@@ -852,14 +881,28 @@ class Job:
         log_name = "{}.log".format(self.basename_with_step())
         fw = LAUNCHPAD.get_fw_by_id(self.current_fw_id)
 
+        if fw.state == "READY":
+            self.launch_job(fw.fw_id)
+            return
         if fw.state == "RESERVED":
             self.status = "queued"
             return
+        if fw.state == "DEFUSED":
+            self.status = "killed"
+            return
         if fw.state == "FIZZLED":
-            self.status = "error"
-            raise RuntimeError(
-                "Issue running job. Please check executable and qadapter templates for errors."
-            )
+            if restart_fizzled:
+                Warning("Something went wrong... Trying again")
+                LAUNCHPAD.rerun_fw(fw.fw_id)
+                self.launch_job(fw.fw_id)
+                return
+            else:
+                self.status = "error"
+                raise RuntimeError(
+                    "Issue running job. Please check executable, qadapter templates, and log file ({}).".format(
+                        self.catalyst_data.catalyst.name
+                    )
+                )
         if fw.state == "RUNNING":
             self.status = "running"
 
@@ -878,13 +921,13 @@ class Job:
             log = None
         if has_log:
             log = CompOutput(log)
+            self._fix_names(log.geometry)
             # validate geometry and resolve errors
-            if self.step >= 2 and self.step < 3:
-                if not self.examine_connectivity(log):
-                    LAUNCHPAD.defuse_fw(fw.fw_id)
-            if self.step > 2:
-                if not self.examine_reaction():
-                    LAUNCHPAD.defuse_fw(fw.fw_id)
+            if log.geometry:
+                if self.step >= 2:
+                    self.examine_connectivity(log)
+                if self.step >= 3:
+                    self.examine_reaction()
             if fw.state == "COMPLETED" and not log.finished:
                 self.fix_error(log)
             # go to next step if everything is fine
@@ -893,11 +936,14 @@ class Job:
                     self.status = "finished"
                 else:
                     self.step = self.next_step()
-                    self.status = "2submit"
+                    self.status = "pending"
 
+        # defuse killed fws
+        if self.status in self.stop_status_list:
+            LAUNCHPAD.defuse_fw(fw.fw_id)
         # add new fireworks if necessary
-        if self.status == "2submit":
-            self.add_firework(parent_fw_id=fw.fw_id)
+        if self.status in ["pending"]:
+            fw = self.add_firework(parent_fw_id=fw.fw_id, force=True)
         # re-queue and restart job that's hit walltime limit
         if LAUNCHPAD.detect_lostruns(
             query={"fw_id": fw.fw_id},
@@ -905,9 +951,6 @@ class Job:
             rerun=True,
         )[1]:
             self.attempt += 0.1
-            self.launch_job(fw.fw_id)
-        # launch ready jobs to queue
-        if fw.state == "READY":
             self.launch_job(fw.fw_id)
         # update fw metadata
         self.update_FW_data(fw_id=fw.fw_id)

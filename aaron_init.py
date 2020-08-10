@@ -39,6 +39,7 @@ class AaronInit:
     def read_aaron_input(self, infile):
         def parse(f, params, custom=None):
             profile_found = False
+            skip_profile = False
             ligand_section = False
             substrate_section = False
 
@@ -49,15 +50,23 @@ class AaronInit:
 
                 # skip to correct profile
                 if custom is not None:
-                    if not profile_found and "=" in line:
-                        pass
-                    elif not profile_found and line != custom:
-                        continue
-                    elif not profile_found and line == custom:
-                        profile_found = True
-                        continue
-                    elif profile_found and "=" not in line:
+                    if profile_found and "=" not in line:
+                        # done reading profile
                         break
+                    if not profile_found and "=" not in line:
+                        if line.lower() == custom.lower():
+                            # found profile, want these settings
+                            profile_found = True
+                            skip_profile = False
+                            continue
+                        else:
+                            # this is some other profile
+                            profile_found = False
+                            skip_profile = True
+                            continue
+                    if skip_profile and "=" in line:
+                        # skip other profile settings
+                        continue
 
                 # ligand and substrate sections
                 if (ligand_section or substrate_section) and (
@@ -107,22 +116,19 @@ class AaronInit:
         params = {"ligand": {}, "substrate": {}}
         with open(infile) as f:
             parse(f, params)
-        if "custom" not in params:
-            params["custom"] = "Default"
 
-        # fill missing parameters from user profile
-        try:
-            with open(os.path.join(HOME, ".aaronrc")) as f:
-                parse(f, params, params["custom"])
-        except FileNotFoundError:
-            pass
-
-        # fill missing parameters from QCHASM defaults
-        try:
-            with open(os.path.join(QCHASM, "Aaron/.aaronrc")) as f:
-                parse(f, params, params["custom"])
-        except FileNotFoundError:
-            pass
+        # fill missing parameters from user profile and group defaults
+        profiles = [
+            os.path.join(HOME, ".aaronrc"),
+            os.path.join(QCHASM, "Aaron/.aaronrc"),
+        ]
+        for profile in profiles:
+            try:
+                with open(profile) as f:
+                    if "custom" in params:
+                        parse(f, params, params["custom"])
+            except FileNotFoundError:
+                pass
 
         # organize ligand and substrate
         ligand = {}

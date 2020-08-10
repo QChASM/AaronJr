@@ -1,18 +1,18 @@
 #!/usr/bin/env python
 import os
+
 import numpy as np
 
-from AaronTools.const import UNIT, PHYSICAL
-from AaronTools.comp_output import CompOutput
 from Aaron.aaron_init import AaronInit
+from AaronTools.comp_output import CompOutput
+from AaronTools.const import PHYSICAL, UNIT
 
-
-THERMO = 'energy', 'enthalpy', 'free_energy', 'grimme_g'
+THERMO = "energy", "enthalpy", "free_energy", "grimme_g"
 
 
 class Data:
     def __init__(self, log, directory):
-        info = log.split('.')[:-2]
+        info = log.split(".")[:-2]
         if len(info) == 4:
             self.name, self.sel, self.ts, self.cf = info
         else:
@@ -33,19 +33,23 @@ class Results:
         self.data = {}
         self.min = {}
         logfiles = []
-        print('Searching for step 4 log files in {}'.format(directory))
+        print("Searching for step 4 log files in {}".format(directory))
         for dirpath, dirnames, filenames in os.walk(directory):
             for log in filenames:
-                if log.endswith('.4.log'):
+                if log.endswith(".4.log"):
                     logfiles += [(log, dirpath)]
-        print('...done')
-        print('Loading data from logfiles')
-        progress_str = '  {: 3.0f}% |{:<50s}|'
+        print("...done")
+        print("Loading data from logfiles")
+        progress_str = "  {: 3.0f}% |{:<50s}|"
         count = 0
         total = len(logfiles)
         for log, dirpath in logfiles:
-            print(progress_str.format(100*count/total, '#'*(50*count//total)),
-                  end='\r')
+            print(
+                progress_str.format(
+                    100 * count / total, "#" * (50 * count // total)
+                ),
+                end="\r",
+            )
             count += 1
             tmp = Data(log, dirpath)
             if not tmp.output.finished:
@@ -58,10 +62,12 @@ class Results:
             for key in THERMO:
                 if tmp.__dict__[key] is None:
                     continue
-                if (self.min[tmp.name][key] is np.nan
-                        or self.min[tmp.name][key] > tmp.__dict__[key]):
+                if (
+                    self.min[tmp.name][key] is np.nan
+                    or self.min[tmp.name][key] > tmp.__dict__[key]
+                ):
                     self.min[tmp.name][key] = tmp.__dict__[key]
-        print('...done' + ' '*60)
+        print("...done" + " " * 60)
 
         for name in self.data:
             self.data[name] = self.sort_data(self.data[name])
@@ -77,14 +83,14 @@ class Results:
         return rv
 
     def print_ee(self, ofile=None):
-        all_output = ''
-        per_str = '{:<8s}' + ' {:>6.1f}% '*4 + '\n'
-        num_str = '{:<8s}' + ' {:>7.1f} '*4 + '\n'
-        head_str = '{:>8s} '*5 + '\n'
-        head_str = head_str.format('', 'E  ', 'H  ', 'G(RRHO)', 'G(qRRHO)')
+        all_output = ""
+        per_str = "{:<8s}" + " {:>6.1f}% " * 4 + "\n"
+        num_str = "{:<8s}" + " {:>7.1f} " * 4 + "\n"
+        head_str = "{:>8s} " * 5 + "\n"
+        head_str = head_str.format("", "E  ", "H  ", "G(RRHO)", "G(qRRHO)")
 
         def print_ts(data):
-            rv = ''
+            rv = ""
             bw_thermo = {key: 0 for key in THERMO}
             temperature = None
             for cf in sorted(data.keys()):
@@ -95,7 +101,7 @@ class Results:
                     thermo += [d.__dict__[key] - self.min[d.name][key]]
                     bw_thermo[key] += bw[key]
                 thermo = [t * UNIT.HART_TO_KCAL for t in thermo]
-                rv += num_str.format('    ' + cf, *thermo)
+                rv += num_str.format("    " + cf, *thermo)
             else:
                 if d.output.temperature is None:
                     temperature = 298
@@ -106,11 +112,11 @@ class Results:
             for key in THERMO:
                 val = np.log(bw_thermo[key])
                 tmp += [-PHYSICAL.BOLTZMANN * temperature * val]
-            rv = num_str.format('  ' + d.ts, *tmp) + rv
+            rv = num_str.format("  " + d.ts, *tmp) + rv
             return rv, bw_thermo
 
         def print_sel(data):
-            rv = ''
+            rv = ""
             bw_thermo = {key: 0 for key in THERMO}
             for ts in data:
                 s, bw = print_ts(data[ts])
@@ -120,11 +126,11 @@ class Results:
             return rv, bw_thermo
 
         for name, data in self.data.items():
-            output = ''
+            output = ""
             bw_thermo = {}
             for sel in data:
                 s, bw = print_sel(data[sel])
-                output += sel + '\n' + s
+                output += sel + "\n" + s
                 bw_thermo[sel] = bw
 
             ee = []
@@ -135,9 +141,9 @@ class Results:
                 val -= np.sum([bw_thermo[s][key] for s in not_sel])
                 val /= np.sum([bw_thermo[s][key] for s in bw_thermo])
                 ee += [val * 100]
-            header = '{}: Relative thermochemistry (kcal/mol)\n'.format(name)
+            header = "{}: Relative thermochemistry (kcal/mol)\n".format(name)
             header += head_str
-            header += per_str.format('%ee {}'.format(sel), *ee)
+            header += per_str.format("%ee {}".format(sel), *ee)
             all_output += header + output + "\n"
         print(all_output)
 
@@ -168,34 +174,42 @@ class Results:
         return rv
 
     def follow_save(self):
-        key_str = '{}.{}.int_{}'
+        key_str = "{}.{}.int_{}"
         for name in self.data:
             for sel in self.data[name]:
                 sel = self.data[name][sel]
                 ts = sel[sorted(sel.keys())[0]]
                 cf = ts[sorted(ts.keys())[0]]
                 output = cf.output
-                for direction in ['r', 'p']:
+                for direction in ["r", "p"]:
                     key = key_str.format(name, cf.sel, direction)
-                    if direction == 'r':
+                    if direction == "r":
                         followed = output.follow(reverse=True)
                     else:
                         followed = output.follow()
-                    followed.write(style='com', name=key,
-                                   options=self.aaron.comp_opts,
-                                   job_type='min', freq='noraman')
+                    followed.write(
+                        style="com",
+                        name=key,
+                        theory=self.aaron.theory,
+                        job_type="min",
+                        freq="noraman",
+                    )
         return
 
 
 if __name__ == "__main__":
     import argparse
+
     parser = argparse.ArgumentParser()
-    parser.add_argument('aaron_input')
+    parser.add_argument("aaron_input")
     parser.add_argument(
-        '--follow', '-f', action='store_true',
+        "--follow",
+        "-f",
+        action="store_true",
         help="""
             Follow imaginary mode for each selectivity in the +/- direction.
-        """)
+        """,
+    )
 
     args = parser.parse_args()
     res = Results(args.aaron_input)
