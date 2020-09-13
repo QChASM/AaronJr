@@ -3,17 +3,17 @@ import os
 import unittest
 
 from Aaron.aaron_init import AaronInit
+from Aaron.test import prefix
 from AaronTools.geometry import Geometry
-from AaronTools.test import TestWithTimer, prefix
+from AaronTools.test import TestWithTimer
 
-prefix = prefix.replace("AaronTools", "Aaron", 1)
 
 
 class TestAaronInit(TestWithTimer):
     def setUp(self):
         super().setUp()
         self.init = AaronInit(
-            os.path.join(prefix, "ref_files/S-binap.in"), quiet=True
+            os.path.join(prefix, "ref_files/simple.ini"), quiet=True
         )
         self.test_geom = Geometry(
             os.path.join(prefix, "ref_files/S_binap-TMEN_Ph.R.ts1.Cf1.2.log")

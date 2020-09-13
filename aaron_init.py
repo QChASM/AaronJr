@@ -1,8 +1,37 @@
 import argparse
 import os
 
-from Aaron.options import Reaction, Theory
+from Aaron.options import Reaction, AaronTheory
 from AaronTools.const import HOME, QCHASM
+
+from configparser import ConfigParser
+
+
+class AaronConfigParser(ConfigParser):
+    """
+    case of options is preserved
+    """
+    #make options case-sensitive
+    optionxform = str
+
+    def options(self, section, ignore_defaults=False, **kwargs):
+        """
+        get list of options
+        ignore_defaults: bool - if True, section will not inherit defaults
+        """
+        if ignore_defaults:
+            try:
+                return list(self._sections[section].keys())
+            except KeyError:
+                raise NoSectionError(section)
+        else:
+            return super().options(section, **kwargs)
+
+    def getlist(self, section, option, *args, delim=',', **kwargs):
+        """returns a list of option values by splitting on the delimiter specified by delim"""
+        raw = self.get(section, option, *args, **kwargs)
+        out = [x.strip() for x in raw.split(delim) if len(x.strip()) > 0]
+        return out
 
 
 class AaronInit:
@@ -21,140 +50,46 @@ class AaronInit:
 
         if not quiet:
             print("Reading input file...")
-        self.params = self.read_aaron_input(infile)
-        if "top_dir" not in self.params:
-            self.params["top_dir"] = os.path.dirname(os.path.abspath(infile))
-        self.theory = Theory(self.params)
-        self.theory = Theory.by_step[0.0]
+        # read the input file once to see if a custom default has been specified
+        # a default section cannot be changed after instantiation 
+        test_config = AaronConfigParser()
+        read = test_config.read(infile)
+        if not quiet:
+            print("Successfully read files:", read)
+        
+        if test_config.has_section("options"):
+            default_section = test_config.get("options", "default", fallback="default")
+        else:
+            default_section = "default"
+
+        #default section names for different program-specific options
+        gaussian_default = "Gaussian %s" % default_section
+        orca_default = "ORCA %s" % default_section
+        psi4_default = "Psi4 %s" % default_section
+
+        #actually read in the input file and use the custom default section
+        self.config = AaronConfigParser(default_section=default_section)
+        read = self.config.read([infile, os.path.join(QCHASM, "Aaron", "aaron.ini"), os.path.join(HOME, "aaron.ini")])
+        self.gaussian_config = AaronConfigParser(default_section=gaussian_default)
+        self.gaussian_config.read([infile, os.path.join(QCHASM, "Aaron", "aaron.ini"), os.path.join(HOME, "aaron.ini")])
+        self.orca_config = AaronConfigParser(default_section=orca_default)
+        self.orca_config.read([infile, os.path.join(QCHASM, "Aaron", "aaron.ini"), os.path.join(HOME, "aaron.ini")])
+        self.psi4_config = AaronConfigParser(default_section=psi4_default)
+        self.psi4_config.read([infile, os.path.join(QCHASM, "Aaron", "aaron.ini"), os.path.join(HOME, "aaron.ini")])
+        if not quiet:
+            print("Attempting to read:", [infile, os.path.join(QCHASM, "aaron.ini"), os.path.join(HOME, "aaron.ini")])
+            print("Successfully read files:", read)
+
+        if not self.config.get("options", "top_dir", fallback=False):
+            self.config.set("options", "top_dir", os.path.dirname(os.path.abspath(infile)))
+        self.theory = AaronTheory(self.config, self.gaussian_config, self.orca_config, self.psi4_config)
+        self.theory = AaronTheory.by_step[0.0]
         if not quiet:
             print("Setting up reaction...")
-        self.reaction = Reaction(self.params)
+        self.reaction = Reaction(self.config)
 
-        if "gen" in self.params:
-            for theory in self.theory.by_step.values():
-                theory.set_gen_basis(self.params["gen"])
         if not quiet:
             print("Starting workflow")
-
-    def read_aaron_input(self, infile):
-        def parse(f, params, custom=None):
-            profile_found = False
-            skip_profile = False
-            ligand_section = False
-            substrate_section = False
-
-            for line in f:
-                line = line.strip()
-                if line == "" or line.startswith("#"):
-                    continue
-
-                # skip to correct profile
-                if custom is not None:
-                    if profile_found and "=" not in line:
-                        # done reading profile
-                        break
-                    if not profile_found and "=" not in line:
-                        if line.lower() == custom.lower():
-                            # found profile, want these settings
-                            profile_found = True
-                            skip_profile = False
-                            continue
-                        else:
-                            # this is some other profile
-                            profile_found = False
-                            skip_profile = True
-                            continue
-                    if skip_profile and "=" in line:
-                        # skip other profile settings
-                        continue
-
-                # ligand and substrate sections
-                if (ligand_section or substrate_section) and (
-                    line == "&" or line == ""
-                ):
-                    ligand_section = False
-                    substrate_section = False
-                    continue
-                # ligand mapping and substitution
-                if line.lower() == "&ligands":
-                    ligand_section = True
-                    continue
-                if ligand_section:
-                    line = line.split(":")
-                    name = line[0].strip()
-                    info = line[1].strip().split()
-                    if "ligand" not in params:
-                        params["ligand"] = {}
-                    params["ligand"][name] = info
-                    continue
-                # substrate substitutions
-                if line.lower() == "&substrates":
-                    substrate_section = True
-                    continue
-                if substrate_section:
-                    line = line.split(":")
-                    name = line[0].strip()
-                    info = line[1].strip().split()
-                    if "substrate" not in params:
-                        params["substrate"] = {}
-                    params["substrate"][name] = info
-                    continue
-
-                # store key=value setting pairs
-                line = line.split("=", 1)
-                name = line[0].strip().lower()
-                info = line[1].strip()
-                if name in ["basis", "ecp"]:
-                    if name not in params:
-                        params[name] = []
-                    params[name] += [info]
-                elif name not in params:
-                    params[name] = info
-
-            return params
-
-        params = {"ligand": {}, "substrate": {}}
-        with open(infile) as f:
-            parse(f, params)
-
-        # fill missing parameters from user profile and group defaults
-        profiles = [
-            os.path.join(HOME, ".aaronrc"),
-            os.path.join(QCHASM, "Aaron/.aaronrc"),
-        ]
-        for profile in profiles:
-            try:
-                with open(profile) as f:
-                    if "custom" in params:
-                        parse(f, params, params["custom"])
-            except FileNotFoundError:
-                pass
-
-        # organize ligand and substrate
-        ligand = {}
-        for lig, info in params["ligand"].items():
-            if lig not in ligand:
-                ligand[lig] = {}
-            for i in info:
-                i = i.split("=")
-                if len(i) == 1:
-                    ligand[lig] = None
-                    continue
-                if i[0].strip().lower().startswith("ligand"):
-                    old_keys = i[0].strip().lstrip("ligand.")
-                    ligand[lig]["map"] = (i[1].strip(), old_keys)
-                else:
-                    ligand[lig][i[0].strip()] = i[1].strip()
-        params["ligand"] = ligand
-        substrate = {}
-        for sub, info in params["substrate"].items():
-            if sub not in substrate:
-                substrate[sub] = {}
-            for i in info:
-                i = i.split("=")
-                substrate[sub][i[0].strip()] = i[1].strip()
-        params["substrate"] = substrate
-        return params
 
 
 if __name__ == "__main__":
@@ -176,7 +111,7 @@ if __name__ == "__main__":
     args.add_argument(
         "input_file",
         type=str,
-        help="The Aaron input file (file extension: .in)",
+        help="The Aaron input file (file extension: .ini)",
     )
     args.add_argument(
         "--record",

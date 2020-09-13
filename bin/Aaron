@@ -14,10 +14,12 @@ reads settings from aaronrc files and input file
 
 import argparse
 
+from Aaron.aaron_init import AaronInit
+
 args = argparse.ArgumentParser(
     description="AARON: An Automated Reaction Optimizer for New catalysts")
 args.add_argument('input_file', type=str,
-                  help='The Aaron input file (file extension: .in)')
+                  help='The Aaron input file (file extension: .ini)')
 args.add_argument('--record', '-r', action='store_true',
                   help='Save failed .log files for further examination')
 args.add_argument('--sleep', '-s', type=int,

@@ -75,14 +75,14 @@ class SubmitTask(FireTaskBase):
         submit_dir, local_dir = job.get_dirs()
         theory = job.get_theory()
         opts = theory.__dict__.copy()
-        if "{" in opts["mem"]:
-            opts["mem"] = theory.parse_function(
-                opts["mem"], opts["params"], as_int=True
-            )
-        if "{" in opts["exec_mem"]:
-            opts["exec_mem"] = theory.parse_function(
-                opts["exec_mem"], opts["params"], as_int=True
-            )
+        #if "{" in opts["mem"]:
+        #    opts["mem"] = theory.parse_function(
+        #        opts["mem"], opts["params"], as_int=True
+        #    )
+        #if "{" in opts["exec_mem"]:
+        #    opts["exec_mem"] = theory.parse_function(
+        #        opts["exec_mem"], opts["params"], as_int=True
+        #    )
         opts["job_name"] = job.basename_with_step()
         opts["rocket_launch"] = "rlaunch singleshot"
 

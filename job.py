@@ -626,7 +626,7 @@ class Job:
                 "remote_dir",
                 "queue_type",
                 "queue",
-                "params",
+                "config",
             ]:
                 continue
             if key == "basis":
@@ -634,8 +634,9 @@ class Job:
                 for element in [a.element for a in cat_data.catalyst.atoms]:
                     tmp[element] = val[element]
                 val = tmp
-            if isinstance(val, str) and "{" in val:
-                val = theory.parse_function(val, theory.params, as_int=True)
+            # XXX: interpolation
+            #if isinstance(val, str) and "{" in val:
+            #    val = theory.parse_function(val, theory.params, as_int=True)
             rv[key] = val
 
         for key, val in cat_data.__dict__.items():
@@ -806,18 +807,20 @@ class Job:
         submit_dir = self._get_submit_dir()
         theory = self.get_theory()
         opts = theory.__dict__.copy()
-        if "{" in opts["mem"]:
-            opts["mem"] = theory.parse_function(
-                opts["mem"], opts["params"], as_int=True
-            )
-        if "{" in opts["exec_mem"]:
-            opts["exec_mem"] = theory.parse_function(
-                opts["exec_mem"], opts["params"], as_int=True
-            )
+        # XXX: interpolation will happen in the future
+        #if "{" in opts["queue_memory"]:
+        #    opts["queue_memory"] = theory.parse_function(
+        #        opts["queue_memory"], opts["params"], as_int=True
+        #    )
+        #if "{" in opts["memory"]:
+        #    opts["memory"] = theory.parse_function(
+        #        opts["memory"], opts["params"], as_int=True
+        #    )
         opts["job_name"] = self.basename_with_step()
         opts["rocket_launch"] = "rlaunch singleshot"
         opts["scr_dir"] = os.path.join(
-            "/scratch/vmi38398",
+            "/scratch",
+            theory.config.get("options", "user"), 
             str(
                 abs(hash("{}_{}".format(self.basename_with_step(), random())))
             ),

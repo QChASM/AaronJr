@@ -7,13 +7,13 @@ import re
 from copy import copy
 
 import Aaron.json_extension as json_ext
-from AaronTools.catalyst import Catalyst
 from AaronTools.component import Component
 from AaronTools.const import AARONLIB, ELEMENTS, QCHASM, TMETAL
 from AaronTools.fileIO import FileWriter
 from AaronTools.geometry import Geometry
 from AaronTools.substituent import Substituent
 from AaronTools.utils import utils
+from AaronTools.theory import *
 
 
 class CatalystMetaData:
@@ -398,7 +398,7 @@ class Reaction:
     :by_sub_change: for sorting catalyst_data
     """
 
-    def __init__(self, params=None):
+    def __init__(self, config=None):
         self.reaction_type = ""
         self.template = ""
         self.template_XYZ = []
@@ -409,20 +409,53 @@ class Reaction:
         self.by_lig_change = {}
         self.by_sub_change = {}
         self.con_thresh = None
-        if params is None:
+        if config is None:
             return
 
-        self.reaction_type = params["reaction_type"]
-        self.template = params["template"]
+        self.reaction_type = config.get("options", "reaction type")
+        self.template = config.get("options", "template")
 
-        if "selectivity" in params:
-            self.selectivity = params["selectivity"].split(";")
-        if "ligand" in params:
-            self.ligand = params["ligand"]
-        if "substrate" in params:
-            self.substrate = params["substrate"]
-        if "con_thresh" in params:
-            self.con_thresh = params["con_thresh"]
+        for option in config.options("options"):
+            if option.lower() == "selectivity":
+                self.selectivity = config.getlist("options", option, delim=";")
+            
+            elif option.lower() == "connectivity threshold":
+                self.con_thresh = config.getfloat(option)
+
+        if config.has_section("ligands"):
+            self.ligand = {}
+            for option in config.options("ligands", ignore_defaults=True):
+                if option not in self.ligand:
+                    self.ligand[option] = {}
+                
+                info = config.getlist("ligands", option, delim=" ")
+                if len(info) == 1:
+                    self.ligand[option] = None
+
+                i = 0
+                while i < len(info):
+                    if info[i].lower().startswith("swap"):
+                        i += 1
+                        old_keys = info[i].split("=")[0]
+                        new_lig = "=".join(info[i].split("=")[1:])
+                        self.ligand[option]["map"] = (new_lig, old_keys)
+
+                    else:
+                        ndx = info[i].split("=")[0]
+                        new_sub = "=".join(info[i].split("=")[1:])
+                        self.ligand[ndx] = new_sub
+
+                    i += 1
+       
+        if config.has_section("substrates"):
+            self.substrate = {}
+            for option in config.options("substrates", ignore_defaults=True):
+                self.substrate[option] = {}
+                info = config.getlist("substrates", option, delim=" ")
+                for sub in info:
+                    ndx = sub.split("=")[0]
+                    new_sub = "=".join(sub.split("=")[1:])
+                    self.substrate[option][ndx] = new_sub
 
     def get_templates(self):
         """
@@ -436,7 +469,7 @@ class Reaction:
         templates = []
         for sel in selectivity:
             # get relative path
-            path = "TS_geoms/{}/{}".format(self.reaction_type, self.template)
+            path = os.path.join("TS_geoms", self.reaction_type, self.template)
             if sel:
                 path = os.path.join(path, sel)
             # try to find in user's library
@@ -608,7 +641,7 @@ class Reaction:
             print(cd.__dict__, end="\n\n")
 
 
-class Theory:
+class AaronTheory(Theory):
     """
     Class Attributes:
     :by_step:       dictionary sorted by step
@@ -616,13 +649,9 @@ class Theory:
     :_skip_keys:    route_kwargs keys that are handled specially
 
     Attributes:
-    :method:        method to use
-    :basis:         basis set to use
-    :ecp:           ecp to use
-    :gen_basis:     path to gen basis files
-    :route_kwargs:  other kwargs
-    :_unique_basis: the basis set name, if for all atoms
-
+    :other_kwargs:  other kwargs (route, etc.)
+    :temperature:   temperature for FrequencyJobs
+    
     :top_dir:       local directory to store files
     :remote_dir:    directory to store computation files
     :host:          cluster host (where to submit jobs)
@@ -632,41 +661,96 @@ class Theory:
     :procs:         number of cores per node
     :nodes:         number of nodes
     :wall:          wall time
-    :memory:        memory requested (can be function)
-    :exec_memory:   memory requested for computation (can be function)
+    :queue_memory:  memory requested (can be function)
+    :memory:        memory requested for computation (can be function)
     """
 
-    nobasis = ["AM1", "PM3", "PM3MM", "PM6", "PDDG", "PM7"]
     by_step = {}  # key 0.0 corresponds to default
-    _skip_keys = ["temperature", "charge", "mult"]
+    kwargs_by_step = {}
+    conditional_kwargs_by_step = {}
+
+    def __init__(self, config=None, gaussian_config=None, orca_config=None, psi4_config=None):
+        super().__init__()
+
+        self.step = 0.0
+        self.method = None
+        self.basis = BasisSet()
+        self.other_kwargs = {}
+        self.temperature = 298.15
+
+        self.top_dir = None
+        self.user = None
+        self.host = None
+        self.transfer_host = None
+        self.remote_dir = None
+        self.queue_type = None
+        self.queue = None
+        self.nodes = 1
+        self.processors = None
+        self.walltime = None
+        self.queue_memory = None
+        self.memory = None
+
+        self.config = config
+
+        if config is None:
+            return
+        else:
+            self.read_config(config, gaussian_config, orca_config, psi4_config)
 
     # class methods
     @classmethod
-    def read_params(cls, params):
-        if "host" in params and "transfer_host" not in params:
-            params["transfer_host"] = params["host"]
-        for name, info in params.items():
-            step = name.split("_")[0]
+    def read_config(cls, config, gaussian_config, orca_config, psi4_config):
+        # if the user didn't specify these sections, add them in
+        # ConfigParser will just use the defaults
+        if not config.has_section("options"):
+            config.add_section("options")
+        
+        if not gaussian_config.has_section("Gaussian options"):
+            gaussian_config.add_section("Gaussian options")
+        
+        if not orca_config.has_section("ORCA options"):
+            orca_config.add_section("ORCA options")
+        
+        if not psi4_config.has_section("Psi4 options"):
+            psi4_config.add_section("Psi4 options")
+
+        if "host" in config["options"] and "transfer_host" not in config["options"]:
+            config.set("options", "transfer_host", config.get("options", "host"))
+        for name in config.options("options"):
+            info = config.get("options", name)
+            step = name.split()[0]
             try:
                 step = float(step)
-                name = "_".join(name.split("_")[1:])
+                name = " ".join(name.split()[1:])
             except ValueError:
                 if step.lower() in ["low", "short"]:
                     step = 1.0
-                    name = "_".join(name.split("_")[1:])
+                    name = " ".join(name.split()[1:])
                 elif step.lower() == "high":
                     step = 5.0
-                    name = "_".join(name.split("_")[1:])
+                    name = " ".join(name.split()[1:])
                 else:
                     step = 0.0  # default
             # change to correct Theory instance
             if step not in cls.by_step:
                 cls.by_step[step] = cls()
-                cls.by_step[step].params = params
-            obj = cls.by_step[step]
-            obj.step = step
+                cls.by_step[step].config = config
 
+            if step not in cls.kwargs_by_step:
+                cls.kwargs_by_step[step] = {}
+
+            if step not in cls.conditional_kwargs_by_step:
+                cls.conditional_kwargs_by_step[step] = {}
+
+            obj = cls.by_step[step]
+            kwargs = cls.kwargs_by_step[step]
+            conditional_kwargs = cls.conditional_kwargs_by_step[step]
+            obj.step = step
+            
             # cluster options
+            solvent = None
+            solvent_model = None
             if name.lower() == "remote_dir":
                 obj.remote_dir = info
             elif name.lower() == "user":
@@ -682,64 +766,119 @@ class Theory:
             elif name.lower() == "queue":
                 obj.queue = info
             elif re.search("^(n_?)?procs$", name.strip(), re.I):
-                obj.ppnode = info
+                obj.processors = config.getint("options", name)
             elif re.search("^(n_?)?nodes$", name.strip(), re.I):
                 obj.nodes = info
             elif re.search("^wall([ _]?time)?", name.strip(), re.I):
                 obj.walltime = info
             elif name.lower() == "memory":
-                obj.mem = info
+                obj.queue_memory = config.getint("options", name)
             elif name.lower() == "exec_memory":
-                obj.exec_mem = info
+                obj.memory = config.getint("options", name)
+            elif name.lower() == "program":
+                obj.program = info
 
             # theory options
             elif name.lower() == "method":
-                obj.method = info
-            elif name.lower() == "basis":
-                obj.set_basis(info)
-            elif name.lower() == "ecp":
-                obj.set_ecp(info)
+                obj.method = Method(info)
+            elif name.lower().startswith("basis"):
+                obj.set_basis(name, info)
+            elif name.lower().startswith("ecp"):
+                obj.set_ecp(name, info)
             elif name.lower() == "temperature":
-                obj.route_kwargs["temperature"] = float(info)
-            elif name.lower() == "solvent_model":
-                if "scrf" in obj.route_kwargs:
-                    obj.route_kwargs["scrf"][info] = ""
-                else:
-                    obj.route_kwargs["scrf"] = {info: ""}
+                obj.temperature = info
+            elif name.lower() == "solvent model":
+                solvent_model = info
             elif name.lower() == "solvent":
-                if "scrf" in obj.route_kwargs:
-                    obj.route_kwargs["scrf"]["solvent"] = info
-                else:
-                    obj.route_kwargs["scrf"]["solvent"] = info
+                solvent = info
             elif name.lower() == "charge":
-                obj.route_kwargs["charge"] = int(info)
+                obj.charge = config.getint("options", name)
             elif re.search("^mult(iplicity)?$", name.strip(), re.I):
-                obj.route_kwargs["mult"] = int(info)
+                obj.multiplicity = config.getint("options", name)
             elif re.search("^(int(egration)?_?)?grid$", name.strip(), re.I):
-                obj.route_kwargs["int"] = {"grid": info}
+                obj.grid = IntegrationGrid(info)
             elif re.search(
                 "^emp(erical_?)?disp(ersion)?$", name.strip(), re.I
             ):
-                obj.route_kwargs["EmpericalDispersion"] = info
+                obj.empirical_dispersion = EmpiricalDispersion(info)
             elif re.search("^den(sity_?)?fit(ting)$", name.strip(), re.I):
-                try:
-                    denfit = bool(int(info))
-                except ValueError:
-                    denfit = bool(info)
+                denfit = config.getbool("options", name)
                 if denfit:
-                    obj.route_kwargs["denfit"] = ""
-            elif re.search("^add(itional)?_?opt(ions?)?$", name.strip(), re.I):
-                obj.route_kwargs[""] = info
+                    if GAUSSIAN_ROUTE not in kwargs:
+                        kwargs[GAUSSIAN_ROUTE] = {}
+
+                    kwargs[GAUSSIAN_ROUTE]["DensityFit"] = []
+
+        if solvent is not None and solvent.lower() != "gas" and solvent_model is not None:
+            obj.solvent = ImplicitSolvent(solvent_model, solvent)
+
+        # go through each program-specific option and parse keyword arguments
+        for prgm_config, prgm_section, one_layer_positions, two_layer_positions in \
+            zip(
+                [gaussian_config, orca_config, psi4_config], 
+                ["Gaussian options", "ORCA options", "Psi4 options"], 
+                [[GAUSSIAN_POST], [ORCA_ROUTE], [PSI4_BEFORE_GEOM, PSI4_AFTER_JOB]], 
+                [[GAUSSIAN_PRE_ROUTE, GAUSSIAN_ROUTE], [ORCA_BLOCKS], [PSI4_SETTINGS, PSI4_COORDINATES, PSI4_JOB, PSI4_OPTKING]],
+            ):
+
+            for name in prgm_config.options(prgm_section):
+                info = prgm_config.get(prgm_section, name)
+                step = name.split()[0]
+                try:
+                    step = float(step)
+                    name = " ".join(name.split()[1:])
+                except ValueError:
+                    if step.lower() in ["low", "short"]:
+                        step = 1.0
+                        name = " ".join(name.split()[1:])
+                    elif step.lower() == "high":
+                        step = 5.0
+                        name = " ".join(name.split()[1:])
+                    else:
+                        step = 0.0  # default
+                # change to correct Theory instance
+                if step not in cls.by_step:
+                    cls.by_step[step] = cls()
+                    cls.by_step[step].config = config
+                    cls.kwargs_by_step = {}
+                    cls.conditional_kwargs_by_step
+
+                obj = cls.by_step[step]
+                kwargs = cls.kwargs_by_step[step]
+                conditional_kwargs = cls.conditional_kwargs_by_step[step]
+
+                kw_info = name.split()[0]
+                # two-layer options - things like 'route freq = HPModes, NoRaman'
+                for position in two_layer_positions:
+                    if kw_info[0].lower() == position:
+                        if len(kw_info) == 1:
+                            if kw_info[0] not in kwargs:
+                                kwargs[position] = {}
+                            for value in config.getlist(prgm_section, name):
+                                kwargs[position][value] = []
+                        else:
+                            keyword = kw_info[1]
+                            if position not in conditional_kwargs:
+                                conditional_kwargs[position] = {}
+                            if keyword not in conditional_kwargs[position]:
+                                conditional_kwargs[position][keyword] = []
+                            conditional_kwargs[position][keyword].extend(prgm_config.getlist(prgm_section, name))
+                
+                # one-layer options - things like 'simple = TightSCF'
+                for position in one_layer_positions:
+                    if kw_info[0].lower() == position:
+                        if position not in kwargs:
+                            kwargs[position] = []
+                        kwargs[position].extend(prgm_config.get_list(prgm_section, name))
+
 
         # cascade defaults to steps without settings
         cls.cascade_defaults()
+        
         # check for nobasis
         for obj in cls.by_step.values():
             if obj.method is None:
-                raise RuntimeError("Theory().method is None")
-            if obj.method.upper() in Theory.nobasis:
-                obj.basis = {}
-                obj.ecp = {}
+                raise RuntimeError("method is a required paramter in the [options] section of the input file or the defined default section")
 
     @classmethod
     def cascade_defaults(cls):
@@ -748,47 +887,50 @@ class Theory:
             return
         else:
             defaults = cls.by_step[0.0]
-            defaults.procs = int(re.findall("\d+", str(defaults.nodes))[0])
-            defaults.procs *= int(re.findall("\d+", str(defaults.ppnode))[0])
-            if not defaults.exec_mem:
-                defaults.exec_mem = defaults.mem
+            default_kwargs = cls.kwargs_by_step[0.0]
+            default_conditional_kwargs = cls.conditional_kwargs_by_step[0.0]
+            defaults.processors = int(re.findall("\d+", str(defaults.nodes))[0])
+            defaults.processors *= int(re.findall("\d+", str(defaults.processors))[0])
+            if not defaults.memory:
+                defaults.memory = defaults.queue_memory
         # add keyword defaults
-        if "" not in defaults.route_kwargs:
-            defaults.route_kwargs[""] = ""
-        if "charge" not in defaults.route_kwargs:
-            defaults.route_kwargs["charge"] = 0
-        if "mult" not in defaults.route_kwargs:
-            defaults.route_kwargs["mult"] = 1
 
         # update step objects with defaults
         defaults = defaults.__dict__
         for step, obj in cls.by_step.items():
             if step == 0.0:
                 continue
-            if not obj.exec_mem:
-                obj.exec_mem = obj.mem
+            if not obj.memory:
+                obj.memory = obj.queue_memory
             for key, val in obj.__dict__.items():
-                if val in ["route_kwargs", "procs"]:
+                if val in ["processors"]:
                     # do these after
                     continue
                 if val is not None:
                     # don't overwrite
                     continue
                 obj.__dict__[key] = defaults[key]
-            for key, val in defaults["route_kwargs"].items():
-                if key in obj.route_kwargs:
-                    # don't overwrite
-                    continue
-                obj.route_kwargs[key] = val
-            obj.procs = int(re.findall("\d+", str(obj.nodes))[0])
-            obj.procs *= int(re.findall("\d+", str(obj.ppnode))[0])
+
+            obj.processors = int(re.findall("\d+", str(obj.nodes))[0])
+            obj.processors *= int(re.findall("\d+", str(obj.processors))[0])
+
+        for step, kwargs in cls.kwargs_by_step.items():
+            if step == 0.0:
+                continue
+            cls.kwargs_by_step[step] = utils.combine_dicts(kwargs, default_kwargs)
+
+        for step, conditional_kwargs in cls.conditional_kwargs_by_step.items():
+            if step == 0.0:
+                continue
+            cls.conditional_kwargs_by_step[step] = utils.combine_dicts(conditional_kwargs, default_conditional_kwargs)
+
 
     @classmethod
     def get_step(cls, step):
         step = float(step)
         if step not in cls.by_step:
             step = 0.0
-        return cls.by_step[step]
+        return cls.by_step[step], cls.kwargs_by_step[step], cls.conditional_kwargs_by_step[step]
 
     @classmethod
     def set_top_dir(cls, top_dir):
@@ -796,221 +938,78 @@ class Theory:
             theory.top_dir = top_dir
 
     @classmethod
-    def write_com(cls, geometry, step=0.0, **kwargs):
-        if float(step) in cls.by_step:
-            obj = cls.by_step[float(step)]
-        else:
-            obj = cls.by_step[0.0]
-        FileWriter.write_com(geometry, theory=obj, step=step, **kwargs)
+    def write_input(cls, geometry, step=0.0, **kwargs):
+        obj, step_kwargs, conditional_kwargs = cls.theory_for_step(geometry, step)
+        kwargs = utils.combine_dicts(kwargs, step_kwargs)
+
+        if obj.program.lower() == "gaussian":
+            style = "com"
+        elif obj.program.lower() == "orca":
+            style = "inp"
+        elif obj.program.lower() == "psi4":
+            style = "in"
+
+        FileWriter.write(geometry, theory=obj, step=step, style=style, conditional_kwargs=conditional_kwargs, **kwargs)
 
     @classmethod
-    def make_footer(cls, geometry, step):
-        if not isinstance(geometry, Geometry):
-            msg = "argument provided must be Geometry type; "
-            msg += "provided type {}".format(type(geometry))
-            raise ValueError(msg)
-        footer = "\n"
-        if float(step) in cls.by_step:
-            theory = cls.by_step[float(step)]
-        else:
-            theory = cls.by_step[0.0]
-
-        # constrained optimization
-        if int(step) == 2:
-            constraints = geometry.get_constraints()
-            for con in constraints:
-                footer += "B {} {} F\n".format(con[0] + 1, con[1] + 1)
-            if len(constraints) > 0:
-                footer += "\n"
-
-        if theory.basis and (
-            not theory.unique_basis(geometry) or theory.ecp or theory.gen_basis
-        ):
-            basis = {}
-            for e in sorted(set(geometry.elements())):
-                tmp = theory.basis[e]
-                if tmp not in basis:
-                    basis[tmp] = []
-                basis[tmp] += [e]
-            for b in sorted(basis):
-                footer += ("{} " * len(basis[b])).format(*basis[b])
-                footer += "0\n{}\n".format(b)
-                footer += "*" * 4 + "\n"
-
-        if theory.gen_basis:
-            for g in sorted(set(theory.gen_basis.values())):
-                footer += "@{}/N\n".format(g)
-
-        if theory.ecp:
-            footer += "\n"
-            ecp = {}
-            for e in sorted(set(geometry.elements())):
-                if e not in theory.ecp:
-                    continue
-                tmp = theory.ecp[e]
-                if tmp not in ecp:
-                    ecp[tmp] = []
-                ecp[tmp] += [e]
-            for e in sorted(ecp):
-                footer += ("{} " * len(ecp[e])).format(*ecp[e])
-                footer += "0\n{}\n".format(e)
-
-        if footer.strip() == "":
-            return "\n\n\n"
-
-        return footer + "\n\n\n"
-
-    @classmethod
-    def make_header(cls, geometry, step, **kwargs):
+    def theory_for_step(cls, geometry, step):
         """
-        :geometry: Geometry()
-        :step:
-        :kwargs: additional keyword=value arguments for header
-        """
-        theory = cls.get_step(step)
-        if "fname" in kwargs:
-            fname = kwargs["fname"]
-            del kwargs["fname"]
-        else:
-            fname = geometry.name
-        # get comment
-        if "comment" in kwargs:
-            comment = kwargs["comment"]
-            del kwargs["comment"]
-        else:
-            comment = "step {}".format(
-                int(step) if int(step) == step else step
-            )
-
-        # checkfile
-        if step > 1:
-            header = "%chk={}.chk\n".format(fname)
-        else:
-            header = ""
-
-        # route
-        header += theory.make_route(geometry, step, **kwargs)
-
-        # comment, charge and multiplicity
-        header += "\n\n{}\n\n{},{}\n".format(
-            comment, theory.route_kwargs["charge"], theory.route_kwargs["mult"]
-        )
-        return header
-
-    @classmethod
-    def make_route(cls, geometry, step, **kwargs):
-        """
-        Creates the route line for G09 com files
-        Returns: str
+        gets theory for the step
+        Returns: Theory(), dict, dict
+        1st dict keys are keywords for FileWriter.write
+        2nd dict keys are for FileWriter.write(conditional_kwargs)
 
         :geometry:  the geometry object or name string
         :step:
-        :**kwargs:  additional Gaussian keywords to add
         """
-        theory = cls.get_step(step)
-        route_dict = {}
-
-        # method and basis
-        method = "#{}".format(theory.method)
-        if theory.ecp:
-            method += "/genecp"
-        elif theory.unique_basis(geometry):
-            method += "/{}".format(theory.unique_basis)
-        elif theory.basis:
-            method += "/gen"
-        route_dict["method"] = method
+        theory, kwargs, conditional_kwargs = cls.get_step(step)
 
         # calcuation type
         if step < 2:
-            route_dict["opt"] = {}
-            route_dict["nosym"] = {}
+            constraints = {'atoms': [atom for atom in geometry.atoms if atom.flag != 0], 
+                           'bonds': geometry.get_constraints()}
+            job = OptimizationJob(constraints=constraints, geometry=geometry)
         elif step < 3:
-            route_dict["opt"] = {"modredundant": "", "maxcyc": "1000"}
+            constraints = {'bonds': geometry.get_constraints}
+            job = OptimizationJob(constraints=constraints, geometry=geometry)
         elif step < 4:
-            try:
+            job = OptimizationJob(transition_state=True)
+            if hasattr(geometry, name):
                 name = geometry.name
-            except AttributeError:
+            else:
                 # assume it's a string then
                 name = geometry
-            route_dict["opt"] = {"ts": "", "maxcyc": "1000"}
-            if os.access("{}.chk".format(name), os.R_OK):
-                route_dict["opt"]["readfc"] = ""
-            else:
-                route_dict["opt"]["calcfc"] = ""
-        elif step < 5:
-            route_dict["freq"] = {"hpmodes": "", "noraman": ""}
-            route_dict["freq"]["temperature"] = theory.route_kwargs[
-                "temperature"
-            ]
-
-        # screen unneeded keywords
-        skip_keys = Theory._skip_keys.copy()
-        if step < 2:
-            skip_keys += ["scrf"]
-        # other keywords
-        route_dict = utils.add_dict(
-            route_dict, theory.route_kwargs, skip=skip_keys
-        )
-        # from **kwargs parameters
-        route_dict = utils.add_dict(route_dict, kwargs, skip=Theory._skip_keys)
-
-        # make the string from the dictionary
-        route = route_dict["method"]
-        del route_dict["method"]
-        for key, val in sorted(route_dict.items()):
-            if isinstance(val, dict):
-                tmp = []
-                for k, v in sorted(val.items()):
-                    if k and v:
-                        tmp += ["{}={}".format(k, v)]
-                    elif k:
-                        tmp += [k]
-                    elif v:
-                        tmp += [v]
-                if len(tmp) > 0:
-                    val = "({})".format(",".join(tmp))
+            if program == "gaussian":
+                if GAUSSIAN_ROUTE not in kwargs:
+                    kwargs[GAUSSIAN_ROUTE] = {}
+                for key in kwargs[GAUSSIAN_ROUTE].keys():
+                    if key.lower() == "opt":
+                        if os.access("{}.chk".format(name), os.R_OK):
+                            kwargs[GAUSSIAN_ROUTE][key].append("ReadFC")
+                        else:
+                            kwargs[GAUSSIAN_ROUTE][key].append("CalcFC")
+                        break
                 else:
-                    val = ""
-            if key and val:
-                route += " {}={}".format(key, val)
-            elif key:
-                route += " {}".format(key)
-            elif val:
-                route += " {}".format(val)
+                    if os.access("{}.chk".format(name), os.R_OK):
+                        kwargs[GAUSSIAN_ROUTE]["opt"].append("ReadFC")
+                    else:
+                        kwargs[GAUSSIAN_ROUTE]["opt"].append("CalcFC")
+                    
+        elif step < 5:
+            # TODO: if program is ORCA, we need to check if ORCA has analytical frequencies
+            #       because you need to request NumFreq (Freq errors out, which we could catch...but we could also not)
+            job = FrequencyJob(temperature=theory.temperature)
 
-        return route
+        else:
+            job = SinglePointJob()
+
+        theory.job_type = [job]
+
+        return theory, kwargs, conditional_kwargs
 
     # instance methods
-    def __init__(self, params=None):
-        self.step = 0.0
-        self.method = None
-        self.basis = {}
-        self.ecp = {}
-        self.gen_basis = {}
-        self.route_kwargs = {}
-        self._unique_basis = None
-
-        self.top_dir = None
-        self.user = None
-        self.host = None
-        self.transfer_host = None
-        self.remote_dir = None
-        self.queue_type = None
-        self.queue = None
-        self.nodes = 1
-        self.ppnode = None
-        self.walltime = None
-        self.mem = None
-        self.exec_mem = None
-
-        self.params = params
-
-        if params is None:
-            return
-        if params is not None:
-            Theory.read_params(params)
-
     def parse_function(self, func, params=None, as_int=False):
+        # TODO: move this to an interpolater for AaronConfigParser
         original = func
         if params is None:
             params = self.params
@@ -1044,102 +1043,86 @@ class Theory:
             original = original.replace("{" + func + "}", str(new_func))
         return original
 
-    def set_basis(self, spec):
+    def set_basis(self, spec, basis_info):
         """
         Stores basis set information as a dictionary keyed by atoms
 
-        :spec: list of basis specification strings from Aaron input file
-            acceptable forms:
-                "6-31G" will set basis for all atoms to 6-31G
-                "tm SDD" will set basis for all transiton metals to SDD
-                "C H O N def2tzvp" will set basis for C, H, O, and N atoms
+        :spec: element specification string from Aaron input file
+               may include element symbols or tm, possibly prefixed by !
+               to indicate that that element or all transition metals are
+               to be excluded
+        
+        :basis_info: basis specification from Aaron input file
+                     basis name and path to external basis file
+                     should be separated by whitespace, e.g.
+                     def2-svpd /home/CoolUser/gbs/def2-svpd.gbs
         """
-        for a in spec:
-            info = a.split()
-            basis = info.pop()
-            for i in info:
-                i = i.strip()
-                if i in ELEMENTS:
-                    self.basis[i] = basis
-                elif i.lower() == "TM":
-                    for tm in TMETAL:
-                        self.basis[tm] = basis
-            if len(info) == 0:
-                for e in ELEMENTS:
-                    if e not in self.basis:
-                        self.basis[e] = basis
+        info = basis_info.split()
+
+        basis_name = info[0]
+        if len(info) > 1:
+            user_defined = basis_info[:len(basis_name)].strip()
+        else:
+            user_defined = False
+
+        aux_type = None
+        finders = spec.split()
+        # first thing is 'basis' - remove it
+        finders.pop(0)
+        i = 0
+        # check for aux_type
+        while i < len(finders):
+            if finders[i].lower().startswith('aux'):
+                aux_type = finders[i+1]
+                finders.pop(i)
+                finders.pop(i)
+                break
+            i += 1
+
+        print("finders")
+        print(finders)
+
+        if len(finders) == 0:
+            finders = None
+
+        self.basis.add_basis(Basis(basis_name, elements=finders, aux_type=aux_type, user_defined=user_defined))
+        
         return
 
-    def set_ecp(self, args):
+    def set_ecp(self, spec, basis_info):
         """
         Stores ecp information as a dictionary keyed by atoms
 
-        :spec: list of basis specification strings from Aaron input file
-            acceptable forms:
-                "tm SDD" will set basis for all transiton metals to SDD
-                "Ru Pt SDD" will set basis for Ru and Pt to SDD
+        :spec: element specification string from Aaron input file
+               may include element symbols or tm, possibly prefixed by !
+               to indicate that that element or all transition metals are
+               to be excluded
+        
+        :basis_info: basis specification from Aaron input file
+                     basis name and path to external basis file
+                     should be separated by whitespace, e.g.
+                     def2-svpd /home/CoolUser/gbs/def2-svpd.gbs
         """
-        for a in args:
-            info = a.strip().split()
-            if len(info) < 2:
-                msg = "ecp setting requires atom type: {}"
-                msg = msg.format(" ".join(info))
-                raise IOError(msg)
-            ecp = info.pop()
-            for i in info:
-                if i in ELEMENTS:
-                    self.ecp[i] = ecp
-                elif i.lower() == "tm":
-                    for t in TMETAL.keys():
-                        self.ecp[i] = ecp
-                else:
-                    msg = "ecp setting requires atom type: {}"
-                    msg = msg.format(" ".join(info))
-                    raise IOError(msg)
-        return
 
-    def set_gen_basis(self, gen):
-        """
-        Creates gen basis specifications
-        Checks to ensure basis set files exist
+        print(spec, "<%s>" % basis_info)
 
-        :gen: str specifying the gen basis file directory
-        """
-        if self.gen_basis:
-            return
+        info = basis_info.split()
 
-        gen = gen.rstrip("/") + "/"
-        for element in self.basis:
-            if self.basis[element].lower().startswith("gen"):
-                fname = self.basis[element]
-                fname = gen + fname.strip("gen/")
-                self.gen_basis[element] = fname
-                del self.basis[element]
-        if not self.gen_basis:
-            return
-
-        if not os.access(gen, os.R_OK):
-            msg = "Cannot open directory {} to read basis set files."
-            raise IOError(msg.format(gen))
-
-        for gf in self.gen_basis.values():
-            if not os.access(gf, os.R_OK):
-                msg = "Cannot find basis set file {} in {}."
-                raise IOError(msg.format(gf, gen))
-        return
-
-    def unique_basis(self, geometry):
-        if self._unique_basis:
-            return self._unique_basis
-        if not self.basis:
-            return False
-
-        all_basis = set([])
-        for a in geometry.atoms:
-            all_basis.add(self.basis[a.element].upper())
-        if len(all_basis) != 1:
-            self._unique_basis = None
-            return False
+        basis_name = info[0]
+        if len(info) > 1:
+            user_defined = basis_info[:len(basis_name)].strip()
         else:
-            self._unique_basis = self.basis[a.element]
-            return self._unique_basis
+            user_defined = False
+
+        finders = spec.split()
+        #first thing is 'ecp' - remove it
+        finders.pop(0)
+
+        print(finders)
+
+        if len(finders) == 0:
+            finders = None
+
+        self.basis.add_ecp(ECP(basis_name, elements=finders, user_defined=user_defined))
+        
+        return
