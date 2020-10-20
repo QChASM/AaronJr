@@ -6,8 +6,6 @@ import pickle
 import re
 from copy import copy
 
-import Aaron.json_extension as json_ext
-from AaronTools.catalyst import Catalyst
 from AaronTools.component import Component
 from AaronTools.const import AARONLIB, ELEMENTS, QCHASM, TMETAL
 from AaronTools.fileIO import FileWriter
@@ -16,7 +14,7 @@ from AaronTools.substituent import Substituent
 from AaronTools.utils import utils
 
 
-class CatalystMetaData:
+class GeometryMetaData:
     """
     :template_file:     file location of template.xyz
     :reaction_type:     name of the reaction type
@@ -172,13 +170,13 @@ class CatalystMetaData:
     def generate_structure(self, old_aaron=False):
         """
         Generates a mapped/substituted catalyst structure from the information
-        stored in a CatalystMetaData object
+        stored in a GeometryMetaData object
 
-        Returns: Catalyst()
+        Returns: Geometry()
         """
         if self.pickle_update():
             return self.catalyst
-        self.catalyst = Catalyst(self.template_file)
+        self.catalyst = Geometry(self.template_file)
         if self.ligand_change is None and self.substrate_change is None:
             if old_aaron:
                 self.conf_spec = {}
@@ -205,7 +203,7 @@ class CatalystMetaData:
 
     def _get_cf_num(self):
         """
-        :conf_spec: the Catalyst().conf_spec dictionary, uses the one
+        :conf_spec: the Geometry().conf_spec dictionary, uses the one
             associated with self.catalyst if None
         """
         match = re.search(".*/cf(\d+).xyz", self.template_file, flags=re.I)
@@ -469,9 +467,9 @@ class Reaction:
     def generate_structure_data(self, top_dir):
         """
         Generates catalyst metadata for requested mapping/substitution
-        combinations. See CatalystMetaData for data structure info
+        combinations. See GeometryMetaData for data structure info
 
-        Sets self.catalyst_data = [CatalystMetaData(), ...]
+        Sets self.catalyst_data = [GeometryMetaData(), ...]
         """
         if not self.template_XYZ:
             self.get_templates()
@@ -496,7 +494,7 @@ class Reaction:
                 else:
                     # want ligand changes without substrate changes
                     self.catalyst_data += [
-                        CatalystMetaData(
+                        GeometryMetaData(
                             template_file=template_file,
                             reaction_type=self,
                             selectivity=selectivity,
@@ -522,7 +520,7 @@ class Reaction:
                     if done:
                         continue
                     self.catalyst_data += [
-                        CatalystMetaData(
+                        GeometryMetaData(
                             template_file=template_file,
                             reaction_type=self,
                             selectivity=selectivity,
@@ -533,7 +531,7 @@ class Reaction:
             # even if no changes requested, still want to optimize templates
             if len(self.ligand.keys()) < 1 and len(self.substrate.keys()) < 1:
                 self.catalyst_data += [
-                    CatalystMetaData(
+                    GeometryMetaData(
                         template_file=template_file,
                         reaction_type=self,
                         selectivity=selectivity,
@@ -710,7 +708,7 @@ class Theory:
                 if "scrf" in obj.route_kwargs:
                     obj.route_kwargs["scrf"]["solvent"] = info
                 else:
-                    obj.route_kwargs["scrf"]["solvent"] = info
+                    obj.route_kwargs["solvent"] = info
             elif name.lower() == "charge":
                 obj.route_kwargs["charge"] = int(info)
             elif re.search("^mult(iplicity)?$", name.strip(), re.I):
