@@ -2,6 +2,7 @@ import io
 import os
 import random
 import warnings
+from time import sleep
 
 import numpy as np
 from AaronTools.atoms import Atom
@@ -11,14 +12,19 @@ from AaronTools.const import AARONLIB
 from AaronTools.geometry import Geometry
 from AaronTools.theory import GAUSSIAN_ROUTE
 from fabric.connection import Connection
-from fireworks import Firework, LaunchPad, ScriptTask, Workflow
+from fireworks import (
+    Firework,
+    FWAction,
+    FWorker,
+    LaunchPad,
+    ScriptTask,
+    Workflow,
+)
 from fireworks.user_objects.queue_adapters.common_adapter import (
     CommonAdapter as QueueAdapter,
 )
 from jinja2 import Environment, FileSystemLoader, StrictUndefined
 
-warnings.filterwarnings("ignore", message=".*EllipticCurve.*")
-warnings.filterwarnings("ignore", module=".*queue.*")
 LAUNCHPAD = LaunchPad.auto_load()
 
 
@@ -61,13 +67,18 @@ class Job:
                 "_kwargs",
             ]:
                 continue
+            if key.startswith("Substitution") or key.startswith("Mapping"):
+                continue
             if "#" in key:
                 continue
             query_spec["spec." + key] = val
         fw_id = LAUNCHPAD.get_fw_ids(query=query_spec)
         if len(fw_id):
-            fw = LAUNCHPAD.get_fw_by_id(fw_id[0])
-            return fw
+            for fw in fw_id:
+                fw = LAUNCHPAD.get_fw_by_id(fw)
+                if fw.state not in ["ARCHIVED"]:
+                    return fw
+        return None
 
     def add_fw(self, parent_fw_id=None, step=None, config=None):
         if config is None:
@@ -89,7 +100,61 @@ class Job:
         self.fw_id = fw.fw_id
         return fw
 
+    def _root_fw(self):
+        config = self.config_for_step(0)
+        spec = {}
+        for key, val in self._get_metadata(config=config).items():
+            if "#" in key:
+                continue
+            if key.startswith("Substitution") or key.startswith("Mapping"):
+                continue
+            if "job_name" in key or "name" in key:
+                continue
+            if key in ["step", "starting_structure", "_args", "_kwargs"]:
+                continue
+            spec[key] = val
+        name = ""
+        if "Reaction/reaction" in spec:
+            name = spec["Reaction/reaction"]
+        if "Reaction/template" in spec:
+            if name:
+                name = os.path.join(name, spec["Reaction/template"])
+            else:
+                name = spec["Reaction/template"]
+        if name:
+            name = os.path.join(name, self.structure.name)
+        else:
+            name = self.structure.name
+        if "_changes" in spec:
+            tmp = "_".join(spec["_changes"].keys())
+            if name and tmp:
+                name = os.path.join(name, tmp)
+            elif not name:
+                name = tmp
+        fw = self.find_fw(spec=spec)
+        if fw is None:
+            fw = Firework([], spec=spec, name=name)
+            LAUNCHPAD.add_wf(Workflow([fw], name=name))
+        if fw.state == "READY":
+            fw, launch_id = LAUNCHPAD.checkout_fw(
+                FWorker(), "", fw_id=fw.fw_id
+            )
+            LAUNCHPAD.complete_launch(launch_id, action=FWAction())
+        return fw.fw_id
+
     def add_workflow(self, parent_fw_id=None):
+        if not self.step_list and not self.config._changed_list:
+            if parent_fw_id is None:
+                self.parent_fw_id = parent_fw_id
+            fw = self.find_fw()
+            if fw is not None:
+                self.fw_id = fw.fw_id
+            else:
+                fw = self.add_fw()
+            return [fw.fw_id]
+
+        if parent_fw_id is None:
+            parent_fw_id = self._root_fw()
         # create workflow
         self.parent_fw_id = parent_fw_id
         fws = []
@@ -142,6 +207,7 @@ class Job:
             style = "com"
         if override_style is not None:
             style = override_style
+        print(config["HPC"]["job_name"])
         theory.geometry.write(
             name=os.path.join(
                 config["Job"]["top_dir"], config["HPC"]["job_name"]
@@ -150,7 +216,7 @@ class Job:
             theory=theory,
             **config._kwargs
         )
-        if "host" in config["HPC"] and send:
+        if "transfer_host" in config["HPC"] and send:
             self.transfer_input(config=config)
 
     def transfer_input(self, step=None, config=None):
@@ -158,7 +224,7 @@ class Job:
             config = self.config_for_step(step)
         name = self._get_input_name(config=config)
         source = os.path.join(config["Job"].get("top_dir"), name)
-        target = os.path.join(config["Job"].get("remote_dir"), name)
+        target = os.path.join(config["HPC"].get("remote_dir"), name)
         if not self.quiet:
             print(
                 "Sending {} to {}...".format(name, config["HPC"].get("host"))
@@ -191,12 +257,7 @@ class Job:
             if out:
                 print("out:", out)
             for e in err.split("\n"):
-                if (
-                    "specified in qadapter but it is not present in template"
-                    in e
-                    or ".format(subs_key, self.template_file)" in e
-                    or e.strip() == ""
-                ):
+                if "has been specified in qadapter" in e:
                     continue
                 print("err", e.strip())
         else:
@@ -206,7 +267,7 @@ class Job:
         if config is None:
             config = self.config_for_step(step)
         name = self._get_ouptut_name(config=config)
-        source = os.path.join(config["Job"]["remote_dir"], name)
+        source = os.path.join(config["HPC"]["remote_dir"], name)
         target = os.path.join(config["Job"]["top_dir"], name)
         new = self.remote_get(source, target, config=config)
         if not self.quiet and new:
@@ -217,22 +278,53 @@ class Job:
             config = self.config_for_step(step)
         name = self._get_ouptut_name(config=config)
         output = CompOutput(os.path.join(config["Job"]["top_dir"], name))
-        if output.error:
-            LAUNCHPAD.defuse_fw(self.fw_id)
+        fw = LAUNCHPAD.get_fw_by_id(self.fw_id)
+        if fw.state in ["COMPLETED", "DEFUSED"]:
+            launch = fw.launches[-1]
+            LAUNCHPAD.complete_launch(
+                launch.launch_id,
+                action=FWAction(stored_data=output.to_dict()),
+                state=fw.state,
+            )
+            if output.error:
+                LAUNCHPAD.defuse_fw(self.fw_id)
         return output
 
-    def update_structure(self, structure, step=None, config=None):
+    def update_structure(
+        self, structure, step=None, config=None, kind="output"
+    ):
+        if step is None:
+            step = self.step
         if config is None:
             config = self.config_for_step(step)
+        if structure is None:
+            name = None
+            if kind == "original":
+                template = config.get_template()
+                if isinstance(template, Geometry):
+                    structure = template
+                else:
+                    for struct, kind in template:
+                        if self.structure.name.endswith(struct.name):
+                            structure = struct
+                            break
+            elif kind == "input":
+                name = self._get_input_name(config=config)
+            else:
+                name = self._get_ouptut_name(config=config)
+            if name is not None:
+                structure = Geometry(
+                    os.path.join(config["Job"]["top_dir"], name)
+                )
         for i, a in enumerate(structure):
             self.structure.atoms[i].coords = a.coords
         LAUNCHPAD.update_spec([self.fw_id], self._get_metadata(config=config))
 
     def resolve_error(self):
         config = self.config_for_step()
-        resolved = False
         name = self._get_ouptut_name(config=config)
         output = CompOutput(os.path.join(config["Job"]["top_dir"], name))
+        resolved = False
         print("Trying to resolve {} error".format(output.error))
         if output.error in ["REDUND", "UNKNOWN"]:
             resolved = True
@@ -244,9 +336,13 @@ class Job:
             old_fw = self.fw_id
             if self.step > 2:
                 self.step = 2
+            config = self.config_for_step()
             self.find_fw()
             LAUNCHPAD.defuse_fw(self.fw_id)
-            self.update_structure(output.geometry)
+            if self.step > 1:
+                self.update_structure(None, kind="input")
+            else:
+                self.update_structure(None, kind="original")
             LAUNCHPAD.reignite_fw(self.fw_id)
             LAUNCHPAD.reignite_fw(old_fw)
             LAUNCHPAD.rerun_fw(self.fw_id)
@@ -271,12 +367,23 @@ class Job:
             LAUNCHPAD.reignite_fw(self.fw_id)
             LAUNCHPAD.rerun_fw(self.fw_id)
         if output.error in ["SCF_CONV"]:
+            fw = LAUNCHPAD.get_fw_by_id(self.fw_id)
+            maxstep = 0
+            for launch in fw.archived_launches:
+                if launch.action.stored_data["error"] in ["SCF_CONV"]:
+                    maxstep += 1
+            try:
+                maxstep = [15, 12, 10, 8, 5, 2][maxstep]
+            except IndexError:
+                maxstep = 0
             resolved = True
             if self.config["HPC"]["exec_type"] == "gaussian":
-                self.config._kwargs[GAUSSIAN_ROUTE] = {
-                    "maxstep": [15],
-                    "scf": ["xqc"],
-                }
+                if maxstep:
+                    self.config._kwargs[GAUSSIAN_ROUTE] = {
+                        "opt": ["maxstep={}".format(maxstep)],
+                    }
+                else:
+                    self.config._kwargs[GAUSSIAN_ROUTE] = {"scf": ["xqc"]}
             else:
                 raise NotImplementedError
             old_fw = self.fw_id
@@ -284,7 +391,10 @@ class Job:
                 self.step = 2
             self.find_fw()
             LAUNCHPAD.defuse_fw(self.fw_id)
-            self.update_structure(output.geometry)
+            if self.step > 1:
+                self.update_structure(None, kind="input")
+            else:
+                self.update_structure(None, kind="original")
             LAUNCHPAD.reignite_fw(self.fw_id)
             LAUNCHPAD.reignite_fw(old_fw)
             LAUNCHPAD.rerun_fw(self.fw_id)
@@ -349,7 +459,7 @@ class Job:
         # other job-specific additions
         if "host" in config["HPC"]:
             try:
-                config["HPC"]["work_dir"] = config["Job"].get("remote_dir")
+                config["HPC"]["work_dir"] = config["HPC"].get("remote_dir")
             except TypeError:
                 raise RuntimeError(
                     "Must specify remote working directory for HPC (remote_dir = /path/to/HPC/work/dir)"
@@ -360,8 +470,10 @@ class Job:
             config["HPC"]["job_name"] = "{}.{}".format(
                 self.structure.name, self.step
             )
-        else:
+        elif self.structure.name:
             config["HPC"]["job_name"] = self.structure.name
+        else:
+            config["HPC"]["job_name"] = config["Job"]["name"]
         # parse user-supplied functions in config file
         config.parse_functions()
         return config
@@ -371,7 +483,14 @@ class Job:
             config = self.config_for_step(step)
         host = config["HPC"].get("transfer_host")
         with Connection(host) as c:
-            c.put(source, remote=target)
+            for i in range(5):
+                try:
+                    c.put(source, remote=target)
+                    break
+                except FileNotFoundError:
+                    sleep(5)
+            else:
+                c.put(source, remote=target)
         return True
 
     def remote_get(self, source, target, step=None, config=None):
@@ -435,7 +554,7 @@ class Job:
         )
         options = dict(config["HPC"].items())
         options["scratch_dir"] = os.path.join(
-            options["scratch_dir"], str(random.random())
+            options["scratch_dir"], str(hash(self))
         )
         script = exec_template.render(**options)
         script = [line.strip() for line in script.split("\n") if line.strip()]
@@ -478,6 +597,10 @@ class Job:
                 "qadapter_{}.yaml".format(fw_id),
             )
             content = qadapter.to_format(f_format="yaml")
+            self.remote_run(
+                "mkdir -p {}".format(os.path.dirname(filename)), hide=True
+            )
+            self.remote_run("touch {}".format(filename), hide=True)
             self.remote_put(
                 io.StringIO(content),
                 filename,

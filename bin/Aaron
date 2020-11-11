@@ -8,78 +8,29 @@ from Aaron.job import LAUNCHPAD, Job
 from AaronTools.config import Config
 from AaronTools.const import AARONLIB, PHYSICAL, UNIT
 from AaronTools.geometry import Geometry
+from fabric import Connection
 from prettytable import PrettyTable
 
 
-def get_template(config):
-    if "Reaction" in config:
-        structures = []
-        path = os.path.join(
-            AARONLIB,
-            "TS_geoms",
-            config["Reaction"]["reaction"],
-            config["Reaction"]["template"],
-        )
-        for dirpath, dirnames, filenames in os.walk(path):
-            for name in filenames:
-                if name.startswith("TS"):
-                    kind = "ts"
-                elif name.startswith("INT"):
-                    kind = "min"
-                name = os.path.join(dirpath, name)
-                structure = Geometry(name)
-                structure.name = os.path.relpath(name, path)
-                structure.name = ".".join(structure.name.split(".")[:-1])
-                structures += [(structure, kind)]
-        return structures
-    # get starting structure
-    if "Geometry" not in config or "structure" not in config["Geometry"]:
-        structure = "{}.xyz".format(config["Job"]["name"])
-        warn(
-            "No structure indicated in config. Trying to use {}".format(
-                structure
-            )
-        )
-    else:
-        structure = config["Geometry"]["structure"]
-    try:
-        structure = Geometry(structure)
-    except IndexError:
-        structure = Geometry.from_string(structure)
-        config._changes[""] = ({}, None)
-    # adjust structure attributes
-    if "name" in config["Job"]:
-        structure.name = config["Job"]["name"]
-    if "Geometry" in config and "comment" in config["Geometry"]:
-        structure.comment = config["Geometry"]["comment"]
-        structure.parse_comment()
-    # apply functions found in [Geometry] section
-    # structure.write()
-    # os.system("chimera {}.xyz".format(structure.name))
-    if "Geometry" in config:
-        if "&call" in config["Geometry"]:
-            lines = config["Geometry"]["&call"]
-            for line in lines.split("\n"):
-                if line.strip():
-                    eval(line.strip())
-    return structure
-
-
-def monitor(fw_id):
+def monitor(fw_id, verbose=False):
     workflow = LAUNCHPAD.get_wf_by_fw_id(fw_id)
     fw = LAUNCHPAD.get_fw_by_id(fw_id)
     job = Job(fw)
-    print("{:10} {:10} {}".format(fw.fw_id, fw.state, fw.name))
-    if fw.state == "COMPLETED":
+    if verbose or fw.state not in ["WAITING"]:
+        print("{:10} {:10} {}".format(fw.fw_id, fw.state, fw.name))
+    if fw.state in ["RUNNING", "COMPLETED"]:
         job.transfer_output()
         try:
             output = job.validate()
-        except BaseException as e:
+            if fw.state == "RUNNING":
+                print(output.get_progress())
+        except OSError as e:
             warn("Issue validating computational output")
             warn(str(e))
             warn("Trying to rerun firework")
             LAUNCHPAD.rerun_fw(fw.fw_id)
             return False
+    if fw.state == "COMPLETED":
         for child in workflow.links[fw.fw_id]:
             child = LAUNCHPAD.get_fw_by_id(child)
             if child.state in ["READY", "WAITING"]:
@@ -88,7 +39,7 @@ def monitor(fw_id):
         if output.finished:
             return True
     if fw.state == "DEFUSED":
-        if len(fw.archived_launches) > 20:
+        if len(fw.archived_launches) > 10:
             return True
         job.resolve_error()
     if fw.state == "READY":
@@ -106,12 +57,13 @@ def one_job(args, template, config, job_type=None, submit=True):
     for name, (changes, kind) in config._changes.items():
         structure = template.copy()
         if kind is not None and name:
-            structure.name = os.path.join(structure.name, name)
+            structure.name = os.path.join(name, structure.name)
         this_config = Config(args.config, quiet=True)
-        if job_type == "ts":
-            this_config["Job"]["include"] = "TS"
-        elif job_type == "min":
-            this_config["Job"]["include"] = "Minimum"
+        if ["include"] not in this_config["Job"]:
+            if job_type == "ts":
+                this_config["Job"]["include"] = "TS"
+            elif job_type == "min":
+                this_config["Job"]["include"] = "Minimum"
         this_config._parse_includes()
         this_config["Job"]["name"] = structure.name
         parent = None
@@ -138,6 +90,8 @@ def one_job(args, template, config, job_type=None, submit=True):
             fws = job.add_workflow(parent_fw_id=parent)
         else:
             fws = [job]
+            if job.step_list:
+                job._root_fw()
         all_changes += [changes]
         all_jobs += [job]
         all_fws += fws
@@ -280,7 +234,7 @@ def main(args):
     config.parse_functions()
     all_fws = set([])
     try:
-        template = get_template(config)
+        template = config.get_template()
     except FileNotFoundError as e:
         if args.results:
             return
@@ -289,7 +243,7 @@ def main(args):
     if isinstance(template, Geometry):
         all_fws = one_job(args, template, config, submit=not args.results)
     else:
-        for template, kind in get_template(config):
+        for template, kind in config.get_template():
             all_fws = all_fws.union(
                 one_job(
                     args,
@@ -303,42 +257,20 @@ def main(args):
     if args.results:
         show_results(args, all_fws)
         return
+    verbose = not args.quiet
     while True:
         for fw in all_fws:
             if fw in skip_fws:
                 continue
-            if monitor(fw):
+            if monitor(fw, verbose=verbose):
                 skip_fws.add(fw)
         if len(skip_fws) != len(all_fws):
-            sleep(30)
+            if not verbose:
+                sleep(30)
             os.system("clear")
-            continue
-            wflows = set([])
-            for fw in all_fws:
-                wflows.add(LAUNCHPAD.get_wf_by_fw_id(fw))
-            table = PrettyTable()
-            table.field_names = ["state", "name", "step states", "ids"]
-            wflows = sorted(wflows, key=lambda wf: wf.name)
-            wflows = sorted(wflows, key=lambda wf: os.path.basename(wf.name))
-            for wflow in wflows:
-                fw_ids = []
-                states = []
-                for fw_id in sorted(wflow.fw_states):
-                    fw_ids += [str(fw_id)]
-                    states += [wflow.fw_states[fw_id][0]]
-                table.add_row(
-                    [
-                        wflow.state,
-                        wflow.name,
-                        "-".join(states),
-                        "-".join(fw_ids),
-                    ]
-                )
-            table.align["name"] = "l"
-            print(table)
-            sleep(30)
         else:
             break
+        verbose = False
 
 
 if __name__ == "__main__":
