@@ -1,29 +1,52 @@
 #!/usr/bin/env python3
+import datetime
+import itertools as it
 import os
+import re
 from math import exp
 from time import sleep
 from warnings import warn
 
 from Aaron.job import LAUNCHPAD, Job
+from Aaron.results import Results
 from AaronTools.config import Config
 from AaronTools.const import AARONLIB, PHYSICAL, UNIT
 from AaronTools.geometry import Geometry
-from fabric import Connection
-from prettytable import PrettyTable
+from AaronTools.utils.utils import progress_bar
 
 
-def monitor(fw_id, verbose=False):
+def monitor(fw_id, verbose=False, force_rerun=False, dryrun=False):
+    """
+    Checks status of FW
+    :fw_id: the id of the FW
+    :verbose: print more details to stdout if true
+    :force_rerun: passed to Job.resolve_error() as force_rerun parameter
+    """
     workflow = LAUNCHPAD.get_wf_by_fw_id(fw_id)
     fw = LAUNCHPAD.get_fw_by_id(fw_id)
     job = Job(fw)
+    job.quiet = not verbose
     if verbose or fw.state not in ["WAITING"]:
-        print("{:10} {:10} {}".format(fw.fw_id, fw.state, fw.name))
+        print(
+            "{:10} {:10} {} {}".format(
+                fw.fw_id, fw.state, job.config["DEFAULT"]["name"], fw.name
+            )
+        )
+    if dryrun:
+        return True
     if fw.state in ["RUNNING", "COMPLETED"]:
-        job.transfer_output()
+        try:
+            job.transfer_output()
+        except FileNotFoundError as e:
+            if fw.state == "RUNNING":
+                return False
+            raise FileNotFoundError(e)
         try:
             output = job.validate()
             if fw.state == "RUNNING":
-                print(output.get_progress())
+                progress = output.get_progress()
+                if "not found" not in progress:
+                    print(progress)
         except OSError as e:
             warn("Issue validating computational output")
             warn(str(e))
@@ -36,36 +59,51 @@ def monitor(fw_id, verbose=False):
             if child.state in ["READY", "WAITING"]:
                 child = Job(child)
                 child.update_structure(output.geometry)
+        if not output:
+            return False
         if output.finished:
             return True
-    if fw.state == "DEFUSED":
+    if fw.state in ["DEFUSED", "FIZZLED"]:
         if len(fw.archived_launches) > 10:
             return True
-        job.resolve_error()
+        try:
+            job.transfer_output()
+        except FileNotFoundError as e:
+            if fw.state == "FIZZLED":
+                LAUNCHPAD.rerun_fw(fw.fw_id)
+                return False
+            else:
+                raise FileNotFoundError(e)
+        job.validate()
+        job.resolve_error(force_rerun=force_rerun)
     if fw.state == "READY":
         job.write()
         job.launch_job()
     return False
 
 
-def one_job(args, template, config, job_type=None, submit=True):
+def get_fws(args, template, config, job_type=None):
+    if args.command == "run":
+        make_structures = True
+    else:
+        make_structures = False
     all_jobs = []
     all_changes = []
-    all_fws = []
     if not config._changes:
         config._changes = {"": ({}, None)}
     for name, (changes, kind) in config._changes.items():
-        structure = template.copy()
+        if make_structures:
+            structure = template.copy()
+        else:
+            structure = template
+        job_name = structure.name
         if kind is not None and name:
-            structure.name = os.path.join(name, structure.name)
-        this_config = Config(args.config, quiet=True)
-        if ["include"] not in this_config["Job"]:
-            if job_type == "ts":
-                this_config["Job"]["include"] = "TS"
-            elif job_type == "min":
-                this_config["Job"]["include"] = "Minimum"
+            job_name = os.path.join(name, structure.name)
+        this_config = config.copy()
+        if job_type is not None:
+            this_config["Job"]["include"] = job_type
         this_config._parse_includes()
-        this_config["Job"]["name"] = structure.name
+        this_config["Job"]["name"] = job_name
         parent = None
         for i, ac in enumerate(all_changes):
             for c in changes:
@@ -75,210 +113,217 @@ def one_job(args, template, config, job_type=None, submit=True):
             else:
                 continue
             parent = all_jobs[i].fw_id
-            structure.atoms = all_jobs[i].structure.atoms
+            if make_structures:
+                structure.atoms = all_jobs[i].structure.atoms
             break
         this_config._changes = {name: (changes, kind)}
-        job = Job(structure, this_config, quiet=args.quiet)
-        if args.show:
+        job = Job(
+            structure,
+            this_config,
+            quiet=args.quiet,
+            make_changes=make_structures,
+        )
+        if make_structures and args.show:
             job.structure.write()
             os.system("chimera {}.xyz".format(job.structure.name))
             print(job.structure)
             ans = input("Starting structure OK? (Y/n) ")
             if ans.lower() in ["n", "no"]:
                 exit(2)
-        if submit:
-            fws = job.add_workflow(parent_fw_id=parent)
+        if make_structures:
+            job.add_workflow(parent_fw_id=parent)
         else:
-            fws = [job]
-            if job.step_list:
-                job._root_fw()
+            first = True
+            for step in job.get_steps():
+                job.step = step
+                fw = job.find_fw()
+                if not fw:
+                    continue
+                if first:
+                    job.set_root(fw.fw_id)
+                    first = False
+                if args.command == "update":
+                    if fw.state == "COMPLETED" and args.force:
+                        LAUNCHPAD.defuse_fw(fw.fw_id)
+                    LAUNCHPAD.update_spec([fw.fw_id], job._get_metadata())
+                    job.validate()
+                else:
+                    break
         all_changes += [changes]
         all_jobs += [job]
-        all_fws += fws
-    return set(all_fws)
+    return all_jobs
 
 
-def get_table(args, results, min_val, config):
-    temperature = float(config["Job"]["temperature"])
-    percents = ["%"]
-    if "selectivity" in config["Reaction"]:
-        percents = [
-            "% {}".format(s.strip())
-            for s in config["Reaction"]["selectivity"].split(",")
-        ]
+def resources(args, all_jobs):
+    workflows = set([])
+    for job in all_jobs:
+        fw = job.find_fw()
+        wf = LAUNCHPAD.get_wf_by_fw_id(fw.fw_id)
+        workflows.add(wf)
 
-    table = PrettyTable()
-    table.field_names = (
-        ["structure"] + list(min_val.keys()) + ["rel rate", "prod ratio"]
-    )
-    for name in results:
-        output = results[name]
-        row = [name]
-        for key in min_val.keys():
-            if output is None:
-                row += ["---"]
-                continue
-            val = getattr(output, key) - min_val[key]
-            val *= UNIT.HART_TO_KCAL
-            row += [val]
-        val = row[-1]
-        # relative rates
-        if isinstance(val, float):
-            row += [exp(-val / PHYSICAL.R / temperature)]
-        else:
-            row += ["---"]
-        row += [""] * (len(table._field_names) - len(row))
-        table.add_row(row)
-    # product ratios
-    idx = table._field_names.index("prod ratio")
-    for row in table._rows:
-        if isinstance(row[idx - 1], float):
-            row[idx] = row[idx - 1] / min(
-                [
-                    r[idx - 1]
-                    for r in table._rows
-                    if isinstance(r[idx - 1], float)
-                ]
-            )
-        else:
-            row[idx] = "---"
-    # percents
-    idx += 1
-    if len(percents) == 1 and percents[0] == "%":
-        for row in table._rows:
-            if isinstance(row[idx - 1], float):
-                row[idx] = (
-                    100
-                    * row[idx - 1]
-                    / sum(
-                        [
-                            r[idx - 1]
-                            for r in table._rows
-                            if isinstance(r[idx - 1], float)
+    results = {}
+    for wf in sorted(workflows, key=lambda x: sorted(x.name)):
+        for fw in sorted(wf.fws, key=lambda x: sorted(x.name)):
+            job = Job(fw)
+            if fw.state in ["COMPLETED", "DEFUSED"]:
+                if args.csv:
+                    key = (fw.fw_id, fw.name)
+                    results[key] = []
+                else:
+                    print(fw.fw_id, fw.name)
+            for launch in fw.archived_launches + fw.launches:
+                if launch.state not in ["COMPLETED", "DEFUSED"]:
+                    continue
+                data = launch.action.stored_data
+                opt_steps = data.get("opt_steps", 0)
+                error = data.get("error", "")
+                if not error:
+                    error = "None"
+                for history in launch.state_history:
+                    if history["state"] != "RUNNING":
+                        continue
+                    tdelta = history["updated_on"] - history["created_on"]
+                    tdelta = datetime.timedelta(
+                        seconds=round(tdelta.total_seconds())
+                    )
+                    if tdelta.total_seconds() < 5:
+                        continue
+                    if opt_steps > 1 and args.csv:
+                        results[key] += [
+                            (
+                                launch.launch_id,
+                                error,
+                                tdelta,
+                                opt_steps,
+                            )
                         ]
-                    )
-                )
-            else:
-                row[idx] = "---"
-    else:
-        done = dict(zip(percents, [False for p in percents]))
-        table._rows = sorted(table._rows, key=lambda x: x[0])
-        for i, p in enumerate(percents):
-            if done[p]:
-                continue
-            done[p] = True
-            val_sum = 0
-            for row in table._rows:
-                sel = p.lstrip("% ")
-                if isinstance(row[idx - 1], float) and row[0].startswith(sel):
-                    val_sum += (
-                        100
-                        * row[idx - 1]
-                        / sum(
-                            [
-                                r[idx - 1]
-                                for r in table._rows
-                                if isinstance(r[idx - 1], float)
-                            ]
+                    elif opt_steps > 1:
+                        print(
+                            "{:>10d} err:{:<10} {:>10} {:>5d} optimization steps".format(
+                                launch.launch_id,
+                                error,
+                                str(tdelta),
+                                opt_steps,
+                            )
                         )
-                    )
-            table.add_column(p, [val_sum] + [""] * (len(table._rows) - 1))
-    return table
+                    elif args.csv:
+                        results[key] += [(launch.launch_id, error, tdelta)]
+                    else:
+                        print(
+                            "{:>10d} err:{:<10} {:>10}".format(
+                                launch.launch_id, error, str(tdelta)
+                            )
+                        )
+        if args.csv:
+            csv = [
+                [
+                    "fw_id",
+                    "name",
+                    "launch_id",
+                    "error",
+                    "runtime",
+                    "optimization steps",
+                ]
+            ]
+            for key, val in results.items():
+                for item in val:
+                    csv += [list(key) + list(item)]
+            for line in csv:
+                print(line)
+        else:
+            print()
 
 
-def show_results(args, jobs):
-    min_dict = {args.thermo: None}
-    all_results = {}
-    for job in jobs:
-        head, tail = os.path.split(job.structure.name)
-        all_results.setdefault(
-            tail,
-            ({}, min_dict.copy(), job.config_for_step()),
-        )
-        results, min_val, temperature = all_results[tail]
-        job.step = job.get_steps()[-1]
-        try:
-            output = job.validate()
-        except FileNotFoundError:
-            results[job.structure.name] = None
-            continue
-        results[job.structure.name] = output
-        for key in min_val.keys():
-            val = getattr(output, key)
-            if min_val[key] is None or min_val[key] > val:
-                min_val[key] = val
-    table = PrettyTable()
-    for name, (results, min_val, config) in all_results.items():
-        tmp = get_table(args, results, min_val, config)
-        for row in sorted(tmp._rows, key=lambda x: x[0]):
-            table.add_row(row)
-        table.add_row([""] * len(row))
-    table.field_names = tmp._field_names
-    table.align = "r"
-    table.align["structure"] = "l"
-    table.float_format = "0.1"
-    if not args.csv:
-        print(table)
-    else:
-        rv = ",".join(table._field_names) + "\n"
-        for row in table._rows:
-            for i, r in enumerate(row):
-                if r == "---":
-                    row[i] = ""
-            rv += ",".join(row) + "\n"
-        print(rv)
+def run(args, all_jobs):
+    skip_fws = set([])
+    all_fws = set([])
+    verbose = not args.quiet
+    for job in all_jobs:
+        wf = LAUNCHPAD.get_wf_by_fw_id(job.find_fw().fw_id)
+        all_fws.update([fw.fw_id for fw in wf.fws])
+        if job._root_fw() in all_fws:
+            skip_fws.add(job._root_fw())
+    first = True
+    while len(skip_fws) != len(all_fws):
+        for fw_id in all_fws:
+            if fw_id in skip_fws:
+                continue
+            if monitor(
+                fw_id, verbose=verbose, force_rerun=first, dryrun=args.dryrun
+            ):
+                skip_fws.add(fw_id)
+        if not verbose:
+            try:
+                sleep(args.sleep * 60)
+            except KeyboardInterrupt:
+                exit(0)
+        if not args.dryrun:
+            os.system("clear")
+        verbose = False
+        first = False
 
 
 def main(args):
     config = Config(args.config, quiet=args.quiet)
     config.parse_functions()
-    all_fws = set([])
-    try:
-        template = config.get_template()
-    except FileNotFoundError as e:
-        if args.results:
-            return
-        else:
-            raise e
-    if isinstance(template, Geometry):
-        all_fws = one_job(args, template, config, submit=not args.results)
-    else:
-        for template, kind in config.get_template():
-            all_fws = all_fws.union(
-                one_job(
-                    args,
-                    template,
-                    config,
-                    job_type=kind,
-                    submit=not args.results,
-                )
-            )
-    skip_fws = set([])
-    if args.results:
-        show_results(args, all_fws)
-        return
-    verbose = not args.quiet
-    while True:
-        for fw in all_fws:
-            if fw in skip_fws:
+    configs = {}
+    job_dict = {}
+
+    # parse child config files and store in `configs`
+    if "Configs" in config:
+        for key in config["Configs"]:
+            if key in config["DEFAULT"] or key in ["override"]:
                 continue
-            if monitor(fw, verbose=verbose):
-                skip_fws.add(fw)
-        if len(skip_fws) != len(all_fws):
-            if not verbose:
-                sleep(30)
-            os.system("clear")
-        else:
-            break
-        verbose = False
+            configs[key] = []
+            for conf in config["Configs"][key].split(","):
+                tmp = Config(os.path.relpath(conf), quiet=True)
+                for override in config.get(
+                    "Configs", "override", fallback=""
+                ).split("\n"):
+                    if override:
+                        k, v = [i.strip() for i in override.split("=")]
+                        tmp["DEFAULT"][k] = v
+                configs[key] += [tmp]
+    else:
+        # no children configs, just use args.config
+        configs = {
+            config["DEFAULT"]["name"]: [Config(args.config, quiet=True)]
+        }
+
+    # get fws
+    for name, conf_list in configs.items():
+        all_jobs = set([])
+        for conf in conf_list:
+            conf.parse_functions()
+            print(conf)
+            try:
+                template = conf.get_template()
+            except FileNotFoundError as e:
+                raise e
+            if isinstance(template, Geometry):
+                all_jobs = get_fws(args, template, conf)
+            else:
+                for template, kind in conf.get_template():
+                    all_jobs.update(
+                        get_fws(
+                            args,
+                            template,
+                            conf,
+                            job_type=kind,
+                        )
+                    )
+        job_dict[name] = list(all_jobs)
+
+    all_jobs = it.chain.from_iterable(job_dict.values())
+    if args.command == "run":
+        run(args, list(all_jobs))
+    if args.command == "resources":
+        resources(args, list(all_jobs))
+    if args.command in ["results", "plot"]:
+        Results(args, job_dict)
 
 
-if __name__ == "__main__":
-    import argparse
-
-    parser = argparse.ArgumentParser(
-        formatter_class=argparse.ArgumentDefaultsHelpFormatter
-    )
+def add_common_arguments(parser):
     parser.add_argument(
         "config",
         nargs="?",
@@ -290,24 +335,165 @@ if __name__ == "__main__":
     parser.add_argument(
         "--quiet", action="store_true", help="turn off status messages"
     )
-    parser.add_argument(
+
+
+def run_arguments(run_parser):
+    run_parser.add_argument(
         "--show", action="store_true", help="show structure before submitting"
     )
-    parser.add_argument(
-        "--results",
+    run_parser.add_argument(
+        "--sleep",
+        type=float,
+        default=5,
+        help="number of minutes to sleep between monitoring cycles (default: 5)",
+    )
+    run_parser.add_argument(
+        "--dryrun",
         action="store_true",
-        help="only show results (don't submit anything)",
+        help="Don't run anything, just make workflow",
     )
-    parser.add_argument(
-        "--csv", action="store_true", help="print results in csv format"
+
+
+def update_arguments(update_parser):
+    update_parser.add_argument(
+        "--force",
+        action="store_true",
+        help="Update FW.spec for completed FWs as well (make sure you know what you're doing!)",
     )
-    parser.add_argument(
-        "--thermo",
-        nargs="?",
+
+
+def results_arguments(results_parser):
+    results_parser.add_argument(
+        "--change",
+        nargs="*",
         type=str,
-        help="Select thermodynamic property to use",
-        metavar="energy|enthalpy|free_energy",
-        default="free_energy",
+        help="The substitution/mapping(s) to show (use 'None' for no change)",
     )
+    results_parser.add_argument(
+        "--absolute",
+        action="store_true",
+        help="print absolute energies instead of relative",
+    )
+    results_parser.add_argument(
+        "--unit",
+        type=str,
+        default="kcal/mol",
+        choices={"kcal/mol", "Hartree"},
+        help="convert to UNIT",
+    )
+    results_parser.add_argument(
+        "--thermo",
+        default="free_energy",
+        help="Which thermodynamic quantity to use (default is 'free-energy'=='RRHO')",
+        choices=[
+            "energy",
+            "enthalpy",
+            "free_energy",
+            "RRHO",
+            "QRRHO",
+            "QHARM",
+        ],
+    )
+    results_parser.add_argument(
+        "--temp",
+        type=float,
+        default=None,
+        help="Temperature (K) to use (if different from config specification)",
+    )
+    results_parser.add_argument(
+        "-w0",
+        "--frequency-cutoff",
+        type=float,
+        default=100.0,
+        dest="w0",
+        help="cutoff frequency for quasi free energy corrections (1/cm)\nDefault: 100 cm^-1",
+    )
+    results_parser.add_argument(
+        "--cache",
+        type=str,
+        default="results.cache",
+        metavar="FILENAME",
+        help="Where to save (if file doesn't exist) / load (if file does exist) cached job output data",
+    )
+    results_parser.add_argument(
+        "--reload",
+        action="store_true",
+        help="Clear the current cache file and reload output data",
+    )
+    results_parser.add_argument(
+        "--step", type=float, nargs="+", help="Use only data from this step"
+    )
+
+
+def resources_arguments(resources_parser):
+    resources_parser.add_argument(
+        "--include-failed", action="store_true", help="Include failed jobs"
+    )
+
+
+def plot_arguments(plot_parser):
+    plot_parser.add_argument("--title", nargs="*", help="The title(s) to use")
+    plot_parser.add_argument(
+        "--save", action="store_true", help="Save the plot as CHANGE.tiff"
+    )
+
+
+def output_arguments(command_parser):
+    command_parser.add_argument(
+        "-csv", "--csv", action="store_true", help="Use csv format"
+    )
+    command_parser.add_argument(
+        "-of",
+        "--outfile",
+        nargs=1,
+        help="Save to file instead of printing to STDOUT",
+    )
+
+
+if __name__ == "__main__":
+    import argparse
+
+    parser = argparse.ArgumentParser(
+        formatter_class=argparse.ArgumentDefaultsHelpFormatter,
+        description="For help with a specific command use 'Aaron <command> --help'",
+    )
+
+    # Subparsers for commands
+    command = parser.add_subparsers(title="commands", dest="command")
+
+    command_parser = command.add_parser(
+        "run", help="Run Aaron workflow (default command)"
+    )
+    add_common_arguments(command_parser)
+    run_arguments(command_parser)
+
+    command_parser = command.add_parser(
+        "update", help="Update FireWorks metadata"
+    )
+    add_common_arguments(command_parser)
+    update_arguments(command_parser)
+
+    command_parser = command.add_parser(
+        "results", help="Show computational results summary"
+    )
+    add_common_arguments(command_parser)
+    results_arguments(command_parser)
+    output_arguments(command_parser)
+
+    command_parser = command.add_parser(
+        "plot", help="plot reaction energy diagram"
+    )
+    add_common_arguments(command_parser)
+    results_arguments(command_parser)
+    plot_arguments(command_parser)
+
+    # 'resources' specific options
+    command_parser = command.add_parser(
+        "resources", help="Show resource usage summary"
+    )
+    add_common_arguments(command_parser)
+    resources_arguments(command_parser)
+    output_arguments(command_parser)
+
     args = parser.parse_args()
     main(args)
