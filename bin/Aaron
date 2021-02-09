@@ -2,17 +2,14 @@
 import datetime
 import itertools as it
 import os
-import re
-from math import exp
 from time import sleep
 from warnings import warn
 
-from Aaron.job import LAUNCHPAD, Job
+from Aaron.job import LAUNCHPAD, FWAction, FWorker, Job
 from Aaron.results import Results
 from AaronTools.config import Config
-from AaronTools.const import AARONLIB, PHYSICAL, UNIT
+from AaronTools.const import AARONLIB, PHYSICAL
 from AaronTools.geometry import Geometry
-from AaronTools.utils.utils import progress_bar
 
 
 def monitor(fw_id, verbose=False, force_rerun=False, dryrun=False):
@@ -53,16 +50,17 @@ def monitor(fw_id, verbose=False, force_rerun=False, dryrun=False):
             warn("Trying to rerun firework")
             LAUNCHPAD.rerun_fw(fw.fw_id)
             return False
-    if fw.state == "COMPLETED":
-        for child in workflow.links[fw.fw_id]:
-            child = LAUNCHPAD.get_fw_by_id(child)
-            if child.state in ["READY", "WAITING"]:
-                child = Job(child)
-                child.update_structure(output.geometry)
-        if not output:
-            return False
-        if output.finished:
-            return True
+        if fw.state == "COMPLETED":
+            for child in workflow.links[fw.fw_id]:
+                child = LAUNCHPAD.get_fw_by_id(child)
+                if child.state in ["READY", "WAITING"]:
+                    child = Job(child)
+                    if output and output.geometry:
+                        child.update_structure(output.geometry)
+            if not output:
+                return False
+            if output.finished:
+                return set(workflow.links[fw.fw_id])
     if fw.state in ["DEFUSED", "FIZZLED"]:
         if len(fw.archived_launches) > 10:
             return True
@@ -91,7 +89,9 @@ def get_fws(args, template, config, job_type=None):
     all_changes = []
     if not config._changes:
         config._changes = {"": ({}, None)}
-    for name, (changes, kind) in config._changes.items():
+    for name, (changes, kind) in sorted(
+        config._changes.items(), key=lambda x: x[0]
+    ):
         if make_structures:
             structure = template.copy()
         else:
@@ -100,7 +100,11 @@ def get_fws(args, template, config, job_type=None):
         if kind is not None and name:
             job_name = os.path.join(name, structure.name)
         this_config = config.copy()
-        if job_type is not None:
+        if (
+            "type" not in this_config["Job"]
+            and "include" not in this_config["Job"]
+            and job_type is not None
+        ):
             this_config["Job"]["include"] = job_type
         this_config._parse_includes()
         this_config["Job"]["name"] = job_name
@@ -139,16 +143,10 @@ def get_fws(args, template, config, job_type=None):
                 fw = job.find_fw()
                 if not fw:
                     continue
+                job.fw_id = fw.fw_id
                 if first:
                     job.set_root(fw.fw_id)
                     first = False
-                if args.command == "update":
-                    if fw.state == "COMPLETED" and args.force:
-                        LAUNCHPAD.defuse_fw(fw.fw_id)
-                    LAUNCHPAD.update_spec([fw.fw_id], job._get_metadata())
-                    job.validate()
-                else:
-                    break
         all_changes += [changes]
         all_jobs += [job]
     return all_jobs
@@ -235,23 +233,25 @@ def resources(args, all_jobs):
 
 
 def run(args, all_jobs):
-    skip_fws = set([])
     all_fws = set([])
     verbose = not args.quiet
     for job in all_jobs:
         wf = LAUNCHPAD.get_wf_by_fw_id(job.find_fw().fw_id)
         all_fws.update([fw.fw_id for fw in wf.fws])
         if job._root_fw() in all_fws:
-            skip_fws.add(job._root_fw())
+            all_fws.discard(job._root_fw())
     first = True
-    while len(skip_fws) != len(all_fws):
+    while all_fws:
+        skip = set([])
         for fw_id in all_fws:
-            if fw_id in skip_fws:
-                continue
-            if monitor(
+            children = monitor(
                 fw_id, verbose=verbose, force_rerun=first, dryrun=args.dryrun
-            ):
-                skip_fws.add(fw_id)
+            )
+            if isinstance(children, set):
+                all_fws = all_fws.union(children)
+            if children:
+                skip.add(fw_id)
+        all_fws = all_fws - skip
         if not verbose:
             try:
                 sleep(args.sleep * 60)
@@ -261,6 +261,24 @@ def run(args, all_jobs):
             os.system("clear")
         verbose = False
         first = False
+
+
+def update(args, all_jobs):
+    for job in all_jobs:
+        config = job.config
+        wf = job.add_workflow()
+        for fw in wf:
+            fw = LAUNCHPAD.get_fw_by_id(fw)
+            job = Job(fw, config=config)
+            output = job.validate()
+            if output and fw.state == "READY":
+                _, launch_id = LAUNCHPAD.checkout_fw(
+                    FWorker(), "", fw_id=fw.fw_id
+                )
+                LAUNCHPAD.complete_launch(
+                    launch_id, action=FWAction(), state="COMPLETED"
+                )
+                job.validate()
 
 
 def main(args):
@@ -291,11 +309,10 @@ def main(args):
         }
 
     # get fws
-    for name, conf_list in configs.items():
+    for name, conf_list in sorted(configs.items(), key=lambda x: x[0]):
         all_jobs = set([])
         for conf in conf_list:
             conf.parse_functions()
-            print(conf)
             try:
                 template = conf.get_template()
             except FileNotFoundError as e:
@@ -303,7 +320,14 @@ def main(args):
             if isinstance(template, Geometry):
                 all_jobs = get_fws(args, template, conf)
             else:
-                for template, kind in conf.get_template():
+                for template, kind in sorted(
+                    conf.get_template(), key=lambda x: (x[1], x[0].name)
+                ):
+                    if not args.quiet:
+                        print(
+                            "Loading jobs... " + template.name + " " * 50,
+                            end="\r",
+                        )
                     all_jobs.update(
                         get_fws(
                             args,
@@ -312,11 +336,17 @@ def main(args):
                             job_type=kind,
                         )
                     )
+                if not args.quiet:
+                    print(
+                        "Loading jobs... " + "Done" + " " * 50,
+                    )
         job_dict[name] = list(all_jobs)
 
     all_jobs = it.chain.from_iterable(job_dict.values())
     if args.command == "run":
         run(args, list(all_jobs))
+    if args.command == "update":
+        update(args, list(all_jobs))
     if args.command == "resources":
         resources(args, list(all_jobs))
     if args.command in ["results", "plot"]:
@@ -359,6 +389,12 @@ def update_arguments(update_parser):
         "--force",
         action="store_true",
         help="Update FW.spec for completed FWs as well (make sure you know what you're doing!)",
+    )
+
+
+def resources_arguments(resources_parser):
+    resources_parser.add_argument(
+        "--include-failed", action="store_true", help="Include failed jobs"
     )
 
 
@@ -422,12 +458,6 @@ def results_arguments(results_parser):
     )
     results_parser.add_argument(
         "--step", type=float, nargs="+", help="Use only data from this step"
-    )
-
-
-def resources_arguments(resources_parser):
-    resources_parser.add_argument(
-        "--include-failed", action="store_true", help="Include failed jobs"
     )
 
 

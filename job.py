@@ -167,6 +167,7 @@ class Job:
         for fw in fw_id:
             # archived FWs are soft-deleted, so we don't want those
             fws += [LAUNCHPAD.get_fw_by_id(fw)]
+        fws = [fw for fw in fws if fw.name == fw.spec["HPC/job_name"]]
         if fws and len(fws) == 1:
             return fws.pop()
         elif fws:
@@ -242,16 +243,16 @@ class Job:
             spec, skip_keys=["step", "Job/name", "HPC/job_name"]
         )
         wfs = set({})
+        wf = None
         for fw_id in LAUNCHPAD.get_fw_ids(spec):
-            wf = LAUNCHPAD.get_wf_by_fw_id(fw_id)
-            for i, links in wf.links.items():
-                if not links:
-                    wfs.add(i)
+            if not wf or fw_id not in wf.links:
+                wf = LAUNCHPAD.get_wf_by_fw_id(fw_id)
+                wfs = wfs.union(wf.root_fw_ids)
         if len(wfs) == 1:
             return wfs.pop()
 
         # build spec for new root fw
-        config = self.config_for_step(0)
+        config = self.config.copy()
         spec = {}
         for key, val in self._get_metadata(config=config).items():
             if "#" in key:
@@ -279,10 +280,6 @@ class Job:
                 name = os.path.join(name, tmp)
             elif not name:
                 name = tmp
-        if name:
-            name = os.path.join(name, self.structure.name)
-        else:
-            name = self.structure.name
         spec["Reaction/name"] = os.path.basename(name)
         fw = self.find_fw(spec=spec)
         if fw is None:
@@ -297,8 +294,10 @@ class Job:
             LAUNCHPAD.complete_launch(launch_id, action=FWAction())
         return fw.fw_id
 
-    def add_workflow(self, parent_fw_id=None):
-        if not self.step_list and not "".join(self.config._changes.keys()):
+    def add_workflow(self, parent_fw_id=None, step_list=None, conformer=None):
+        if step_list is None:
+            step_list = self.step_list
+        if not step_list and not "".join(self.config._changes.keys()):
             if parent_fw_id is not None:
                 self.parent_fw_id = parent_fw_id
             fw = self.find_fw()
@@ -313,17 +312,24 @@ class Job:
             self.parent_fw_id = self._root_fw()
         else:
             self.parent_fw_id = parent_fw_id
+
         # create workflow
         fws = []
-        for step in self.step_list:
+        for step in step_list:
             self.step = step
-            if step < 2 and not self.config._changed_list:
+            if conformer is not None:
+                self.config.conformer = conformer
+            config = self.config_for_step()
+            if (
+                "change" in config["Job"]["type"]
+                and not self.config._changed_list
+            ):
                 continue
-            fw = self.find_fw()
+            fw = self.find_fw(config=config)
             if fw is not None:
                 self.fw_id = fw.fw_id
             else:
-                fw = self.add_fw()
+                fw = self.add_fw(config=config)
             fws += [fw.fw_id]
             self.parent_fw_id = self.fw_id
         return fws
@@ -371,55 +377,69 @@ class Job:
         if config is None:
             config = self.config_for_step(step)
         theory = config.get_theory(self.structure)
+        name = os.path.join(
+            config["Job"]["top_dir"], config["HPC"]["job_name"]
+        )
         exec_type = config["HPC"]["exec_type"]
+        aux_files = None
         if exec_type == "gaussian":
             style = "com"
+        elif exec_type == "crest":
+            name = os.path.join(name, "ref")
+            style = "xyz"
+            aux_files = theory.write_aux(config)
         if override_style is not None:
             style = override_style
         theory.geometry.write(
-            name=os.path.join(
-                config["Job"]["top_dir"], config["HPC"]["job_name"]
-            ),
-            style=style,
-            theory=theory,
-            **config._kwargs
+            name=name, style=style, theory=theory, **config._kwargs
         )
         if "transfer_host" in config["HPC"] and send:
-            self.transfer_input(config=config)
+            self.transfer_input(config=config, aux_files=aux_files)
 
-    def transfer_input(self, step=None, config=None):
+    def transfer_input(self, step=None, config=None, aux_files=None):
         if config is None:
             config = self.config_for_step(step)
         name = self._get_input_name(config=config)
         source = os.path.join(config["Job"].get("top_dir"), name)
         target = os.path.join(config["HPC"].get("remote_dir"), name)
+
+        args = [(source, target)]
+        if aux_files is not None:
+            for aux_name, stream in aux_files.items():
+                args += [
+                    (
+                        io.StringIO(stream),
+                        os.path.join(os.path.dirname(target), aux_name),
+                    )
+                ]
         if not self.quiet:
             print(
                 "Sending {} to {}...".format(name, config["HPC"].get("host"))
             )
-        try:
-            self.remote_put(source, target, config=config)
-        except FileNotFoundError:
-            sleep(5)
-            self.remote_run(
-                "mkdir -p {}".format(os.path.dirname(target)),
-                hide=True,
-                config=config,
-            )
-            sleep(5)
-            self.remote_run(
-                "touch {}".format(target), hide=True, config=config
-            )
-            for _ in range(5):
-                # for some reason this doesn't go through every time even
-                # though it absolutely should... Some bug in fabric module?
-                # regardless, trying a few more time tends to resolve the issue
+        for source, target in args:
+            try:
+                self.remote_put(source, target, config=config)
+            except FileNotFoundError:
                 sleep(5)
-                try:
-                    self.remote_put(source, target, config=config)
-                    break
-                except FileNotFoundError:
-                    pass
+                self.remote_run(
+                    "mkdir -p {}".format(os.path.dirname(target)),
+                    hide=True,
+                    config=config,
+                )
+                sleep(5)
+                self.remote_run(
+                    "touch {}".format(target), hide=True, config=config
+                )
+                for _ in range(5):
+                    # for some reason this doesn't go through every time even
+                    # though it absolutely should... Some bug in fabric module?
+                    # regardless, trying a few more time tends to resolve the issue
+                    sleep(5)
+                    try:
+                        self.remote_put(source, target, config=config)
+                        break
+                    except FileNotFoundError:
+                        pass
 
     def launch_job(self, fw_id=None, step=None, config=None):
         if config is None:
@@ -454,12 +474,25 @@ class Job:
     def transfer_output(self, step=None, config=None):
         if config is None:
             config = self.config_for_step(step)
+        exec_type = config["HPC"]["exec_type"]
         name = self._get_output_name(config=config)
         source = os.path.join(config["HPC"]["remote_dir"], name)
         target = os.path.join(config["Job"]["top_dir"], name)
+
         new = self.remote_get(source, target, config=config)
         if not self.quiet and new:
             print("Downloaded {} from {}".format(name, config["HPC"]["host"]))
+
+        if exec_type == "crest":
+            new = self.remote_get(
+                os.path.join(os.path.dirname(source), "crest_conformers.xyz"),
+                os.path.join(os.path.dirname(target), "crest_conformers.xyz"),
+                config=config,
+            )
+            if not self.quiet and new:
+                print(
+                    "Downloaded {} from {}".format(name, config["HPC"]["host"])
+                )
 
     def get_output(self, load_geom=False):
         fw = LAUNCHPAD.get_fw_by_id(self.fw_id)
@@ -479,7 +512,7 @@ class Job:
             setattr(output, key, val)
         return output
 
-    def validate(self, step=None, config=None, get_all=False):
+    def validate(self, step=None, config=None, get_all=False, update=False):
         if config is None:
             config = self.config_for_step(step)
         name = self._get_output_name(config=config)
@@ -517,18 +550,35 @@ class Job:
                         return output
         if fw.state in ["COMPLETED", "DEFUSED", "FIZZLED"]:
             try:
-                launch = fw.launches[-1]
+                launch_id = fw.launches[-1].launch_id
             except IndexError:
-                launch = fw.archived_launches[-1]
+                launch_id = fw.archived_launches[-1].launch_id
             LAUNCHPAD.complete_launch(
-                launch.launch_id,
+                launch_id,
                 action=FWAction(
                     stored_data=output.to_dict(skip_attrs=["opts"])
                 ),
             )
             if output.error:
                 LAUNCHPAD.defuse_fw(fw.fw_id)
+            if output.finished and "conformers" in config["Job"]["type"]:
+                self.add_conformers(fw.fw_id, output)
         return output
+
+    def add_conformers(self, fw_id, output):
+        wf = LAUNCHPAD.get_wf_by_fw_id(fw_id)
+        steps = set([])
+        children = wf.links[fw_id].copy()
+        while children:
+            child = Job(LAUNCHPAD.get_fw_by_id(children.pop()))
+            steps.add(child.step)
+            children += wf.links[child.fw_id]
+        for i, conformer in enumerate(output.conformers):
+            for fw in self.add_workflow(
+                fw_id, step_list=sorted(steps), conformer=i + 1
+            ):
+                fw = LAUNCHPAD.get_fw_by_id(fw)
+                Job(fw).update_structure(conformer)
 
     def update_structure(
         self, structure, step=None, config=None, kind="output"
@@ -575,6 +625,16 @@ class Job:
             that the user must resolve by hand (eg: typos that cause job failure)
         """
         config = self.config_for_step()
+        try:
+            for step in self.step_list:
+                tmp = self.config_for_step(step)
+                if (
+                    "constrain" in tmp["Job"]["type"]
+                    and "opt" in tmp["Job"]["type"]
+                ):
+                    constrain_step = step
+        except IndexError:
+            constrain_step = None
         name = self._get_output_name(config=config)
         fw = LAUNCHPAD.get_fw_by_id(self.fw_id)
         output = CompOutput(os.path.join(config["Job"]["top_dir"], name))
@@ -624,8 +684,8 @@ class Job:
         if output.error in ["CONV_LINK", "CONV_CDS", "LINK"]:
             resolved = True
             old_fw = self.fw_id
-            if self.step > 2:
-                self.step = 2
+            if self.step > constrain_step:
+                self.step = constrain_step
             config = self.config_for_step()
             self.find_fw(config=config)
             LAUNCHPAD.defuse_fw(self.fw_id)
@@ -671,7 +731,7 @@ class Job:
             else:
                 LAUNCHPAD.update_spec([self.fw_id], self._get_metadata())
                 LAUNCHPAD.reignite_fw(self.fw_id)
-                self.step = 2
+                self.step = constrain_step
                 config = self.config_for_step()
                 self.find_fw()
                 LAUNCHPAD.defuse_fw(self.fw_id)
@@ -703,8 +763,8 @@ class Job:
             else:
                 raise NotImplementedError
             old_fw = self.fw_id
-            if self.step > 2:
-                self.step = 2
+            if self.step > constrain_step:
+                self.step = constrain_step
             self.find_fw()
             LAUNCHPAD.defuse_fw(self.fw_id)
             if self.step > 1:
@@ -745,6 +805,10 @@ class Job:
             raise RuntimeError("Bad atomic symbol, check template XYZ files.")
         elif output.error == "BASIS":
             raise RuntimeError(
+                "Error applying basis set. Ensure basis set contains definitions for all atoms in structure."
+            )
+        elif output.error == "BASIS_READ":
+            raise RuntimeError(
                 "Error reading basis set. Confirm that gen=/path/to/basis/ is correct in your Aaron config/input files and that the basis set file requested exists, or switch to an internally provided basis set."
             )
         elif output.error == "QUOTA":
@@ -759,27 +823,15 @@ class Job:
 
     def get_steps(self):
         step_list = []
-        add_low = False
-        add_high = False
         for option in self.config["Job"]:
             if "type" not in option:
                 continue
             step = option.split()[0]
-            try:
-                if int(step) == float(step):
-                    step_list += [int(step)]
-                else:
-                    step_list += [float(step)]
-            except ValueError:
-                if step.lower() == "low":
-                    add_low = True
-                if step.lower() == "high":
-                    add_high = True
-        if add_low:
-            step_list += [1]
+            if int(step) == float(step):
+                step_list += [int(step)]
+            else:
+                step_list += [float(step)]
         step_list.sort()
-        if add_high:
-            step_list += [int(step_list[-1]) + 1]
         if self.config._changes:
             return step_list
         else:
@@ -844,6 +896,8 @@ class Job:
         exec_type = config["HPC"]["exec_type"]
         if exec_type == "gaussian":
             name += ".com"
+        if exec_type == "crest":
+            name = os.path.join(name, "ref.xyz")
         return name
 
     def _get_output_name(self, step=None, config=None):
@@ -853,6 +907,8 @@ class Job:
         exec_type = config["HPC"]["exec_type"]
         if exec_type == "gaussian":
             name += ".log"
+        if exec_type == "crest":
+            name = os.path.join(name, "out.crest")
         return name
 
     def _get_exec_task(self, step=None, config=None):
@@ -861,9 +917,8 @@ class Job:
         environment = Environment(
             loader=FileSystemLoader(AARONLIB), undefined=StrictUndefined
         )
-        exec_template = environment.get_template(
-            config["HPC"].get("exec_type") + ".template"
-        )
+        exec_type = config["HPC"].get("exec_type")
+        exec_template = environment.get_template(exec_type + ".template")
         options = dict(config["HPC"].items())
         options["scratch_dir"] = os.path.join(
             options["scratch_dir"], str(hash(self))
