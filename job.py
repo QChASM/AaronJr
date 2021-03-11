@@ -2,6 +2,7 @@ import datetime
 import io
 import itertools as it
 import os
+import re
 import shutil
 from time import sleep
 
@@ -84,7 +85,14 @@ class Job:
             query_spec["spec." + key] = val
         return query_spec
 
-    def __init__(self, structure, config=None, quiet=False, make_changes=True):
+    def __init__(
+        self,
+        structure,
+        config=None,
+        quiet=False,
+        make_changes=True,
+        set_root=True,
+    ):
         """
         :structure: the geometry structure
         :config: the configuration object to associate with this job
@@ -121,7 +129,8 @@ class Job:
                 self.step = self.step_list[0]
             except IndexError:
                 pass
-        self.set_root()
+        if set_root:
+            self.set_root()
 
     def find_fw(self, spec=None, skip_keys=None):
         """
@@ -322,13 +331,26 @@ class Job:
         changed = []
         for name, (changes, kind) in self.config._changes.items():
             for key, val in changes.items():
-                if kind == "Substitution":
+                if kind == "Substitution" and "(" not in key:
+                    # regular substitutions
                     for k in key.split(","):
                         k = k.strip()
                         if val.lower() == "none":
                             self.structure -= self.structure.get_fragment(k)
                         else:
                             sub = self.structure.substitute(val, k)
+                            for atom in sub:
+                                changed += [atom.name]
+                elif kind == "Substitution":
+                    # fused ring substitutions
+                    target_patt = re.compile("\((.*?)\)")
+                    for k in target_patt.findall(key):
+                        k = [i.strip() for i in k.split(",")]
+                        if val.lower() == "none":
+                            self.structure -= self.structure.get_fragment(*k)
+                        else:
+                            sub = self.structure.ring_substitute(k, val)
+                            print(self.structure)
                             for atom in sub:
                                 changed += [atom.name]
                 elif kind == "Mapping":
