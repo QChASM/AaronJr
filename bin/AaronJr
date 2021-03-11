@@ -5,6 +5,7 @@ import os
 from time import sleep
 from warnings import warn
 
+import Aaron
 from Aaron.job import LAUNCHPAD, FWAction, FWorker, Job
 from Aaron.results import Results
 from AaronTools.config import Config
@@ -60,7 +61,11 @@ def monitor(fw_id, verbose=False, force_rerun=False, dryrun=False):
             if not output:
                 return False
             if output.finished:
-                return set(workflow.links[fw.fw_id])
+                rv = set(workflow.links[fw.fw_id])
+                if rv:
+                    return rv
+                else:
+                    return True
     if fw.state in ["DEFUSED", "FIZZLED"]:
         if len(fw.archived_launches) > 10:
             return True
@@ -137,16 +142,12 @@ def get_fws(args, template, config, job_type=None):
         if make_structures:
             job.add_workflow(parent_fw_id=parent)
         else:
-            first = True
             for step in job.get_steps():
                 job.step = step
                 fw = job.find_fw()
                 if not fw:
                     continue
                 job.fw_id = fw.fw_id
-                if first:
-                    job.set_root(fw.fw_id)
-                    first = False
         all_changes += [changes]
         all_jobs += [job]
     return all_jobs
@@ -178,38 +179,52 @@ def resources(args, all_jobs):
                 if not error:
                     error = "None"
                 for history in launch.state_history:
-                    if history["state"] != "RUNNING":
+                    tdelta = None
+                    state = history["state"]
+                    if history["state"] == "RUNNING":
+                        tdelta = history["updated_on"] - history["created_on"]
+                        tdelta = datetime.timedelta(
+                            seconds=round(tdelta.total_seconds())
+                        )
+                    elif history["state"] == "RESERVED":
+                        tdelta = history["updated_on"] - history["created_on"]
+                        tdelta = datetime.timedelta(
+                            seconds=round(tdelta.total_seconds())
+                        )
+                    else:
                         continue
-                    tdelta = history["updated_on"] - history["created_on"]
-                    tdelta = datetime.timedelta(
-                        seconds=round(tdelta.total_seconds())
-                    )
-                    if tdelta.total_seconds() < 5:
-                        continue
-                    if opt_steps > 1 and args.csv:
+
+                    if state == "RUNNING" and opt_steps > 0 and args.csv:
                         results[key] += [
                             (
                                 launch.launch_id,
+                                state,
                                 error,
                                 tdelta,
                                 opt_steps,
                             )
                         ]
-                    elif opt_steps > 1:
+                    elif state == "RUNNING" and opt_steps > 0:
                         print(
-                            "{:>10d} err:{:<10} {:>10} {:>5d} optimization steps".format(
+                            "{:>10d} state:{:<10} err:{:<10} {:>10} {:>5d} optimization steps".format(
                                 launch.launch_id,
+                                state,
                                 error,
                                 str(tdelta),
                                 opt_steps,
                             )
                         )
                     elif args.csv:
-                        results[key] += [(launch.launch_id, error, tdelta)]
+                        results[key] += [
+                            (launch.launch_id, state, error, tdelta)
+                        ]
                     else:
                         print(
-                            "{:>10d} err:{:<10} {:>10}".format(
-                                launch.launch_id, error, str(tdelta)
+                            "{:>10d} state:{:<10} err:{:<10} {:>10}".format(
+                                launch.launch_id,
+                                state,
+                                error,
+                                str(tdelta),
                             )
                         )
         if args.csv:
@@ -218,8 +233,9 @@ def resources(args, all_jobs):
                     "fw_id",
                     "name",
                     "launch_id",
+                    "state",
                     "error",
-                    "runtime",
+                    "tdelta",
                     "optimization steps",
                 ]
             ]
@@ -232,15 +248,13 @@ def resources(args, all_jobs):
             print()
 
 
-def run(args, all_jobs):
-    all_fws = set([])
+def run(args, all_fws):
     verbose = not args.quiet
-    for job in all_jobs:
-        wf = LAUNCHPAD.get_wf_by_fw_id(job.find_fw().fw_id)
-        all_fws.update([fw.fw_id for fw in wf.fws])
-        if job._root_fw() in all_fws:
-            all_fws.discard(job._root_fw())
+    for fw in all_fws:
+        job = Job(fw)
+        print(job.root_fw_id)
     first = True
+    all_fws = [fw.fw_id for fw in all_fws]
     while all_fws:
         skip = set([])
         for fw_id in all_fws:
@@ -248,10 +262,10 @@ def run(args, all_jobs):
                 fw_id, verbose=verbose, force_rerun=first, dryrun=args.dryrun
             )
             if isinstance(children, set):
-                all_fws = all_fws.union(children)
+                all_fws = set(all_fws).union(children)
             if children:
                 skip.add(fw_id)
-        all_fws = all_fws - skip
+            all_fws = sorted(set(all_fws) - skip)
         if not verbose:
             try:
                 sleep(args.sleep * 60)
@@ -264,12 +278,13 @@ def run(args, all_jobs):
 
 
 def update(args, all_jobs):
+    fws = []
     for job in all_jobs:
-        config = job.config
         wf = job.add_workflow()
         for fw in wf:
             fw = LAUNCHPAD.get_fw_by_id(fw)
-            job = Job(fw, config=config)
+            fws += [fw]
+            job = Job(fw)
             output = job.validate()
             if output and fw.state == "READY":
                 _, launch_id = LAUNCHPAD.checkout_fw(
@@ -279,6 +294,7 @@ def update(args, all_jobs):
                     launch_id, action=FWAction(), state="COMPLETED"
                 )
                 job.validate()
+    return fws
 
 
 def main(args):
@@ -293,7 +309,7 @@ def main(args):
             if key in config["DEFAULT"] or key in ["override"]:
                 continue
             configs[key] = []
-            for conf in config["Configs"][key].split(","):
+            for conf in config["Configs"][key].split("\n"):
                 tmp = Config(os.path.relpath(conf), quiet=True)
                 for override in config.get(
                     "Configs", "override", fallback=""
@@ -343,12 +359,17 @@ def main(args):
         job_dict[name] = list(all_jobs)
 
     all_jobs = it.chain.from_iterable(job_dict.values())
+    all_jobs = sorted(all_jobs, key=lambda x: x.config["Job"]["name"])
     if args.command == "run":
-        run(args, list(all_jobs))
+        fws = update(args, all_jobs)
+        run(args, fws)
     if args.command == "update":
-        update(args, list(all_jobs))
+        fws = update(args, all_jobs)
+        if args.print_spec:
+            for fw in fws:
+                print(fw.spec)
     if args.command == "resources":
-        resources(args, list(all_jobs))
+        resources(args, all_jobs)
     if args.command in ["results", "plot"]:
         Results(args, job_dict)
 
@@ -385,11 +406,7 @@ def run_arguments(run_parser):
 
 
 def update_arguments(update_parser):
-    update_parser.add_argument(
-        "--force",
-        action="store_true",
-        help="Update FW.spec for completed FWs as well (make sure you know what you're doing!)",
-    )
+    update_parser.add_argument("--print_spec", action="store_true", help="")
 
 
 def resources_arguments(resources_parser):

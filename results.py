@@ -78,7 +78,7 @@ class Results:
                     job.step = step
                     if args.step and job.step not in args.step:
                         continue
-                    job.set_fw_id()
+                    job.fw_id = job.find_fw().fw_id
                     if not job.fw_id:
                         if job.step != 1:
                             print(job.get_query_spec(job._get_metadata()))
@@ -133,10 +133,13 @@ class Results:
                 if corr:
                     output.free_energy = output.energy + corr
             except AttributeError:
-                print(
-                    "Warning: frequencies not found for {} {} {}".format(*key),
-                    file=sys.stderr,
-                )
+                if args.thermo.lower() not in ["energy", "enthalpy"]:
+                    print(
+                        "Warning: frequencies not found for {} {} {}".format(
+                            *key
+                        ),
+                        file=sys.stderr,
+                    )
 
     def parse_functions(self, args):
         def add_data(data_key, to_parse):
@@ -152,7 +155,7 @@ class Results:
             to_parse = " ".join(to_parse)
             try:
                 setattr(data, self.thermo, eval(to_parse, {}))
-            except (TypeError, NameError):
+            except (TypeError, NameError, SyntaxError):
                 setattr(data, self.thermo, None)
             if data_key in self.data:
                 job = self.data[data_key][1]
@@ -169,9 +172,13 @@ class Results:
                 val ([str]): the value split into words
                 jobspec (dict): keys are indexes in val, values are keys for self.data
             """
-            # make sure spaces are around jobspecs so that str.split() works
-            for match in job_patt.findall(val):
-                val = val.replace(match[0], " {} ".format(match[0]))
+            matches = [m[0] for m in job_patt.findall(val) if m[0] != "-"]
+            hash_match = {}
+            for m in sorted(matches, key=lambda x: len(x), reverse=True):
+                hash_match[hash(m)] = m
+                val.replace(m, " {} ".format(hash(m)))
+            for h, m in hash_match.items():
+                val.replace(str(h), m)
             val = val.split()
             # parse datakey and store in jobspec keyed by new_val index
             jobspec = {}
@@ -522,6 +529,7 @@ class Plot:
                 "colors",
                 fallback=self.results.config.get("Plot", "color", fallback=""),
             ).split(",")
+            if c
         ]
         self.linewidth = float(
             self.results.config.get("Plot", "linewidth", fallback="1.5")
@@ -531,22 +539,25 @@ class Plot:
             for x in self.results.config.get(
                 "Plot", "xlim", fallback=""
             ).split(",")
+            if x
         ]
         self.ylim = [
             float(y)
             for y in self.results.config.get(
                 "Plot", "ylim", fallback=""
             ).split(",")
+            if y
         ]
         self.size = [
             float(s.strip())
             for s in self.results.config.get(
                 "Plot", "size", fallback=""
             ).split(",")
+            if s
         ]
         if not self.size:
-            size = [3.25]
-            size += [self.size[0] * 3 / 4]
+            self.size = [3.25]
+            self.size += [self.size[0] * 3 / 4]
         self.size = [s * 300 / Plot.dpi for s in self.size]
 
         for change, title in self.get_plot_list():
@@ -597,12 +608,13 @@ class Plot:
         xpt = []
         ypt = []
         skip = None
-        for i, (tag, vert) in enumerate(self.get_vertices(change)):
+        tags, verts = self.get_vertices(change)
+        for i, (tag, vert) in enumerate(zip(tags, verts)):
             xpt += [v[0] for v in vert]
             ypt += [v[1] for v in vert]
-            if self.colors:
+            try:
                 color = self.colors[i]
-            else:
+            except IndexError:
                 color = None
             patch = patches.PathPatch(
                 Path(vert),
@@ -623,8 +635,12 @@ class Plot:
         xpad, ypad = self.get_padding(xpt, ypt)
         if not self.xlim:
             xlim = [min(xpt), max(xpt)]
+        else:
+            xlim = self.xlim
         if not self.ylim:
             ylim = [min(ypt), max(ypt)]
+        else:
+            ylim = self.ylim
         try:
             ax.set_xlim(xlim[0] - xpad, xlim[1] + xpad)
             ax.set_ylim(ylim[0] - ypad, ylim[1] + ypad)
@@ -636,7 +652,8 @@ class Plot:
     def get_vertices(self, change):
         label_patt = re.compile("\[([^]]*)\]")
         relative = self.results.get_relative()
-        tags, verts = [], []
+        tags = []
+        verts = []
         for s in self.selectivity:
             vals = []
             tag = []
@@ -648,7 +665,7 @@ class Plot:
                     else:
                         label = ""
                     match = Results.job_patt.search(q)
-                    key = match.group(1), match.group(3), change
+                    key = match.group(2), match.group(3), change
                     skip = False
                     for t in self.selectivity:
                         if t != s and t in key[1]:

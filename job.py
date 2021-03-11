@@ -26,7 +26,7 @@ from fireworks.user_objects.queue_adapters.common_adapter import (
     CommonAdapter as QueueAdapter,
 )
 from invoke.exceptions import UnexpectedExit
-from jinja2 import Environment, FileSystemLoader, StrictUndefined
+from jinja2 import Environment, FileSystemLoader
 
 LAUNCHPAD = LaunchPad.auto_load()
 
@@ -36,7 +36,6 @@ class Job:
     Attributes:
     :structure: (Geometry) the structure
     :config: (Config) the configuration object
-    :metadata: (dict) the workflow metadata (for searching)
     :step: (float or int) the current step
     :step_list: ([float or int]) all steps to perform
     :root_fw_id: (int) FW id for root FW of this job's workflow
@@ -66,7 +65,6 @@ class Job:
                 "_args",
                 "_kwargs",
                 "_changed_list",
-                "HPC/name",
             ]:
                 continue
             # shouldn't create new FWs if we move everything to a new directory
@@ -86,9 +84,7 @@ class Job:
             query_spec["spec." + key] = val
         return query_spec
 
-    def __init__(
-        self, structure, config=None, quiet=False, step=0.0, make_changes=True
-    ):
+    def __init__(self, structure, config=None, quiet=False, make_changes=True):
         """
         :structure: the geometry structure
         :config: the configuration object to associate with this job
@@ -96,21 +92,19 @@ class Job:
         :step: the current step for this job
         :make_changes: do structure modification as specified in config
         """
-        self.quiet = quiet
-        self.fw_id = None
+        self.step = 0.0
+        self.step_list = []
         self.root_fw_id = None
+        self.fw_id = None
         self.parent_fw_id = None
-        if isinstance(step, int) and int(step) == step:
-            self.step = int(step)
-        else:
-            self.step = step
+        self.quiet = quiet
         # job from fw spec
         if isinstance(structure, Firework):
             self.fw_id = structure.fw_id
             spec = structure.as_dict()["spec"]
             self._load_metadata(spec)
-            if config:
-                self.config = config
+            if config is not None:
+                raise Exception
         else:
             if isinstance(structure, Geometry):
                 self.structure = structure
@@ -122,52 +116,33 @@ class Job:
                 self.config = Config(config, quiet=quiet)
             if make_changes:
                 self._make_changes()
-        self.step_list = self.get_steps()
+            self.step_list = self.get_steps()
+            try:
+                self.step = self.step_list[0]
+            except IndexError:
+                pass
+        self.set_root()
 
-    def set_fw_id(self, spec=None, step=None, config=None, skip_keys=None):
-        """
-        Sets self.fw_id if able to find the FW specified, if found, or None
-
-        :spec: the metadata spec of the FW to find, defaults to self._get_metadata()
-        :step: which step to apply to config, defaults to self.step
-        :config: the config associated with spec, defaults to self.config
-        :skip_keys: list of keys in spec to skip when searching for FW
-        """
-        if skip_keys is None:
-            skip_keys = []
-        fw = self.find_fw(spec, step, config, skip_keys)
-        if fw:
-            fw_id = fw.fw_id
-        else:
-            fw_id = None
-        self.fw_id = fw_id
-
-    def find_fw(self, spec=None, step=None, config=None, skip_keys=None):
+    def find_fw(self, spec=None, skip_keys=None):
         """
         Searches the launchpad for a particular FW
         Returns the FW, if unique FW found, or None
-
-        :spec: the metadata spec of the FW to find, defaults to self._get_metadata()
-        :step: which step to apply to config, defaults to self.step
-        :config: the config associated with spec, defaults to self.config
-        :skip_keys: list of keys in spec to skip when searching for FW
         """
-        if skip_keys is None:
-            skip_keys = []
-        if config is None:
-            config = self.config_for_step(step)
-        else:
-            config = self.config_for_step(step, config)
         if spec is None:
-            spec = self._get_metadata(config=config)
+            spec = self._get_metadata()
         query_spec = Job.get_query_spec(spec, skip_keys=skip_keys)
+        # archived FWs are soft-deleted, so we don't want those
         query_spec["state"] = {"$not": {"$eq": "ARCHIVED"}}
         fw_id = LAUNCHPAD.get_fw_ids(query=query_spec)
         fws = []
         for fw in fw_id:
-            # archived FWs are soft-deleted, so we don't want those
-            fws += [LAUNCHPAD.get_fw_by_id(fw)]
-        fws = [fw for fw in fws if fw.name == fw.spec["HPC/job_name"]]
+            fw = LAUNCHPAD.get_fw_by_id(fw)
+            if (
+                "HPC/job_name" in fw.spec
+                and fw.name != fw.spec["HPC/job_name"]
+            ):
+                continue
+            fws += [fw]
         if fws and len(fws) == 1:
             return fws.pop()
         elif fws:
@@ -178,40 +153,47 @@ class Job:
             )
         return None
 
-    def set_root(self, fw_id=None):
+    def set_root(self):
         """
         Sets self.root_fw_id to the root FW for the workflow containing `fw_id`
 
         :fw_id: defaults to self.fw_id
         """
-        if fw_id is None:
-            fw_id = self.fw_id
-        links = LAUNCHPAD.get_wf_summary_dict(fw_id, mode="all")["links"]
+        if self.fw_id is None:
+            fw = self.find_fw()
+            if fw is None:
+                return
+            else:
+                self.fw_id = fw.fw_id
+        links = LAUNCHPAD.get_wf_summary_dict(self.fw_id, mode="all")["links"]
         children = set(it.chain.from_iterable(links.values()))
         for key in links:
             if key not in children:
                 self.root_fw_id = int(key.split("--")[1])
                 break
 
-    def add_fw(self, parent_fw_id=None, step=None, config=None):
+    def add_fw(self, parent_fw_id=None, structure=None):
         """
         Adds FW to the appropriate workflow (creating if necessary) and updates self.fw_id accordingly
         Returns: the created FW
 
         :parent_fw_id: for linking within workflow (default to self.parent_fw_id)
-        :step: defaults to self.step
-        :config: defaults to self.config
         """
-        if config is None:
-            config = self.config_for_step(step)
+        config = self.config_for_step()
         if parent_fw_id is None:
             parent_fw_id = self.parent_fw_id
         # make firework
         fw = Firework(
-            [self._get_exec_task(config=config)],
-            spec=self._get_metadata(config=config),
+            [self._get_exec_task()],
+            spec=self._get_metadata(structure=structure),
             name=config["HPC"]["job_name"],
         )
+        if not self.quiet:
+            print(
+                "  Adding Firework for {} to workflow".format(
+                    config["HPC"]["job_name"]
+                )
+            )
         if isinstance(parent_fw_id, list):
             LAUNCHPAD.append_wf(Workflow([fw]), parent_fw_id)
         elif parent_fw_id:
@@ -227,7 +209,7 @@ class Job:
         self.fw_id = fw.fw_id
         return fw
 
-    def _root_fw(self):
+    def _root_fw(self, workflow=None):
         """
         Makes the root fw, if we need one, and marks as completed.
         The root fw is for organizational purposes for multi-step jobs, nothing is run.
@@ -243,18 +225,21 @@ class Job:
             spec, skip_keys=["step", "Job/name", "HPC/job_name"]
         )
         wfs = set({})
-        wf = None
-        for fw_id in LAUNCHPAD.get_fw_ids(spec):
-            if not wf or fw_id not in wf.links:
-                wf = LAUNCHPAD.get_wf_by_fw_id(fw_id)
-                wfs = wfs.union(wf.root_fw_ids)
+        if workflow is not None:
+            wf = workflow
+            wfs = wfs.union(wf.root_fw_ids)
+        else:
+            wf = None
+            for fw_id in LAUNCHPAD.get_fw_ids(spec):
+                if not wf or fw_id not in wf.links:
+                    wf = LAUNCHPAD.get_wf_by_fw_id(fw_id)
+                    wfs = wfs.union(wf.root_fw_ids)
         if len(wfs) == 1:
             return wfs.pop()
 
         # build spec for new root fw
-        config = self.config.copy()
         spec = {}
-        for key, val in self._get_metadata(config=config).items():
+        for key, val in self._get_metadata().items():
             if "#" in key:
                 continue
             if key.startswith("Substitution") or key.startswith("Mapping"):
@@ -294,7 +279,9 @@ class Job:
             LAUNCHPAD.complete_launch(launch_id, action=FWAction())
         return fw.fw_id
 
-    def add_workflow(self, parent_fw_id=None, step_list=None, conformer=None):
+    def add_workflow(
+        self, parent_fw_id=None, step_list=None, conformer=0, structure=None
+    ):
         if step_list is None:
             step_list = self.step_list
         if not step_list and not "".join(self.config._changes.keys()):
@@ -303,9 +290,11 @@ class Job:
             fw = self.find_fw()
             if fw is not None:
                 self.fw_id = fw.fw_id
-                LAUNCHPAD.update_spec([self.fw_id], self._get_metadata())
+                LAUNCHPAD.update_spec(
+                    [self.fw_id], self._get_metadata(structure=structure)
+                )
             else:
-                fw = self.add_fw()
+                fw = self.add_fw(structure=structure)
             return [fw.fw_id]
 
         if parent_fw_id is None:
@@ -317,19 +306,12 @@ class Job:
         fws = []
         for step in step_list:
             self.step = step
-            if conformer is not None:
-                self.config.conformer = conformer
-            config = self.config_for_step()
-            if (
-                "change" in config["Job"]["type"]
-                and not self.config._changed_list
-            ):
-                continue
-            fw = self.find_fw(config=config)
+            self.config.conformer = conformer
+            fw = self.find_fw()
             if fw is not None:
                 self.fw_id = fw.fw_id
             else:
-                fw = self.add_fw(config=config)
+                fw = self.add_fw(structure=structure)
             fws += [fw.fw_id]
             self.parent_fw_id = self.fw_id
         return fws
@@ -373,9 +355,8 @@ class Job:
                     pass
         self.config._changed_list = changed
 
-    def write(self, override_style=None, send=True, step=None, config=None):
-        if config is None:
-            config = self.config_for_step(step)
+    def write(self, override_style=None, send=True):
+        config = self.config_for_step()
         theory = config.get_theory(self.structure)
         name = os.path.join(
             config["Job"]["top_dir"], config["HPC"]["job_name"]
@@ -388,18 +369,22 @@ class Job:
             name = os.path.join(name, "ref")
             style = "xyz"
             aux_files = theory.write_aux(config)
+        elif exec_type == "xtb":
+            style = "xyz"
+            aux_files = theory.write_aux(config)
+        else:
+            raise Exception
         if override_style is not None:
             style = override_style
         theory.geometry.write(
             name=name, style=style, theory=theory, **config._kwargs
         )
         if "transfer_host" in config["HPC"] and send:
-            self.transfer_input(config=config, aux_files=aux_files)
+            self.transfer_input(aux_files=aux_files)
 
-    def transfer_input(self, step=None, config=None, aux_files=None):
-        if config is None:
-            config = self.config_for_step(step)
-        name = self._get_input_name(config=config)
+    def transfer_input(self, aux_files=None):
+        config = self.config_for_step()
+        name = self._get_input_name()
         source = os.path.join(config["Job"].get("top_dir"), name)
         target = os.path.join(config["HPC"].get("remote_dir"), name)
 
@@ -412,45 +397,41 @@ class Job:
                         os.path.join(os.path.dirname(target), aux_name),
                     )
                 ]
-        if not self.quiet:
-            print(
-                "Sending {} to {}...".format(name, config["HPC"].get("host"))
-            )
         for source, target in args:
+            if not self.quiet:
+                print(
+                    "Sending {} to {}...".format(
+                        os.path.basename(target), config["HPC"].get("host")
+                    )
+                )
             try:
-                self.remote_put(source, target, config=config)
+                self.remote_put(source, target)
             except FileNotFoundError:
                 sleep(5)
                 self.remote_run(
                     "mkdir -p {}".format(os.path.dirname(target)),
                     hide=True,
-                    config=config,
                 )
                 sleep(5)
-                self.remote_run(
-                    "touch {}".format(target), hide=True, config=config
-                )
+                self.remote_run("touch {}".format(target), hide=True)
                 for _ in range(5):
                     # for some reason this doesn't go through every time even
                     # though it absolutely should... Some bug in fabric module?
                     # regardless, trying a few more time tends to resolve the issue
                     sleep(5)
                     try:
-                        self.remote_put(source, target, config=config)
+                        self.remote_put(source, target)
                         break
                     except FileNotFoundError:
                         pass
 
-    def launch_job(self, fw_id=None, step=None, config=None):
-        if config is None:
-            config = self.config_for_step(step)
-        if fw_id is None:
-            fw_id = self.fw_id
-        fw = LAUNCHPAD.get_fw_by_id(fw_id)
+    def launch_job(self):
+        fw = LAUNCHPAD.get_fw_by_id(self.fw_id)
+        config = self.config_for_step()
         if fw.state != "READY":
             return
         # transfer qadapter
-        qadapter = self._make_qadapter(fw.fw_id, config=config)
+        qadapter = self._make_qadapter(fw.fw_id)
         qlaunch_cmd = 'qlaunch -r -l "$AARONLIB/my_launchpad.yaml" -q "{}" --launch_dir "{}" singleshot --fw_id {}'.format(
             qadapter,
             os.path.join(
@@ -460,7 +441,7 @@ class Job:
             fw.fw_id,
         )
         if config["HPC"].get("host"):
-            out, err = self.remote_run(qlaunch_cmd, hide=True, config=config)
+            out, err = self.remote_run(qlaunch_cmd, hide=True)
             if out:
                 print("out:", out)
             for e in err.split("\n"):
@@ -471,15 +452,14 @@ class Job:
         else:
             os.system(qlaunch_cmd)
 
-    def transfer_output(self, step=None, config=None):
-        if config is None:
-            config = self.config_for_step(step)
+    def transfer_output(self):
+        config = self.config_for_step()
         exec_type = config["HPC"]["exec_type"]
-        name = self._get_output_name(config=config)
+        name = self._get_output_name()
         source = os.path.join(config["HPC"]["remote_dir"], name)
         target = os.path.join(config["Job"]["top_dir"], name)
 
-        new = self.remote_get(source, target, config=config)
+        new = self.remote_get(source, target)
         if not self.quiet and new:
             print("Downloaded {} from {}".format(name, config["HPC"]["host"]))
 
@@ -487,11 +467,12 @@ class Job:
             new = self.remote_get(
                 os.path.join(os.path.dirname(source), "crest_conformers.xyz"),
                 os.path.join(os.path.dirname(target), "crest_conformers.xyz"),
-                config=config,
             )
             if not self.quiet and new:
                 print(
-                    "Downloaded {} from {}".format(name, config["HPC"]["host"])
+                    "Downloaded {} from {}".format(
+                        "crest_conformers.xyz", config["HPC"]["host"]
+                    )
                 )
 
     def get_output(self, load_geom=False):
@@ -512,10 +493,9 @@ class Job:
             setattr(output, key, val)
         return output
 
-    def validate(self, step=None, config=None, get_all=False, update=False):
-        if config is None:
-            config = self.config_for_step(step)
-        name = self._get_output_name(config=config)
+    def validate(self, get_all=False, update=False):
+        config = self.config_for_step()
+        name = self._get_output_name()
         try:
             output = CompOutput(
                 os.path.join(config["Job"]["top_dir"], name), get_all=get_all
@@ -566,27 +546,32 @@ class Job:
         return output
 
     def add_conformers(self, fw_id, output):
+        if not self.quiet:
+            print(
+                "Loading conformers for",
+                self.config_for_step(0)["HPC"]["job_name"],
+            )
+        # determine what steps we need to run for conformer child
         wf = LAUNCHPAD.get_wf_by_fw_id(fw_id)
         steps = set([])
         children = wf.links[fw_id].copy()
         while children:
-            child = Job(LAUNCHPAD.get_fw_by_id(children.pop()))
+            fw = LAUNCHPAD.get_fw_by_id(children.pop())
+            child = Job(fw)
             steps.add(child.step)
             children += wf.links[child.fw_id]
         for i, conformer in enumerate(output.conformers):
-            for fw in self.add_workflow(
-                fw_id, step_list=sorted(steps), conformer=i + 1
-            ):
-                fw = LAUNCHPAD.get_fw_by_id(fw)
-                Job(fw).update_structure(conformer)
+            self.add_workflow(
+                fw_id,
+                step_list=sorted(steps),
+                conformer=i,
+                structure=conformer,
+            )
+            if not self.quiet:
+                print("  **Loaded workflow for conformer", i + 1)
 
-    def update_structure(
-        self, structure, step=None, config=None, kind="output"
-    ):
-        if step is None:
-            step = self.step
-        if config is None:
-            config = self.config_for_step(step)
+    def update_structure(self, structure, step=None, kind="output"):
+        config = self.config_for_step(step)
         if structure is None:
             name = None
             if kind == "original":
@@ -600,21 +585,19 @@ class Job:
                             break
                 self.structure = structure
                 self._make_changes()
-                LAUNCHPAD.update_spec(
-                    [self.fw_id], self._get_metadata(config=config)
-                )
+                LAUNCHPAD.update_spec([self.fw_id], self._get_metadata())
                 return
             if kind == "input":
-                name = self._get_input_name(config=config)
+                name = self._get_input_name()
             else:
-                name = self._get_output_name(config=config)
+                name = self._get_output_name()
             if name is not None:
                 structure = Geometry(
                     os.path.join(config["Job"]["top_dir"], name)
                 )
         for i, a in enumerate(structure):
             self.structure.atoms[i].coords = a.coords
-        LAUNCHPAD.update_spec([self.fw_id], self._get_metadata(config=config))
+        LAUNCHPAD.update_spec([self.fw_id], self._get_metadata())
 
     def resolve_error(self, force_rerun=False):
         """
@@ -625,6 +608,7 @@ class Job:
             that the user must resolve by hand (eg: typos that cause job failure)
         """
         config = self.config_for_step()
+        constrain_step = None
         try:
             for step in self.step_list:
                 tmp = self.config_for_step(step)
@@ -634,8 +618,8 @@ class Job:
                 ):
                     constrain_step = step
         except IndexError:
-            constrain_step = None
-        name = self._get_output_name(config=config)
+            pass
+        name = self._get_output_name()
         fw = LAUNCHPAD.get_fw_by_id(self.fw_id)
         output = CompOutput(os.path.join(config["Job"]["top_dir"], name))
         if output.error is None:
@@ -684,10 +668,10 @@ class Job:
         if output.error in ["CONV_LINK", "CONV_CDS", "LINK"]:
             resolved = True
             old_fw = self.fw_id
-            if self.step > constrain_step:
+            if constrain_step is not None and self.step > constrain_step:
                 self.step = constrain_step
             config = self.config_for_step()
-            self.find_fw(config=config)
+            self.find_fw()
             LAUNCHPAD.defuse_fw(self.fw_id)
             self.update_structure(output.geometry)
             LAUNCHPAD.reignite_fw(self.fw_id)
@@ -731,7 +715,8 @@ class Job:
             else:
                 LAUNCHPAD.update_spec([self.fw_id], self._get_metadata())
                 LAUNCHPAD.reignite_fw(self.fw_id)
-                self.step = constrain_step
+                if constrain_step is not None:
+                    self.step = constrain_step
                 config = self.config_for_step()
                 self.find_fw()
                 LAUNCHPAD.defuse_fw(self.fw_id)
@@ -763,7 +748,7 @@ class Job:
             else:
                 raise NotImplementedError
             old_fw = self.fw_id
-            if self.step > constrain_step:
+            if constrain_step is not None and self.step > constrain_step:
                 self.step = constrain_step
             self.find_fw()
             LAUNCHPAD.defuse_fw(self.fw_id)
@@ -827,38 +812,45 @@ class Job:
             if "type" not in option:
                 continue
             step = option.split()[0]
-            if int(step) == float(step):
-                step_list += [int(step)]
-            else:
-                step_list += [float(step)]
+            try:
+                if int(step) == float(step):
+                    step_list += [int(step)]
+                else:
+                    step_list += [float(step)]
+            except ValueError as e:
+                if len(option.split()) == 1:
+                    step_list += [0]
+                else:
+                    raise ValueError(e)
         step_list.sort()
-        if self.config._changes:
-            return step_list
-        else:
+        if "" in self.config._changes and self.config._changes[""][1] is None:
+            self.step_list = step_list[1:]
             return step_list[1:]
+        else:
+            self.step_list = step_list
+            return step_list
 
-    def config_for_step(self, step=None, config=None):
+    def config_for_step(self, step=None, conformer=None):
         if step is None:
             step = self.step
-        if config is None:
-            config = self.config.copy()
+        config = self.config.copy()
+        if conformer is not None:
+            config.conformer = conformer
         return config.for_step(step)
 
-    def remote_put(self, source, target, step=None, config=None):
-        if config is None:
-            config = self.config_for_step(step)
+    def remote_put(self, source, target):
+        config = self.config_for_step()
         host = config["HPC"].get("transfer_host")
         with Connection(host) as c:
             c.put(source, remote=target)
         return True
 
-    def remote_get(self, source, target, step=None, config=None):
-        if config is None:
-            config = self.config_for_step(step)
+    def remote_get(self, source, target):
+        config = self.config_for_step()
         host = config["HPC"].get("transfer_host")
         try:
             remote_mtime, _ = self.remote_run(
-                "stat --format=%Y {}".format(source), hide=True, config=config
+                "stat --format=%Y {}".format(source), hide=True
             )
         except UnexpectedExit:
             # catch race condition:
@@ -874,66 +866,67 @@ class Job:
             c.get(source, target)
         return True
 
-    def remote_run(self, cmd, hide=None, step=None, config=None):
-        if config is None:
-            config = self.config_for_step(step)
+    def remote_run(self, cmd, hide=None):
+        config = self.config_for_step()
         host = config["HPC"].get("host")
         with Connection(host) as c:
             result = c.run(cmd, hide=hide)
         return result.stdout, result.stderr
 
-    def _repeat_step(self, step=None, config=None):
-        if config is None:
-            config = self.config_for_step(step)
-        self.find_fw(config=config)
-        LAUNCHPAD.update_spec([self.fw_id], self._get_metadata(config=config))
+    def _repeat_step(self, step):
+        self.step = step
+        self.find_fw()
+        LAUNCHPAD.update_spec([self.fw_id], self._get_metadata())
         LAUNCHPAD.rerun_fw(self.fw_id)
 
-    def _get_input_name(self, step=None, config=None):
-        if config is None:
-            config = self.config_for_step(step)
+    def _get_input_name(self):
+        config = self.config_for_step()
         name = config["HPC"]["job_name"]
         exec_type = config["HPC"]["exec_type"]
         if exec_type == "gaussian":
             name += ".com"
-        if exec_type == "crest":
+        elif exec_type == "crest":
             name = os.path.join(name, "ref.xyz")
+        elif exec_type == "xtb":
+            name += ".xyz"
+        else:
+            raise Exception
         return name
 
-    def _get_output_name(self, step=None, config=None):
-        if config is None:
-            config = self.config_for_step(step)
+    def _get_output_name(self):
+        config = self.config_for_step()
         name = config["HPC"]["job_name"]
         exec_type = config["HPC"]["exec_type"]
         if exec_type == "gaussian":
             name += ".log"
-        if exec_type == "crest":
+        elif exec_type == "crest":
             name = os.path.join(name, "out.crest")
+        elif exec_type == "xtb":
+            name += ".xtb"
+        else:
+            raise Exception
         return name
 
-    def _get_exec_task(self, step=None, config=None):
-        if config is None:
-            config = self.config_for_step(step)
-        environment = Environment(
-            loader=FileSystemLoader(AARONLIB), undefined=StrictUndefined
-        )
+    def _get_exec_task(self):
+        config = self.config_for_step()
+        environment = Environment(loader=FileSystemLoader(AARONLIB))
         exec_type = config["HPC"].get("exec_type")
         exec_template = environment.get_template(exec_type + ".template")
         options = dict(config["HPC"].items())
         options["scratch_dir"] = os.path.join(
             options["scratch_dir"], str(hash(self))
         )
+        options["transition_state"] = config["Job"]["type"].endswith(".ts")
         script = exec_template.render(**options)
         script = [line.strip() for line in script.split("\n") if line.strip()]
         return ScriptTask.from_str(" ; ".join(script))
 
-    def _make_qadapter(self, fw_id, step=None, config=None):
-        if config is None:
-            config = self.config_for_step(step)
+    def _make_qadapter(self, fw_id):
+        config = self.config_for_step()
         # find template
         if config["HPC"].get("host"):
             AARONLIB_REMOTE, _ = self.remote_run(
-                "echo -n $AARONLIB", hide=True, config=config
+                "echo -n $AARONLIB", hide=True
             )
             qadapter_template = os.path.join(
                 AARONLIB_REMOTE,
@@ -974,7 +967,6 @@ class Job:
             self.remote_put(
                 io.StringIO(content),
                 filename,
-                config=config,
             )
         else:
             filename = os.path.join(
@@ -985,50 +977,39 @@ class Job:
             qadapter.to_file(filename)
         return filename
 
-    def _get_metadata(self, step=None, config=None):
-        if config is None:
-            config = self.config_for_step(step)
+    def _get_metadata(self, structure=None):
+        if structure is None:
+            structure = self.structure
         spec = {
-            "step": self.step,
-            "starting_structure": [self.structure.comment]
+            "starting_structure": [structure.comment]
             + list(
                 zip(
-                    self.structure.elements,
-                    self.structure.coords.tolist(),
-                    [a.name for a in self.structure.atoms],
+                    structure.elements,
+                    structure.coords.tolist(),
+                    [a.name for a in structure.atoms],
                 )
             ),
+            "step": self.step,
+            "step_list": self.step_list,
         }
-        spec = config.get_spec(spec)
+        spec = self.config.get_spec(spec)
         return spec
 
     def _load_metadata(self, spec):
         self.config = Config(quiet=True)
-        for attr in spec:
-            if attr == "step":
-                self.step = spec[attr]
-            if attr == "starting_structure":
-                comment = spec["starting_structure"][0]
-                atoms = []
-                for element, coord, name in spec["starting_structure"][1:]:
-                    atoms += [Atom(element=element, coords=coord, name=name)]
-                self.structure = Geometry(atoms)
-                self.structure.comment = comment
-                self.structure.parse_comment()
-            elif not hasattr(self, "structure"):
-                self.structure = Geometry()
-            if attr in [
-                "_changes",
-                "_changed_list",
-                "_args",
-                "_kwargs",
-            ]:
-                self.config.__dict__[attr] = spec[attr]
-            if "/" in attr:
-                section, key = attr.replace("#", ".").split("/")
-                if section not in self.config:
-                    self.config.add_section(section)
-                self.config[section][key] = spec[attr]
+        self.config.read_spec(spec)
+        self.step = spec["step"]
+        self.step_list = spec["step_list"]
+        if "starting_structure" in spec:
+            comment = spec["starting_structure"][0]
+            atoms = []
+            for element, coord, name in spec["starting_structure"][1:]:
+                atoms += [Atom(element=element, coords=coord, name=name)]
+            self.structure = Geometry(atoms)
+            self.structure.comment = comment
+            self.structure.parse_comment()
+        elif not hasattr(self, "structure"):
+            self.structure = Geometry()
         if not self.structure.name:
             self.structure.name = self.config["Job"]["name"]
         config = self.config_for_step()
