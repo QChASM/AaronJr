@@ -45,42 +45,30 @@ class Job:
     :quiet: (bool) supress extraneous printing if true
     """
 
+    SKIP_SECTIONS = ["Results", "Plot", "HPC", "Substitution", "Mapping"]
+    SKIP_KEYS = ["step", "starting_structure", "_args", "_kwargs"]
+
     @classmethod
-    def get_query_spec(cls, spec, skip_keys=None):
+    def get_query_spec(cls, spec):
         """
         Builds a suitable pymongo-style query from metadata spec.
         Returns: dict()
 
-        :spec: the metadata dictionary, like that returned by Job._get_metadata()
+        :spec: the metadata dictionary, like that returned by Config().get_spec()
         :skip_keys: list of keys in spec to skip when building return dict()
         """
-        if skip_keys is None:
-            skip_keys = []
         query_spec = {}
         for key, val in spec.items():
-            if key in skip_keys:
-                continue
             # these values are variable during the course of the job
             if key in [
                 "starting_structure",
                 "_args",
                 "_kwargs",
-                "_changed_list",
             ]:
                 continue
             # shouldn't create new FWs if we move everything to a new directory
             # local directory stuff is built from other values, so this is fine
-            if "_dir" in key:
-                continue
-            # these have been parsed and saved as "_changes"
-            if (
-                "reopt" in key
-                or key.startswith("Substitution")
-                or key.startswith("Mapping")
-            ):
-                continue
-            # these are from unused include sections
-            if "#" in key:
+            if key in ["top_dir"]:
                 continue
             query_spec["spec." + key] = val
         return query_spec
@@ -97,8 +85,8 @@ class Job:
         :structure: the geometry structure
         :config: the configuration object to associate with this job
         :quiet: print extra info when loading config if False
-        :step: the current step for this job
         :make_changes: do structure modification as specified in config
+        :set_root: set to False for single-step workflows
         """
         self.step = 0.0
         self.step_list = []
@@ -106,29 +94,30 @@ class Job:
         self.fw_id = None
         self.parent_fw_id = None
         self.quiet = quiet
-        # job from fw spec
+
+        if isinstance(config, Config):
+            self.config = config
+        else:
+            self.config = Config(config, quiet=quiet)
+
+        # load from fw spec
         if isinstance(structure, Firework):
             self.fw_id = structure.fw_id
             spec = structure.as_dict()["spec"]
-            self._load_metadata(spec)
-            if config is not None:
-                raise Exception
+            self.load_spec(spec)
+            make_changes = False
+        elif isinstance(structure, Geometry):
+            self.structure = structure
         else:
-            if isinstance(structure, Geometry):
-                self.structure = structure
-            else:
-                self.structure = Geometry(structure)
-            if isinstance(config, Config):
-                self.config = config
-            else:
-                self.config = Config(config, quiet=quiet)
-            if make_changes:
-                self._make_changes()
-            self.step_list = self.get_steps()
-            try:
-                self.step = self.step_list[0]
-            except IndexError:
-                pass
+            self.structure = Geometry(structure)
+
+        if make_changes:
+            self._make_changes()
+        self.step_list = self.get_steps()
+        try:
+            self.step = self.step_list[0]
+        except IndexError:
+            pass
         if set_root:
             self.set_root()
 
@@ -138,7 +127,7 @@ class Job:
         Returns the FW, if unique FW found, or None
         """
         if spec is None:
-            spec = self._get_metadata()
+            spec = self.get_spec()
         query_spec = Job.get_query_spec(spec, skip_keys=skip_keys)
         # archived FWs are soft-deleted, so we don't want those
         query_spec["state"] = {"$not": {"$eq": "ARCHIVED"}}
@@ -146,10 +135,7 @@ class Job:
         fws = []
         for fw in fw_id:
             fw = LAUNCHPAD.get_fw_by_id(fw)
-            if (
-                "HPC/job_name" in fw.spec
-                and fw.name != fw.spec["HPC/job_name"]
-            ):
+            if "Job/name" in fw.spec and fw.name != fw.spec["Job/name"]:
                 continue
             fws += [fw]
         if fws and len(fws) == 1:
@@ -194,13 +180,13 @@ class Job:
         # make firework
         fw = Firework(
             [self._get_exec_task()],
-            spec=self._get_metadata(structure=structure),
-            name=config["HPC"]["job_name"],
+            spec=self.get_spec(structure=structure),
+            name=config["Job"]["name"],
         )
         if not self.quiet:
             print(
                 "  Adding Firework for {} to workflow".format(
-                    config["HPC"]["job_name"]
+                    config["Job"]["name"]
                 )
             )
         if isinstance(parent_fw_id, list):
@@ -208,10 +194,15 @@ class Job:
         elif parent_fw_id:
             LAUNCHPAD.append_wf(Workflow([fw]), [parent_fw_id])
         else:
+            wf_name = config["DEFAULT"].get("project", fallback="")
+            if wf_name:
+                wf_name = "{}/{}".format(wf_name, config["DEFAULT"]["name"])
+            else:
+                wf_name = config["DEFAULT"]["name"]
             LAUNCHPAD.add_wf(
                 Workflow(
                     [fw],
-                    name=config["Job"]["name"],
+                    name=wf_name,
                     metadata=self.config.metadata,
                 )
             )
@@ -228,11 +219,11 @@ class Job:
             return None
         # if we can find a FW for the original structure, use that FW's root
         # instead of making a new one (changes are children of original)
-        spec = self._get_metadata()
-        spec["_changes"] = {"": [{}, None]}
-        spec = self.get_query_spec(
-            spec, skip_keys=["step", "Job/name", "HPC/job_name"]
+        spec = self.get_spec(
+            skip_keys=self.SKIP_KEYS, skip_sections=self.SKIP_SECTIONS
         )
+        spec["_changes"] = {"": [{}, None]}
+        spec = self.get_query_spec(spec)
         wfs = set({})
         if workflow is not None:
             wf = workflow
@@ -248,16 +239,12 @@ class Job:
 
         # build spec for new root fw
         spec = {}
-        for key, val in self._get_metadata().items():
-            if "#" in key:
-                continue
-            if key.startswith("Substitution") or key.startswith("Mapping"):
-                continue
+        for key, val in self.get_spec(
+            skip_keys=self.SKIP_KEYS, skip_sections=self.SKIP_SECTIONS
+        ).items():
             if "name" in key:
                 continue
             if "dir" in key:
-                continue
-            if key in ["step", "starting_structure", "_args", "_kwargs"]:
                 continue
             spec[key] = val
         name = ""
@@ -300,7 +287,7 @@ class Job:
             if fw is not None:
                 self.fw_id = fw.fw_id
                 LAUNCHPAD.update_spec(
-                    [self.fw_id], self._get_metadata(structure=structure)
+                    [self.fw_id], self.get_spec(structure=structure)
                 )
             else:
                 fw = self.add_fw(structure=structure)
@@ -380,10 +367,8 @@ class Job:
     def write(self, override_style=None, send=True):
         config = self.config_for_step()
         theory = config.get_theory(self.structure)
-        name = os.path.join(
-            config["Job"]["top_dir"], config["HPC"]["job_name"]
-        )
-        exec_type = config["HPC"]["exec_type"]
+        name = os.path.join(config["Job"]["top_dir"], config["Job"]["namw"])
+        exec_type = config["Job"]["exec_type"]
         aux_files = None
         if exec_type == "gaussian":
             style = "com"
@@ -406,7 +391,7 @@ class Job:
 
     def transfer_input(self, aux_files=None):
         config = self.config_for_step()
-        name = self._get_input_name()
+        name = self.get_input_name()
         source = os.path.join(config["Job"].get("top_dir"), name)
         target = os.path.join(config["HPC"].get("remote_dir"), name)
 
@@ -458,7 +443,7 @@ class Job:
             qadapter,
             os.path.join(
                 config["HPC"]["work_dir"],
-                os.path.dirname(config["HPC"]["job_name"]),
+                os.path.dirname(config["Job"]["name"]),
             ),
             fw.fw_id,
         )
@@ -476,8 +461,8 @@ class Job:
 
     def transfer_output(self):
         config = self.config_for_step()
-        exec_type = config["HPC"]["exec_type"]
-        name = self._get_output_name()
+        exec_type = config["Job"]["exec_type"]
+        name = self.get_output_name()
         source = os.path.join(config["HPC"]["remote_dir"], name)
         target = os.path.join(config["Job"]["top_dir"], name)
 
@@ -517,14 +502,14 @@ class Job:
 
     def validate(self, get_all=False, update=False):
         config = self.config_for_step()
-        name = self._get_output_name()
+        name = self.get_output_name()
         try:
             output = CompOutput(
                 os.path.join(config["Job"]["top_dir"], name), get_all=get_all
             )
         except Exception:
             LAUNCHPAD.defuse_fw(self.fw_id)
-            LAUNCHPAD.update_spec([self.fw_id], self._get_metadata())
+            LAUNCHPAD.update_spec([self.fw_id], self.get_spec())
             LAUNCHPAD.reignite_fw(self.fw_id)
             LAUNCHPAD.rerun_fw(self.fw_id)
             return None
@@ -538,7 +523,7 @@ class Job:
                         datetime.datetime.utcnow() - history["created_on"]
                     )
                     walltime = datetime.timedelta(
-                        hours=int(config["HPC"]["wall"])
+                        hours=int(config["Job"]["wall"])
                     )
                     if runtime > walltime:
                         output.error = "WALLTIME"
@@ -571,7 +556,7 @@ class Job:
         if not self.quiet:
             print(
                 "Loading conformers for",
-                self.config_for_step(0)["HPC"]["job_name"],
+                self.config["Job"]["name"],
             )
         # determine what steps we need to run for conformer child
         wf = LAUNCHPAD.get_wf_by_fw_id(fw_id)
@@ -607,19 +592,19 @@ class Job:
                             break
                 self.structure = structure
                 self._make_changes()
-                LAUNCHPAD.update_spec([self.fw_id], self._get_metadata())
+                LAUNCHPAD.update_spec([self.fw_id], self.get_spec())
                 return
             if kind == "input":
-                name = self._get_input_name()
+                name = self.get_input_name()
             else:
-                name = self._get_output_name()
+                name = self.get_output_name()
             if name is not None:
                 structure = Geometry(
                     os.path.join(config["Job"]["top_dir"], name)
                 )
         for i, a in enumerate(structure):
             self.structure.atoms[i].coords = a.coords
-        LAUNCHPAD.update_spec([self.fw_id], self._get_metadata())
+        LAUNCHPAD.update_spec([self.fw_id], self.get_spec())
 
     def resolve_error(self, force_rerun=False):
         """
@@ -641,7 +626,7 @@ class Job:
                     constrain_step = step
         except IndexError:
             pass
-        name = self._get_output_name()
+        name = self.get_output_name()
         fw = LAUNCHPAD.get_fw_by_id(self.fw_id)
         output = CompOutput(os.path.join(config["Job"]["top_dir"], name))
         if output.error is None:
@@ -713,7 +698,7 @@ class Job:
             resolved = True
             self.update_structure(output.geometry)
             self.config._kwargs[GAUSSIAN_ROUTE] = {"opt": ["cartesian"]}
-            LAUNCHPAD.update_spec([self.fw_id], self._get_metadata())
+            LAUNCHPAD.update_spec([self.fw_id], self.get_spec())
             LAUNCHPAD.reignite_fw(self.fw_id)
             LAUNCHPAD.rerun_fw(self.fw_id)
         if output.error in ["EIGEN"]:
@@ -722,31 +707,29 @@ class Job:
             fw = LAUNCHPAD.get_fw_by_id(self.fw_id)
             for launch in fw.archived_launches:
                 if "EIGEN" == launch.action.stored_data["error"]:
-                    if self.config["HPC"]["exec_type"] == "gaussian":
+                    if self.config["Job"]["exec_type"] == "gaussian":
                         self.config._kwargs[GAUSSIAN_ROUTE] = {
                             "opt": ["noeigen"]
                         }
-                        LAUNCHPAD.update_spec(
-                            [self.fw_id], self._get_metadata()
-                        )
+                        LAUNCHPAD.update_spec([self.fw_id], self.get_spec())
                         LAUNCHPAD.reignite_fw(self.fw_id)
                         LAUNCHPAD.rerun_fw(self.fw_id)
                     else:
                         raise NotImplementedError
                     break
             else:
-                LAUNCHPAD.update_spec([self.fw_id], self._get_metadata())
+                LAUNCHPAD.update_spec([self.fw_id], self.get_spec())
                 LAUNCHPAD.reignite_fw(self.fw_id)
                 if constrain_step is not None:
                     self.step = constrain_step
                 config = self.config_for_step()
                 self.find_fw()
                 LAUNCHPAD.defuse_fw(self.fw_id)
-                if self.config["HPC"]["exec_type"] == "gaussian":
+                if self.config["Job"]["exec_type"] == "gaussian":
                     self.config._kwargs[GAUSSIAN_ROUTE] = {
                         "opt": ["recalcfc=10"]
                     }
-                    LAUNCHPAD.update_spec([self.fw_id], self._get_metadata())
+                    LAUNCHPAD.update_spec([self.fw_id], self.get_spec())
                     LAUNCHPAD.reignite_fw(self.fw_id)
                     LAUNCHPAD.rerun_fw(self.fw_id)
         if output.error in ["SCF_CONV"]:
@@ -760,7 +743,7 @@ class Job:
             except IndexError:
                 maxstep = 0
             resolved = True
-            if self.config["HPC"]["exec_type"] == "gaussian":
+            if self.config["Job"]["exec_type"] == "gaussian":
                 if maxstep:
                     self.config._kwargs[GAUSSIAN_ROUTE] = {
                         "opt": ["maxstep={}".format(maxstep)],
@@ -800,7 +783,7 @@ class Job:
             LAUNCHPAD.reignite_fw(self.fw_id)
             LAUNCHPAD.rerun_fw(self.fw_id)
         if force_rerun:
-            LAUNCHPAD.update_spec([self.fw_id], self._get_metadata())
+            LAUNCHPAD.update_spec([self.fw_id], self.get_spec())
             LAUNCHPAD.reignite_fw(self.fw_id)
             LAUNCHPAD.rerun_fw(self.fw_id)
             resolved = True
@@ -898,13 +881,13 @@ class Job:
     def _repeat_step(self, step):
         self.step = step
         self.find_fw()
-        LAUNCHPAD.update_spec([self.fw_id], self._get_metadata())
+        LAUNCHPAD.update_spec([self.fw_id], self.get_spec())
         LAUNCHPAD.rerun_fw(self.fw_id)
 
-    def _get_input_name(self):
+    def get_input_name(self):
         config = self.config_for_step()
-        name = config["HPC"]["job_name"]
-        exec_type = config["HPC"]["exec_type"]
+        name = config["Job"]["name"]
+        exec_type = config["Job"]["exec_type"]
         if exec_type == "gaussian":
             name += ".com"
         elif exec_type == "crest":
@@ -915,10 +898,10 @@ class Job:
             raise Exception
         return name
 
-    def _get_output_name(self):
+    def get_output_name(self):
         config = self.config_for_step()
-        name = config["HPC"]["job_name"]
-        exec_type = config["HPC"]["exec_type"]
+        name = config["Job"]["name"]
+        exec_type = config["Job"]["exec_type"]
         if exec_type == "gaussian":
             name += ".log"
         elif exec_type == "crest":
@@ -932,11 +915,12 @@ class Job:
     def _get_exec_task(self):
         config = self.config_for_step()
         environment = Environment(loader=FileSystemLoader(AARONLIB))
-        exec_type = config["HPC"].get("exec_type")
+        exec_type = config["Job"].get("exec_type")
         exec_template = environment.get_template(exec_type + ".template")
-        options = dict(config["HPC"].items())
+        options = dict(config["Job"].items())
         options["scratch_dir"] = os.path.join(
-            options["scratch_dir"], str(hash(self))
+            config["HPC"].get("scratch_dir", fallback="scratch"),
+            str(hash(self)),
         )
         options["transition_state"] = config["Job"]["type"].endswith(".ts")
         script = exec_template.render(**options)
@@ -964,17 +948,15 @@ class Job:
                 "rocket_launch"
             ] = 'rlaunch -l "$AARONLIB/my_launchpad.yaml" singleshot'
         # create qadapter
-        job_name = config["HPC"]["job_name"]
-        config["HPC"]["job_name"] = job_name.replace("/", " ")
         qadapter = QueueAdapter(
             q_type=config["HPC"]["queue_type"],
             q_name=config["HPC"]["queue"],
             template_file=qadapter_template,
-            **dict(config["HPC"].items())
+            **dict(config["HPC"].items()),
+            **dict(config["Job"].items())
         )
-        config["HPC"]["job_name"] = job_name
         # save qadapter; transfer if remote
-        rel_dir = os.path.dirname(config["HPC"]["job_name"])
+        rel_dir = os.path.dirname(config["Job"]["name"])
         if config["HPC"].get("host"):
             filename = os.path.join(
                 config["HPC"].get("remote_dir"),
@@ -999,7 +981,7 @@ class Job:
             qadapter.to_file(filename)
         return filename
 
-    def _get_metadata(self, structure=None):
+    def get_spec(self, structure=None):
         if structure is None:
             structure = self.structure
         spec = {
@@ -1014,10 +996,12 @@ class Job:
             "step": self.step,
             "step_list": self.step_list,
         }
-        spec = self.config.get_spec(spec)
+        spec = self.config.get_spec(
+            spec, skip_keys=self.SKIP_KEYS, skip_sections=self.SKIP_SECTIONS
+        )
         return spec
 
-    def _load_metadata(self, spec):
+    def load_spec(self, spec):
         self.config = Config(quiet=True)
         self.config.read_spec(spec)
         self.step = spec["step"]
@@ -1032,9 +1016,5 @@ class Job:
             self.structure.parse_comment()
         elif not hasattr(self, "structure"):
             self.structure = Geometry()
-        if not self.structure.name:
-            self.structure.name = self.config["Job"]["name"]
         config = self.config_for_step()
-        self.structure.name = ".".join(
-            config["HPC"]["job_name"].split(".")[0:-1]
-        )
+        self.structure.name = ".".join(config["Job"]["name"].split(".")[0:-1])
