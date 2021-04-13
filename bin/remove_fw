@@ -23,6 +23,7 @@ def main(args):
             pass
         print(fw_id)
         workflow.remove_fws([fw_id])
+    # have to archive and re-add to prevent database corruption
     LAUNCHPAD.archive_wf(args.fw_id)
     LAUNCHPAD.add_wf(workflow)
 

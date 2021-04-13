@@ -1,91 +1,71 @@
 #!/usr/bin/env python3
+import contextlib
 import datetime
+import io
 import itertools as it
 import os
 from time import sleep
-from warnings import warn
 
-import Aaron
-from Aaron.job import LAUNCHPAD, FWAction, FWorker, Job
+from Aaron.job import LAUNCHPAD, Job
 from Aaron.results import Results
 from AaronTools.config import Config
-from AaronTools.const import AARONLIB, PHYSICAL
-from AaronTools.geometry import Geometry
 
 
-def monitor(fw_id, verbose=False, force_rerun=False, dryrun=False):
+def monitor(job, verbose=False, force_rerun=False, dryrun=False):
     """
     Checks status of FW
     :fw_id: the id of the FW
     :verbose: print more details to stdout if true
     :force_rerun: passed to Job.resolve_error() as force_rerun parameter
     """
-    workflow = LAUNCHPAD.get_wf_by_fw_id(fw_id)
-    fw = LAUNCHPAD.get_fw_by_id(fw_id)
-    job = Job(fw)
+    children_found = {}
+    workflow = LAUNCHPAD.get_wf_by_fw_id(job.fw_id)
     job.quiet = not verbose
+    output = job.validate(transfer=not dryrun)
+    fw = LAUNCHPAD.get_fw_by_id(job.fw_id)
     if verbose or fw.state not in ["WAITING"]:
         print(
-            "{:10} {:10} {} {}".format(
-                fw.fw_id, fw.state, job.config["DEFAULT"]["name"], fw.name
+            "{:9}{: 9} {} {}".format(
+                fw.state,
+                fw.fw_id,
+                job.config["DEFAULT"]["name"],
+                fw.name,
             )
         )
     if dryrun:
         return True
-    if fw.state in ["RUNNING", "COMPLETED"]:
-        try:
-            job.transfer_output()
-        except FileNotFoundError as e:
-            if fw.state == "RUNNING":
-                return False
-            raise FileNotFoundError(e)
-        try:
-            output = job.validate()
-            if fw.state == "RUNNING":
-                progress = output.get_progress()
-                if "not found" not in progress:
-                    print(progress)
-        except OSError as e:
-            warn("Issue validating computational output")
-            warn(str(e))
-            warn("Trying to rerun firework")
-            LAUNCHPAD.rerun_fw(fw.fw_id)
+    if fw.state == "READY":
+        job.launch_job()
+        return False
+    if fw.state == "RUNNING" and output is not None:
+        progress = output.get_progress()
+        if "not found" not in progress:
+            print("  %s" % progress)
+        return False
+    if fw.state == "COMPLETED":
+        for child_id in workflow.links[fw.fw_id]:
+            child_fw = LAUNCHPAD.get_fw_by_id(child_id)
+            child_job = Job(child_fw, job.config)
+            children_found[child_fw.fw_id] = child_job
+            if child_fw.state in ["READY", "WAITING"]:
+                if output and output.geometry:
+                    child_job.update_structure(output.geometry)
+        if not output:
             return False
-        if fw.state == "COMPLETED":
-            for child in workflow.links[fw.fw_id]:
-                child = LAUNCHPAD.get_fw_by_id(child)
-                if child.state in ["READY", "WAITING"]:
-                    child = Job(child)
-                    if output and output.geometry:
-                        child.update_structure(output.geometry)
-            if not output:
-                return False
-            if output.finished:
-                rv = set(workflow.links[fw.fw_id])
-                if rv:
-                    return rv
-                else:
-                    return True
+        if output.finished:
+            if children_found:
+                return children_found
+            else:
+                return True
     if fw.state in ["DEFUSED", "FIZZLED"]:
         if len(fw.archived_launches) > 10:
             return True
-        try:
-            job.transfer_output()
-        except FileNotFoundError as e:
-            if fw.state == "FIZZLED":
-                LAUNCHPAD.rerun_fw(fw.fw_id)
-                return False
-            else:
-                raise FileNotFoundError(e)
-        job.validate()
-        job.resolve_error(force_rerun=force_rerun)
-    if fw.state == "READY":
-        job.write()
-        job.launch_job()
+        if job.resolve_error(force_rerun=force_rerun):
+            job.launch_job()
     return False
 
 
-def get_fws(args, template, config, job_type=None):
+def get_fws(args, template, config):
     if args.command == "run":
         make_structures = True
     else:
@@ -101,18 +81,7 @@ def get_fws(args, template, config, job_type=None):
             structure = template.copy()
         else:
             structure = template
-        job_name = structure.name
-        if kind is not None and name:
-            job_name = os.path.join(name, structure.name)
-        this_config = config.copy()
-        if (
-            "type" not in this_config["Job"]
-            and "include" not in this_config["Job"]
-            and job_type is not None
-        ):
-            this_config["Job"]["include"] = job_type
-        this_config._parse_includes()
-        this_config["Job"]["name"] = job_name
+        this_config = config.for_change(name, structure=structure)
         parent = None
         for i, ac in enumerate(all_changes):
             for c in changes:
@@ -125,16 +94,15 @@ def get_fws(args, template, config, job_type=None):
             if make_structures:
                 structure.atoms = all_jobs[i].structure.atoms
             break
-        this_config._changes = {name: (changes, kind)}
         job = Job(
             structure,
-            this_config,
+            config=this_config,
             quiet=args.quiet,
             make_changes=make_structures,
         )
         if make_structures and args.show:
             job.structure.write()
-            os.system("chimera {}.xyz".format(job.structure.name))
+            os.system("chimerax {}.xyz".format(job.structure.name))
             print(job.structure)
             ans = input("Starting structure OK? (Y/n) ")
             if ans.lower() in ["n", "no"]:
@@ -143,11 +111,9 @@ def get_fws(args, template, config, job_type=None):
             job.add_workflow(parent_fw_id=parent)
         else:
             for step in job.get_steps():
-                job.step = step
-                fw = job.find_fw()
+                fw = job.set_fw(step=step)
                 if not fw:
                     continue
-                job.fw_id = fw.fw_id
         all_changes += [changes]
         all_jobs += [job]
     return all_jobs
@@ -158,12 +124,12 @@ def resources(args, all_jobs):
     for job in all_jobs:
         fw = job.find_fw()
         wf = LAUNCHPAD.get_wf_by_fw_id(fw.fw_id)
-        workflows.add(wf)
+        workflows.add((wf, job.config))
 
     results = {}
-    for wf in sorted(workflows, key=lambda x: sorted(x.name)):
+    for wf, config in sorted(workflows, key=lambda x: sorted(x[0].name)):
         for fw in sorted(wf.fws, key=lambda x: sorted(x.name)):
-            job = Job(fw)
+            job = Job(fw, config=config)
             if fw.state in ["COMPLETED", "DEFUSED"]:
                 if args.csv:
                     key = (fw.fw_id, fw.name)
@@ -248,53 +214,98 @@ def resources(args, all_jobs):
             print()
 
 
-def run(args, all_fws):
-    verbose = not args.quiet
-    for fw in all_fws:
-        job = Job(fw)
-        print(job.root_fw_id)
+def print_countdown(minutes, msg="{: 2}:{:02}"):
+    now = datetime.datetime.now
+    end = now() + datetime.timedelta(minutes=minutes)
+    while True:
+        if now() > end:
+            break
+        seconds = datetime.timedelta.total_seconds(end - now())
+        minutes = seconds // 60
+        seconds = round(seconds % 60, 0)
+        print(msg.format(int(minutes), int(seconds)), end="\r")
+        sleep(1)
+
+
+def run(args, fw_jobs):
     first = True
-    all_fws = [fw.fw_id for fw in all_fws]
-    while all_fws:
-        skip = set([])
-        for fw_id in all_fws:
-            children = monitor(
-                fw_id, verbose=verbose, force_rerun=first, dryrun=args.dryrun
-            )
-            if isinstance(children, set):
-                all_fws = set(all_fws).union(children)
-            if children:
-                skip.add(fw_id)
-            all_fws = sorted(set(all_fws) - skip)
-        if not verbose:
-            try:
-                sleep(args.sleep * 60)
-            except KeyboardInterrupt:
-                exit(0)
+    while fw_jobs:
+        if not first and args.dryrun:
+            exit()
         if not args.dryrun:
             os.system("clear")
-        verbose = False
-        first = False
+        skip = set([])
+        children = {}
+        found_new_children = False
+        for fw_id, job in fw_jobs.items():
+            job.set_fw(fw_id=fw_id)
+            res = monitor(job, force_rerun=first, dryrun=args.dryrun)
+            if isinstance(res, dict):
+                for key, val in res.items():
+                    children[key] = val
+            if res:
+                skip.add(fw_id)
+        for key, val in children.items():
+            if key not in fw_jobs:
+                found_new_children = True
+            fw_jobs[key] = val
+        for s in skip:
+            del fw_jobs[s]
+        first = False or found_new_children
+        if found_new_children:
+            continue
+        if args.dryrun:
+            exit(0)
+        try:
+            print_countdown(args.sleep, msg="Sleeping... ({:02}:{:02})   ")
+        except KeyboardInterrupt:
+            exit(0)
 
 
 def update(args, all_jobs):
-    fws = []
+    fw_jobs = {}
+    if hasattr(args, "no_xfer"):
+        no_xfer = getattr(args, "no_xfer")
+    elif hasattr(args, "dryrun"):
+        no_xfer = getattr(args, "dryrun")
+    else:
+        no_xfer = False
+    done = set()
     for job in all_jobs:
-        wf = job.add_workflow()
-        for fw in wf:
-            fw = LAUNCHPAD.get_fw_by_id(fw)
-            fws += [fw]
-            job = Job(fw)
-            output = job.validate()
-            if output and fw.state == "READY":
-                _, launch_id = LAUNCHPAD.checkout_fw(
-                    FWorker(), "", fw_id=fw.fw_id
-                )
-                LAUNCHPAD.complete_launch(
-                    launch_id, action=FWAction(), state="COMPLETED"
-                )
-                job.validate()
-    return fws
+        wf, _ = job.add_workflow()
+        while wf:
+            fw_id = wf[0]
+            fw = LAUNCHPAD.get_fw_by_id(fw_id)
+            print(
+                "Checking job {} ...".format(fw.name),
+                end="\r",
+            )
+            try:
+                job.load_fw(fw)
+                fw_jobs[fw.fw_id] = job
+                capture = io.StringIO()
+                with contextlib.redirect_stdout(capture):
+                    job.validate(
+                        update=(args.command == "update"),
+                        transfer=(not no_xfer),
+                    )
+                fw = LAUNCHPAD.get_fw_by_id(fw_id)
+            except Exception:
+                # this essentially turns the end="\r" of the previous print cmd to \n
+                # otherwise the traceback will overwrite the "Checking job..." message
+                print()
+                raise
+            print("Checking job {} {}".format(fw.name, fw.state))
+            print(capture.getvalue(), end="")
+            # make sure any children that only became apparent after validation
+            # are included in update loop (eg: conformer children don't get added
+            # until after validation)
+            done.add(fw_id)
+            done.add(job.root_fw_id)
+            updated_wf = LAUNCHPAD.get_wf_by_fw_id(fw_id)
+            updated_wf = set(fw.fw_id for fw in updated_wf.fws)
+            wf = sorted(updated_wf.union(wf) - done)
+    return fw_jobs
 
 
 def main(args):
@@ -328,41 +339,30 @@ def main(args):
     for name, conf_list in sorted(configs.items(), key=lambda x: x[0]):
         all_jobs = set([])
         for conf in conf_list:
-            conf.parse_functions()
             try:
                 template = conf.get_template()
             except FileNotFoundError as e:
                 raise e
-            if isinstance(template, Geometry):
-                all_jobs = get_fws(args, template, conf)
-            else:
-                for template, kind in sorted(
-                    conf.get_template(), key=lambda x: (x[1], x[0].name)
-                ):
-                    if not args.quiet:
-                        print(
-                            "Loading jobs... " + template.name + " " * 50,
-                            end="\r",
-                        )
-                    all_jobs.update(
-                        get_fws(
-                            args,
-                            template,
-                            conf,
-                            job_type=kind,
-                        )
-                    )
+            for template, kind in sorted(
+                conf.get_template(), key=lambda x: (x[1], x[0].name)
+            ):
                 if not args.quiet:
                     print(
-                        "Loading jobs... " + "Done" + " " * 50,
+                        "Loading jobs... " + template.name + " " * 50,
+                        end="\r",
                     )
+                all_jobs.update(get_fws(args, template, conf))
+            if not args.quiet:
+                print(
+                    "Loading jobs... " + "Done" + " " * 50,
+                )
         job_dict[name] = list(all_jobs)
 
     all_jobs = it.chain.from_iterable(job_dict.values())
     all_jobs = sorted(all_jobs, key=lambda x: x.config["Job"]["name"])
     if args.command == "run":
-        fws = update(args, all_jobs)
-        run(args, fws)
+        fw_jobs = update(args, all_jobs)
+        run(args, fw_jobs)
     if args.command == "update":
         fws = update(args, all_jobs)
         if args.print_spec:
@@ -401,12 +401,17 @@ def run_arguments(run_parser):
     run_parser.add_argument(
         "--dryrun",
         action="store_true",
-        help="Don't run anything, just make workflow",
+        help="Don't run anything, just make workflow and check statuses. Will not transfer from remote host before checking.",
     )
 
 
 def update_arguments(update_parser):
     update_parser.add_argument("--print_spec", action="store_true", help="")
+    update_parser.add_argument(
+        "--no_xfer",
+        action="store_true",
+        help="Don't transfer files from remote HPC",
+    )
 
 
 def resources_arguments(resources_parser):
@@ -515,7 +520,8 @@ if __name__ == "__main__":
     run_arguments(command_parser)
 
     command_parser = command.add_parser(
-        "update", help="Update FireWorks metadata"
+        "update",
+        help="Force update workflows. Only use if there's a problem with the FireWorks database, otherwise use `AaronJr run --dry CONFIG`.",
     )
     add_common_arguments(command_parser)
     update_arguments(command_parser)

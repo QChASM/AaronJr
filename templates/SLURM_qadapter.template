@@ -1,0 +1,10 @@
+#!/bin/bash
+#SBATCH --partition=$${queue}
+#SBATCH --job-name=$${job_name}
+#SBATCH --ntasks=$${nodes}
+#SBATCH --cpus-per-task=$${ppn}
+#SBATCH --time=$${wall}:00:00
+#SBATCH --mem=$${memory}
+
+cd $${launch_dir}
+$${rocket_launch}

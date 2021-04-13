@@ -1,0 +1,8 @@
+export MKL_NUM_THREADS={{parallel}}
+export OMP_THREAD_LIMIT={{parallel}}
+export OMP_NUM_THREADS=${OMP_THREAD_LIMIT},1
+export OMP_STACKSIZE=500m
+ulimit -s unlimited
+
+cd "{{work_dir}}/{{job_name}}"
+crest ref.xyz -cinp xcontrol {{cmdline}} -T {{parallel}} > out.crest 2>&1
