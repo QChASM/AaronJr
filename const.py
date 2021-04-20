@@ -1,8 +1,0 @@
-from AaronTools.const import AARONLIB
-
-MAX_ATTEMPT = {"TS": 5}
-MAX_CONV = 8
-MAX_LAUNCH_FAILED = 5
-MAX_CYCLE = 4
-SLEEP_TIME = 300
-TS_LIB = AARONLIB + "/TS_geoms"
