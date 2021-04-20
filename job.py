@@ -1148,7 +1148,10 @@ class Job:
             count = 0
             for launch in fw.archived_launches:
                 # if we've seen this error before for this job
-                if "EIGEN" == launch.action.stored_data["error"]:
+                if (
+                    launch.action is not None
+                    and "EIGEN" == launch.action.stored_data["error"]
+                ):
                     count += 1
             if count > 3:
                 if self.config["Job"]["exec_type"] == "gaussian":
@@ -1174,7 +1177,10 @@ class Job:
             fw = LAUNCHPAD.get_fw_by_id(self.fw_id)
             maxstep = 0
             for launch in fw.archived_launches:
-                if launch.action.stored_data["error"] in ["SCF_CONV"]:
+                if (
+                    launch.action is not None
+                    and "SCF_CONF" == launch.action.stored_data["error"]
+                ):
                     maxstep += 1
             try:
                 maxstep = [15, 12, 10, 8, 5, 2][maxstep]
