@@ -1,37 +1,36 @@
 #! /usr/bin/env python3
-from fireworks import (
-    Firework,
-    FWAction,
-    FWorker,
-    LaunchPad,
-    ScriptTask,
-    Workflow,
-)
+import logging
+
+from fireworks import LaunchPad
 
 LAUNCHPAD = LaunchPad.auto_load()
 
+logging.getLogger().setLevel("WARNING")
+
 
 def main(args):
-    workflow = LAUNCHPAD.get_wf_by_fw_id(args.fw_id)
-    to_check = set([args.fw_id])
-    while len(to_check):
-        fw_id = to_check.pop()
-        try:
-            for fw in workflow.links[fw_id]:
-                to_check.add(fw)
-        except KeyError:
-            pass
-        print(fw_id)
-        workflow.remove_fws([fw_id])
-    # have to archive and re-add to prevent database corruption
-    LAUNCHPAD.archive_wf(args.fw_id)
-    LAUNCHPAD.add_wf(workflow)
+    for arg_fw_id in args.fw_id:
+        workflow = LAUNCHPAD.get_wf_by_fw_id(arg_fw_id)
+        to_check = set([arg_fw_id])
+        while len(to_check):
+            fw_id = to_check.pop()
+            try:
+                for fw in workflow.links[fw_id]:
+                    to_check.add(fw)
+            except KeyError:
+                pass
+            workflow.remove_fws([fw_id])
+        if workflow.state == "ARCHIVED":
+            continue
+        # have to archive and re-add to prevent database corruption
+        LAUNCHPAD.archive_wf(arg_fw_id)
+        LAUNCHPAD.add_wf(workflow)
 
 
 if __name__ == "__main__":
     import argparse
 
     parser = argparse.ArgumentParser()
-    parser.add_argument("fw_id", type=int)
+    parser.add_argument("fw_id", type=int, nargs="+")
     args = parser.parse_args()
     main(args)

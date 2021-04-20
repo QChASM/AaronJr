@@ -9,6 +9,7 @@ from time import sleep
 from Aaron.job import LAUNCHPAD, Job
 from Aaron.results import Results
 from AaronTools.config import Config
+from fireworks import LaunchPad
 
 
 def monitor(job, verbose=False, force_rerun=False, dryrun=False):
@@ -18,8 +19,6 @@ def monitor(job, verbose=False, force_rerun=False, dryrun=False):
     :verbose: print more details to stdout if true
     :force_rerun: passed to Job.resolve_error() as force_rerun parameter
     """
-    children_found = {}
-    workflow = LAUNCHPAD.get_wf_by_fw_id(job.fw_id)
     job.quiet = not verbose
     output = job.validate(transfer=not dryrun)
     fw = LAUNCHPAD.get_fw_by_id(job.fw_id)
@@ -43,33 +42,14 @@ def monitor(job, verbose=False, force_rerun=False, dryrun=False):
             print("  %s" % progress)
         return False
     if fw.state == "COMPLETED":
-        for child_id in workflow.links[fw.fw_id]:
-            child_fw = LAUNCHPAD.get_fw_by_id(child_id)
-            child_job = Job(child_fw, job.config)
-            children_found[child_fw.fw_id] = child_job
-            if child_fw.state in ["READY", "WAITING"]:
-                if output and output.geometry:
-                    child_job.update_structure(output.geometry)
-        if not output:
-            return False
-        if output.finished:
-            if children_found:
-                return children_found
-            else:
-                return True
+        return True
     if fw.state in ["DEFUSED", "FIZZLED"]:
-        if len(fw.archived_launches) > 10:
-            return True
         if job.resolve_error(force_rerun=force_rerun):
             job.launch_job()
     return False
 
 
 def get_fws(args, template, config):
-    if args.command == "run":
-        make_structures = True
-    else:
-        make_structures = False
     all_jobs = []
     all_changes = []
     if not config._changes:
@@ -77,10 +57,7 @@ def get_fws(args, template, config):
     for name, (changes, kind) in sorted(
         config._changes.items(), key=lambda x: x[0]
     ):
-        if make_structures:
-            structure = template.copy()
-        else:
-            structure = template
+        structure = template.copy()
         this_config = config.for_change(name, structure=structure)
         parent = None
         for i, ac in enumerate(all_changes):
@@ -91,23 +68,22 @@ def get_fws(args, template, config):
             else:
                 continue
             parent = all_jobs[i].fw_id
-            if make_structures:
-                structure.atoms = all_jobs[i].structure.atoms
+            structure.atoms = all_jobs[i].structure.atoms
             break
         job = Job(
             structure,
             config=this_config,
             quiet=args.quiet,
-            make_changes=make_structures,
+            make_root=(args.command in ["update", "run"]),
         )
-        if make_structures and args.show:
+        if hasattr(args, "show") and args.show:
             job.structure.write()
             os.system("chimerax {}.xyz".format(job.structure.name))
             print(job.structure)
             ans = input("Starting structure OK? (Y/n) ")
             if ans.lower() in ["n", "no"]:
                 exit(2)
-        if make_structures:
+        if args.command in ["update", "run"]:
             job.add_workflow(parent_fw_id=parent)
         else:
             for step in job.get_steps():
@@ -235,26 +211,29 @@ def run(args, fw_jobs):
         if not args.dryrun:
             os.system("clear")
         skip = set([])
-        children = {}
         found_new_children = False
+        children = {}
         for fw_id, job in fw_jobs.items():
             job.set_fw(fw_id=fw_id)
             res = monitor(job, force_rerun=first, dryrun=args.dryrun)
-            if isinstance(res, dict):
-                for key, val in res.items():
-                    children[key] = val
             if res:
                 skip.add(fw_id)
-        for key, val in children.items():
-            if key not in fw_jobs:
-                found_new_children = True
-            fw_jobs[key] = val
+            else:
+                continue
+            workflow = LAUNCHPAD.get_wf_by_fw_id(fw_id)
+            for child_id in workflow.links[fw_id]:
+                if child_id not in fw_jobs:
+                    found_new_children = True
+                    child_fw = LAUNCHPAD.get_fw_by_id(child_id)
+                    children[child_id] = Job(child_fw, job.config)
+        for child_id, child_job in children.items():
+            fw_jobs[child_id] = child_job
         for s in skip:
             del fw_jobs[s]
         first = False or found_new_children
-        if found_new_children:
+        if first:
             continue
-        if args.dryrun:
+        if args.dryrun or not fw_jobs:
             exit(0)
         try:
             print_countdown(args.sleep, msg="Sleeping... ({:02}:{:02})   ")

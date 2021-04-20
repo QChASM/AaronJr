@@ -44,7 +44,7 @@ class Results:
         try:
             with open(args.cache, "rb") as f:
                 self.data = pickle.load(f)
-        except Exception:
+        except (FileNotFoundError, EOFError, OSError):
             pass
         if args.reload or args.step or not self.data:
             self.load_jobs(job_dict, args=args)
@@ -94,6 +94,12 @@ class Results:
                         continue
                     if not output.finished:
                         continue
+                    remove = set()
+                    for attr in job.__dict__:
+                        if "CONNECTION" in attr:
+                            remove.add(attr)
+                    for attr in remove:
+                        delattr(job, attr)
                     # add missing output values from earlier steps
                     # allows us to use SP energies and lower-level frequencies
                     if key not in self.data:
@@ -283,36 +289,32 @@ class Results:
         Save data in self.relative keyed by change
         """
         relative = {}
-        names, changes = set([]), set([])
-        for key in self.data.keys():
-            names.add(key[0])
-            changes.add(key[2])
-        for change in changes:
-            if "relative" not in names:
-                for key in self.keys_where(change=change, strict_change=False):
-                    try:
-                        output, job = self.data[key]
-                    except KeyError:
-                        continue
-                    val = getattr(output, self.thermo)
-                    if val is None:
-                        continue
-                    if change not in relative or relative[change][0] > val:
-                        relative[change] = val, key
-            else:
-                key = ("relative", "", change)
-                try:
-                    output, job = self.data[key]
-                except KeyError:
+        atoms = {}
+        compatable_changes = {}
+        for key, val in self.data.items():
+            change = key[2]
+            output, job = val
+            atoms[key] = sorted(job.structure.elements)
+            compatable_changes.setdefault(change, set([key]))
+            for k, e in atoms.items():
+                if len(atoms[key]) != len(e):
                     continue
-                relative[change] = getattr(output, self.thermo), key
-        if len(relative) == 1:
-            val = list(relative.values()).pop()
-        else:
-            val = None, None
-        for change in changes:
+                for a, b in zip(atoms[key], e):
+                    if a != b:
+                        break
+                else:
+                    compatable_changes[change].add(k)
+                    compatable_changes[k[2]].add(key)
+            thermo = getattr(output, self.thermo)
             if change not in relative:
-                relative[change] = val
+                relative[change] = thermo, key
+            elif relative[change][0] > thermo:
+                relative[change] = thermo, key
+        for key, val in self.data.items():
+            change = key[2]
+            for k in compatable_changes[change]:
+                if relative[change][0] > relative[k[2]][0]:
+                    relative[change] = relative[k[2]]
         return relative
 
     def print_results(self, args):
@@ -331,16 +333,19 @@ class Results:
             names.add(n)
             templates.add(t)
             changes.add(c)
-        line = "{:>5} {:<%d} {:<%d} {: 15.1f}" % (
+        line = "{:>5} {:<%d} {:<%d} {:<%d} {: 15.1f}" % (
             max([len(n) for n in names] + [4]),
             max([len(t) for t in templates] + [8]),
+            max([len(c) for c in changes] + [6]),
         )
-        header = "{:>5} {:<%d} {:<%d} {:>15}" % (
+        header = "{:>5} {:<%d} {:<%d} {:<%d} {:>15}" % (
             max([len(n) for n in names] + [4]),
             max([len(t) for t in templates] + [8]),
+            max([len(c) for c in changes] + [6]),
         )
 
         last_change = None
+        last_min_key = None
         hidden = self.parse_hidden()
         for name, template, change in sorted(
             self.data.keys(), key=lambda x: (x[2], x[0], x[1])
@@ -365,32 +370,45 @@ class Results:
             if minimum is None or args.absolute:
                 minimum = 0
             if args.unit == "kcal/mol":
-                val = (val - minimum) * UNIT.HART_TO_KCAL
+                minimum *= UNIT.HART_TO_KCAL
+                val = (val * UNIT.HART_TO_KCAL) - minimum
             elif args.unit == "J/mol":
-                val = (val - minimum) * UNIT.HART_TO_JOULE
+                minimum *= UNIT.HART_TO_JOULE
+                val = (val * UNIT.HART_TO_JOULE) - minimum
             else:
                 val = val - minimum
             results += [(change, name, template, val)]
             if not args.csv:
                 if change != last_change:
-                    print()
-                    print(change if change else "Original", end=" ")
-                    if minimum:
-                        print("{:.1f}".format(minimum))
-                    else:
+                    if minimum and min_key != last_min_key:
                         print()
-                    print(
-                        header.format("wf_id", "name", "template", "kcal/mol")
-                    )
+                        print(
+                            "relative to {} ({:.1f} {})".format(
+                                min_key[2] if min_key[2] else "original",
+                                minimum,
+                                args.unit,
+                            )
+                        )
+                        print(
+                            header.format(
+                                "wf_id",
+                                "name",
+                                "template",
+                                "change",
+                                args.unit,
+                            )
+                        )
                 print(
                     line.format(
                         (job.root_fw_id if job and job.root_fw_id else ""),
                         name,
                         template,
+                        change if change else "original",
                         val,
                     )
                 )
                 last_change = change
+                last_min_key = min_key
         with open("results.csv", "w") as f:
             f.write(
                 "\n".join(
@@ -400,7 +418,8 @@ class Results:
 
     def keys_where(self, name="", template="", change="", strict_change=False):
         rv = []
-        for key in self.data.keys():
+        for key, val in self.data.items():
+            output, job = val
             if name and key[0] and key[0] != name:
                 continue
             if template and key[1] and key[1] != template:

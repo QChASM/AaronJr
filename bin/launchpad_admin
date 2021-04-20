@@ -1,0 +1,37 @@
+#!/usr/bin/env python3
+import getpass
+from urllib.parse import quote_plus
+
+from pymongo import MongoClient
+
+
+def main(args):
+    password = getpass.getpass("Admin password:")
+    uri = "mongodb://%s:%s@%s" % (
+        quote_plus(args.user),
+        quote_plus(password),
+        args.host,
+    )
+    client = MongoClient(uri)
+    db = client[args.db]
+    if args.add_user:
+        password = getpass.getpass("User password:")
+        confirm = getpass.getpass("Confirm password:")
+        if password != confirm:
+            raise ValueError("passwords don't match")
+        db.command(
+            "createUser", args.add_user, pwd=password, roles=["readWrite"]
+        )
+
+
+if __name__ == "__main__":
+    import argparse
+
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--user", default="admin")
+    parser.add_argument("--host", default="localhost")
+    parser.add_argument("--port", default=27017)
+    parser.add_argument("--db", default="fireworks")
+    parser.add_argument("--add_user", default="", metavar="USERNAME")
+    args = parser.parse_args()
+    main(args)

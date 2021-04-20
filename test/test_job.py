@@ -17,7 +17,7 @@ class TestJob(TestWithTimer):
         for change in config._changes:
             geom = Geometry.from_string(config["Geometry"]["structure"])
             this_config = config.for_change(change, structure=geom)
-            job = Job(geom, this_config, set_root=False)
+            job = Job(geom, this_config, testing=True)
             ref = job.get_spec()
             with open(os.path.join(prefix, "ref_files", "job_spec.json")) as f:
                 ref = json.load(f)
@@ -28,7 +28,7 @@ class TestJob(TestWithTimer):
         # substitute atom and fuse ring
         config = Config(os.path.join(prefix, "test_files", "substitution.ini"))
         geom = Geometry.from_string(config["Geometry"]["structure"])
-        job = Job(geom, config, set_root=False)
+        job = Job(geom, config, testing=True)
         test = job.structure
         ref = Geometry(
             os.path.join(prefix, "ref_files", "substitution_with_rings.xyz")
@@ -39,7 +39,7 @@ class TestJob(TestWithTimer):
 def suite():
     suite = unittest.TestSuite()
     suite.addTest(TestJob("test_spec"))
-    # suite.addTest(TestJob("test_substitution"))
+    suite.addTest(TestJob("test_substitution"))
     return suite
 
 

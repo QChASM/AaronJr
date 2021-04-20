@@ -77,14 +77,15 @@ class Job:
     LOGLEVEL = "DEBUG"
 
     def __init__(
-        self, structure, config, quiet=True, make_changes=True, set_root=True
+        self, structure, config, quiet=True, make_root=True, testing=False
     ):
         """
         :structure: the geometry structure
         :config: the configuration object to associate with this job
         :quiet: print extra info when loading config if False
         :make_changes: do structure modification as specified in config
-        :set_root: set to False for single-step workflows
+        :make_root: set to False to prevent addition of root FW (it will still check to see if it's there)
+        :testing: this should only be set to True for testing purposes
         """
         self.quiet = quiet
         self.config = None
@@ -112,11 +113,11 @@ class Job:
         except IndexError:
             pass
 
-        run_user = self.config.get("HPC", "user", fallback=None)
-        run_host = self.config.get("HPC", "host", fallback=None)
+        run_user = self.config.get("HPC", "user", fallback=False)
+        run_host = self.config.get("HPC", "host", fallback=False)
         xfer_user = self.config.get("HPC", "transfer_user", fallback=run_user)
         xfer_host = self.config.get("HPC", "transfer_host", fallback=run_host)
-        if self.RUN_CONNECTION is None and run_host is not None:
+        if self.RUN_CONNECTION is None and run_host:
             self.RUN_CONNECTION = paramiko.client.SSHClient()
             self.RUN_CONNECTION.load_system_host_keys()
             self.RUN_CONNECTION.connect(run_host, username=run_user)
@@ -125,6 +126,7 @@ class Job:
             self.XFER_CONNECTION.load_system_host_keys()
             self.XFER_CONNECTION.connect(xfer_host, username=xfer_user)
 
+        make_changes = True
         # load structure from fw spec
         if isinstance(structure, Firework):
             self.load_fw(structure)
@@ -143,10 +145,8 @@ class Job:
             Geometry.LOG.setLevel(old_level)
 
         # find fw id for root and current step's job
-        if self.fw_id is None:
-            self.set_fw()
-        if set_root:
-            self.set_root()
+        if not testing:
+            self.set_root(make_root=make_root)
 
     # remote connection commands
     def remote_mkdir(self, dirname):
@@ -198,8 +198,13 @@ class Job:
             local_mtime = None
         if local_mtime is not None and int(local_mtime) > int(remote_mtime):
             return False
-        with self.XFER_CONNECTION.open_sftp() as sftp:
-            sftp.get(source, target)
+        try:
+            with self.XFER_CONNECTION.open_sftp() as sftp:
+                sftp.get(source, target)
+        except FileNotFoundError:
+            os.mkdir(os.path.dirname(target))
+            with self.XFER_CONNECTION.open_sftp() as sftp:
+                sftp.get(source, target)
         return True
 
     def remote_run(self, cmd):
@@ -215,7 +220,7 @@ class Job:
     def _make_changes(self):
         self.structure = self.config.make_changes(self.structure)
 
-    def _root_fw(self, workflow=None):
+    def _root_fw(self, workflow=None, make_root=True):
         """
         Makes the root fw, if we need one, and marks as completed.
         The root fw is for organizational purposes for multi-step jobs, nothing is run.
@@ -235,7 +240,7 @@ class Job:
             del spec[key]
         name = self.get_workflow_name()
         fw = self.find_fw(spec=spec)
-        if fw is None:
+        if fw is None and make_root:
             fw = Firework([], spec=spec, name=name)
             LAUNCHPAD.add_wf(
                 Workflow([fw], name=name, metadata=self.config.metadata)
@@ -360,12 +365,7 @@ class Job:
             comment, atoms = structure
         else:
             self.LOG.debug("%s %s", type(structure), structure)
-        return {
-            "comment": comment
-            if comment == self.structure.comment
-            else "%s %s" % (comment, self.structure.comment),
-            "atoms": atoms,
-        }
+        return {"comment": comment, "atoms": atoms}
 
     def _last_launch(self, fw):
         try:
@@ -529,6 +529,8 @@ class Job:
 
     def load_fw(self, fw):
         self.fw_id = fw.fw_id
+        self.config._args = fw.spec["_args"]
+        self.config._kwargs = fw.spec["_kwargs"]
         if "step" in fw.spec:
             self.step = fw.spec["step"]
         if "conformer" in fw.spec:
@@ -554,7 +556,7 @@ class Job:
         self.structure.name = self.get_basename().rstrip("." + str(self.step))
         self.set_root()
 
-    def set_root(self):
+    def set_root(self, make_root=True):
         """
         Sets self.root_fw_id to the root FW for the workflow containing `fw_id`
 
@@ -563,7 +565,7 @@ class Job:
         if self.fw_id is None:
             self.set_fw()
         if self.fw_id is None:
-            self.root_fw_id = self._root_fw()
+            self.root_fw_id = self._root_fw(make_root=make_root)
             if self.parent_fw_id is None:
                 self.parent_fw_id = self.root_fw_id
             return
@@ -699,7 +701,7 @@ class Job:
         if aux_files is not None:
             args.extend(aux_files)
         for source, target in args:
-            self.LOG.debug("{} -> {}".format(source, target))
+            # self.LOG.debug("{} -> {}".format(source, target))
             if not self.quiet:
                 print(
                     "Sending {} to {}...".format(
@@ -708,9 +710,8 @@ class Job:
                 )
             self.remote_put(source, target)
 
-    def transfer_output(self, state=None):
+    def transfer_output(self, state=None, update=False):
         config = self.config_for_step()
-        exec_type = config["Job"]["exec_type"]
         name = self.get_output_name()
         if isinstance(name, tuple):
             name, freq_name = name
@@ -721,27 +722,38 @@ class Job:
 
         new = self.remote_get(source, target)
         if not self.quiet and new:
-            print("Downloaded {} from {}".format(name, config["HPC"]["host"]))
-
-        if exec_type == "crest" and state == "COMPLETED":
-            # this doesn't get written until the very end
-            new = self.remote_get(
-                os.path.join(os.path.dirname(source), "crest_conformers.xyz"),
-                os.path.join(os.path.dirname(target), "crest_conformers.xyz"),
+            self.LOG.info(
+                "Downloaded {} from {}".format(name, config["HPC"]["host"])
             )
-            if not self.quiet and new:
-                print(
-                    "Downloaded {} from {}".format(
-                        "crest_conformers.xyz", config["HPC"]["host"]
-                    )
+
+        exec_type = config["Job"]["exec_type"]
+        if exec_type == "crest" and (update or state == "COMPLETED"):
+            # this doesn't get written until the very end
+            try:
+                new = self.remote_get(
+                    os.path.join(
+                        os.path.dirname(source), "crest_conformers.xyz"
+                    ),
+                    os.path.join(
+                        os.path.dirname(target), "crest_conformers.xyz"
+                    ),
                 )
+                if not self.quiet and new:
+                    self.LOG.info(
+                        "Downloaded {} from {}".format(
+                            "crest_conformers.xyz", config["HPC"]["host"]
+                        )
+                    )
+            except FileNotFoundError:
+                if update:
+                    pass
         if exec_type == "xtb" and freq_name is not None:
             new = self.remote_get(
                 os.path.join(config["HPC"]["remote_dir"], freq_name),
                 os.path.join(config["Job"]["top_dir"], freq_name),
             )
             if not self.quiet and new:
-                print(
+                self.LOG.info(
                     "Downloaded {} from {}".format(
                         ".".join(freq_name),
                         config["HPC"]["host"],
@@ -826,9 +838,13 @@ class Job:
         if parent_fw_id is None:
             parent_fw_id = self.parent_fw_id
         if isinstance(parent_fw_id, list):
-            LAUNCHPAD.append_wf(Workflow([fw]), parent_fw_id)
+            LAUNCHPAD.append_wf(
+                Workflow([fw]), parent_fw_id, pull_spec_mods=False
+            )
         elif parent_fw_id:
-            LAUNCHPAD.append_wf(Workflow([fw]), [parent_fw_id])
+            LAUNCHPAD.append_wf(
+                Workflow([fw]), [parent_fw_id], pull_spec_mods=False
+            )
         else:
             wf_name = self.get_workflow_name()
             LAUNCHPAD.add_wf(
@@ -878,12 +894,24 @@ class Job:
 
         # create workflow
         fws = []
+        # self.LOG.debug(self.get_workflow_name())
         for step in step_list:
             fw = self.find_fw(step=step, conformer=conformer)
             if fw is None:
                 isNew = True
                 fw = self.add_fw(
                     step=step, conformer=conformer, structure=structure
+                )
+            elif structure is not None and fw.state in [
+                "READY",
+                "WAITING",
+                "DEFUSED",
+            ]:
+                LAUNCHPAD.update_spec(
+                    [fw.fw_id],
+                    self.get_spec(
+                        step=step, conformer=conformer, structure=structure
+                    ),
                 )
             fws += [fw.fw_id]
             self.parent_fw_id = fw.fw_id
@@ -895,7 +923,6 @@ class Job:
         fw = LAUNCHPAD.get_fw_by_id(self.fw_id)
         if fw.state != "READY":
             return
-        # transfer qadapter
         qadapter = self._make_qadapter(fw.fw_id)
         qlaunch_cmd = 'qlaunch -r -l "$AARONLIB/my_launchpad.yaml" -q "{}" --launch_dir "{}" singleshot --fw_id {}'.format(
             qadapter,
@@ -920,6 +947,8 @@ class Job:
     def validate(self, get_all=False, update=False, transfer=True):
         config = self.config_for_step()
         name = self.get_output_name()
+        fw = LAUNCHPAD.get_fw_by_id(self.fw_id)
+
         if isinstance(name, tuple):
             name, freq_name = (
                 os.path.join(config["Job"]["top_dir"], n) for n in name
@@ -927,16 +956,15 @@ class Job:
         else:
             name = os.path.join(config["Job"]["top_dir"], name)
             freq_name = None
-        fw = LAUNCHPAD.get_fw_by_id(self.fw_id)
+
         try:
             if transfer:
-                self.transfer_output(state=fw.state)
+                self.transfer_output(state=fw.state, update=update)
             output = CompOutput(name, get_all=get_all, freq_name=freq_name)
-        except IndexError:
+        except (IndexError, KeyError):
             # this can be caused by partial log files missing all or some of the
             # atomic coordinate listing
             if fw.state != "COMPLETED":
-                self.LOG.debug("", exc_info=True)
                 return None
             # if COMPLETED, there's something wrong with our error detection,
             # so this will let us know there's a problem
@@ -974,7 +1002,8 @@ class Job:
                     fw.fw_id,
                 )
             return None
-        if update:
+
+        if update and fw.state not in ["WAITING", "PAUSED", "RESERVED"]:
             if output.finished:
                 self.complete_launch(fw, output, update=True)
             elif output.error is not None:
@@ -1006,6 +1035,10 @@ class Job:
             LAUNCHPAD.defuse_fw(fw.fw_id)
             return output
         # if we get here, fw.state == "COMPLETED" and output.finished = True
+
+        # need to run this last so that conformer structures get picked up
+        # self.complete_launch() will set structure=best_conformer for all direct
+        # children, so we need this to update conformers appropriately
         if "conformers" in config["Job"]["type"]:
             self.add_conformers(fw.fw_id, output)
         return output
@@ -1021,6 +1054,9 @@ class Job:
         fw = LAUNCHPAD.get_fw_by_id(self.fw_id)
         if fw.state == "COMPLETED":
             return False
+        # clear old added route options
+        self.config._args = []
+        self.config._kwargs = {}
 
         config = self.config_for_step()
         constrain_step = None
@@ -1094,11 +1130,13 @@ class Job:
                 self.rerun(output.geometry)
         if output.error in ["CONSTR"]:
             resolved = True
-            for i, j in list(eval(config["Geometry"]["constraints"], {})):
-                a = output.geometry.find(str(i))[0]
-                b = output.geometry.find(str(j))[0]
-                a.coords = np.round(a.coords, 4)
-                b.coords = np.round(b.coords, 4)
+            output.geometry.comment = self.structure.comment
+            constraints = config.get_constraints(output.geometry)
+            for atoms in constraints.values():
+                atoms = it.chain.from_iterable(atoms)
+                atoms = list(set(atoms))
+                for a in output.geometry.find(atoms):
+                    a.coords = np.round(a.coords, 4)
             self.rerun(output.geometry)
         if output.error in ["COORD"]:
             resolved = True
@@ -1112,7 +1150,7 @@ class Job:
                 # if we've seen this error before for this job
                 if "EIGEN" == launch.action.stored_data["error"]:
                     count += 1
-            if count > 2:
+            if count > 3:
                 if self.config["Job"]["exec_type"] == "gaussian":
                     self.config._kwargs[GAUSSIAN_ROUTE] = {"opt": ["noeigen"]}
                     self.rerun(output.geometry)
@@ -1123,7 +1161,10 @@ class Job:
                 self.set_fw(step=constrain_step)
                 if self.config["Job"]["exec_type"] == "gaussian":
                     self.config._kwargs[GAUSSIAN_ROUTE] = {
-                        "opt": ["recalcfc=10"]
+                        "opt": [
+                            "CalcFC",
+                            "maxstep={}".format(int(round(30 / (count + 1)))),
+                        ]
                     }
                     self.rerun(output.geometry)
                 else:
@@ -1169,7 +1210,7 @@ class Job:
             # on the same node as before (TODO: node-specific submission)
             resolved = True
             self.rerun(output.geometry)
-        if force_rerun:
+        if force_rerun and not resolved:
             resolved = True
             if self.step != self.step_list[0]:
                 structure = "input"
@@ -1178,7 +1219,7 @@ class Job:
             self.rerun(structure)
         elif output.error == "CHARGEMULT":
             raise RuntimeError(
-                "Bad charge/multiplicity provided. Please fix you Aaron input file or template geometries."
+                "Bad charge/multiplicity provided. Please fix AaronJr configuration."
             )
         elif output.error == "ATOM":
             raise RuntimeError("Bad atomic symbol, check template XYZ files.")
@@ -1188,21 +1229,20 @@ class Job:
             )
         elif output.error == "BASIS_READ":
             raise RuntimeError(
-                "Error reading basis set. Confirm that gen=/path/to/basis/ is correct in your Aaron config/input files and that the basis set file requested exists, or switch to an internally provided basis set."
+                "Error reading basis set. Confirm that gen=/path/to/basis/ is correct in your AaronJr configuration and that the basis set file requested exists, or switch to an internally provided basis set."
             )
         elif output.error == "QUOTA":
             raise RuntimeError(
-                "Erroneous write. Check quota or disk space, then restart Aaron."
+                "Erroneous write. Check quota or disk space, then restart AaronJr."
             )
         elif output.error == "MEM":
             raise RuntimeError(
-                "Node(s) out of memory. Increase memory requested in Aaron input file"
+                "Node(s) out of memory. Increase memory requested in AaronJr configuration"
             )
-        if resolved:
-            self.config._args = []
-            self.config._kwargs = {}
-        else:
-            self.LOG.error("  No resolution for error implemented!")
+        if not resolved:
+            self.LOG.error(
+                "No resolution for error %s implemented!", output.error
+            )
         return resolved
 
     def complete_launch(self, fw, output, update=True):
@@ -1220,11 +1260,23 @@ class Job:
                 )
             else:
                 raise
-        fw_action = FWAction(
-            stored_data=self._get_stored_data(output),
-            update_spec={"structure": self._structure_dict(output.geometry)},
-            propagate=True,
-        )
+        if output.geometry is None:
+            self.LOG.error(
+                "No geometry found in output for FW %s. Child-job geometries will not be updated.",
+                fw.fw_id,
+            )
+            fw_action = FWAction(
+                stored_data=self._get_stored_data(output),
+            )
+        else:
+            for a, b in zip(self.structure, output.geometry):
+                b.name = a.name
+            fw_action = FWAction(
+                stored_data=self._get_stored_data(output),
+                update_spec={
+                    "structure": self._structure_dict(output.geometry)
+                },
+            )
         LAUNCHPAD.complete_launch(launch_id, action=fw_action)
 
     def update_structure(self, structure, kind="output"):
@@ -1300,15 +1352,18 @@ class Job:
         best_energy = float(output.other["best_energy"])
         skipped = 0
         i = 0
-        for i, conformer in enumerate(
-            sorted(
-                output.conformers, key=lambda x: float(x.comment.split()[0])
-            )
-        ):
+        is_new = False
+        fws = []
+        kept_confs = [output.geometry]
+        comment_special = re.compile("((?:F|C|L|K):\S+)")
+        for i, conformer in enumerate(output.conformers):
             energy = conformer.comment.split()[0]
-            # need to do this to pass constraints on
-            if self.structure.comment not in conformer.comment:
-                conformer.comment = "%s %s" % (energy, self.structure.comment)
+            # need to do this to keep constraints, etc. available in later steps
+            self_match = comment_special.findall(self.structure.comment)
+            conf_match = comment_special.findall(conformer.comment)
+            for match in self_match:
+                if match not in conf_match:
+                    conformer.comment += " %s" % match
             # screening
             if max_conformers is not None and i >= max_conformers:
                 break
@@ -1316,18 +1371,21 @@ class Job:
             if energy_cutoff is not None and energy_diff > energy_cutoff:
                 skipped += 1
                 continue
-            rmsd = conformer.RMSD(output.geometry)
-            if rmsd_cutoff is not None and rmsd < rmsd_cutoff:
-                skipped += 1
-                continue
-            for a, b in zip(self.structure, conformer):
-                b.name = a.name
-            fws, is_new = self.add_workflow(
-                parent_fw_id=fw_id,
-                step_list=sorted(steps),
-                conformer=i,
-                structure=conformer,
-            )
+            for geom in kept_confs:
+                rmsd = conformer.RMSD(geom)
+                if rmsd_cutoff is not None and rmsd < rmsd_cutoff:
+                    skipped += 1
+                    break
+            else:
+                kept_confs += [conformer]
+                for a, b in zip(self.structure, conformer):
+                    b.name = a.name
+                fws, is_new = self.add_workflow(
+                    parent_fw_id=fw_id,
+                    step_list=sorted(steps),
+                    conformer=i + 1,
+                    structure=conformer,
+                )
         if is_new:
             print(
                 "  Workflow created for {} conformers of {}".format(
