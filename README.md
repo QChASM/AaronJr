@@ -1,4 +1,4 @@
-# Aaron.py
-Python AARON: An Automated Reaction Optimzer for New catalysts
+# AaronJr
+AaronJr: Automates Any Reaction or Optimization, Normally Just Right
 
-I'll leave this private until we are ready for others to start using it.
+AaronJr is an command line interface for generating flexible computational chemistry workflows, submitting jobs to HPC queueing systems, monitoring job progress, automatically resolving errors, and collecting results parsed from output files.
