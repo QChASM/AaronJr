@@ -1,0 +1,10 @@
+#BSUB -q $${queue}
+#BSUB -J $${job_name}
+#BSUB -nnodes $${nodes}
+#BSUB -n $${procs}
+#BSUB -W $${wall}:00:00
+#BSUB -M $${ppmem}
+
+cd $${launch_dir}
+$${rocket_launch}
+

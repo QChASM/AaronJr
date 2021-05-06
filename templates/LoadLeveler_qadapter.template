@@ -1,0 +1,11 @@
+# @ shell=/bin/bash
+
+# @ class = $${queue}
+# @ job_name = $${job_name}
+# @ node = $${nodes}
+# @ tasks_per_node = $${ppn}
+# @ wall_clock_limit = $${wall}:00:00
+# @ resources = ConsumableMemory($${memory})
+
+cd $${launch_dir}
+$${rocket_launch}

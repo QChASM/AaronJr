@@ -8,7 +8,7 @@ import shutil
 
 import numpy as np
 import paramiko
-from AaronTools import addlogger
+from AaronTools import addlogger, getlogger
 from AaronTools.atoms import Atom
 from AaronTools.comp_output import CompOutput
 from AaronTools.config import Config
@@ -38,6 +38,15 @@ MAX_ATTEMPTS = 10  # number of attempts, regardless of error
 MAX_SUBMIT = (
     3  # number of submission attempts (errors with queue submission itself)
 )
+
+
+def find_qadapter_template(qadapter_template):
+    for path in TEMPLATES:
+        rv = os.path.join(path, qadapter_template)
+        if os.access(rv, os.R_OK):
+            return rv
+    log = getlogger()
+    log.exception("Could not find %s in %s", qadapter_template, str(TEMPLATES))
 
 
 @addlogger
@@ -74,7 +83,8 @@ class Job:
     ]
     ENVIRONMENT = Environment(loader=FileSystemLoader(TEMPLATES))
     LOG = None
-    LOGLEVEL = "DEBUG"
+    LOGLEVEL = "INFO"
+    SKIP_CONNECT = False
 
     def __init__(
         self, structure, config, quiet=True, make_root=True, testing=False
@@ -117,11 +127,15 @@ class Job:
         run_host = self.config.get("HPC", "host", fallback=False)
         xfer_user = self.config.get("HPC", "transfer_user", fallback=run_user)
         xfer_host = self.config.get("HPC", "transfer_host", fallback=run_host)
-        if self.RUN_CONNECTION is None and run_host:
+        if not self.SKIP_CONNECT and self.RUN_CONNECTION is None and run_host:
             self.RUN_CONNECTION = paramiko.client.SSHClient()
             self.RUN_CONNECTION.load_system_host_keys()
             self.RUN_CONNECTION.connect(run_host, username=run_user)
-        if self.XFER_CONNECTION is None and xfer_host:
+        if (
+            not self.SKIP_CONNECT
+            and self.XFER_CONNECTION is None
+            and xfer_host
+        ):
             self.XFER_CONNECTION = paramiko.client.SSHClient()
             self.XFER_CONNECTION.load_system_host_keys()
             self.XFER_CONNECTION.connect(xfer_host, username=xfer_user)
@@ -344,16 +358,7 @@ class Job:
         qadapter_template = "{}_qadapter.template".format(
             config["HPC"]["queue_type"]
         )
-        for path in TEMPLATES:
-            rv = os.path.join(path, qadapter_template)
-            if os.access(rv, os.R_OK):
-                return rv
-        try:
-            raise FileNotFoundError
-        except FileNotFoundError:
-            self.LOG.exception(
-                "Could not find %s in %s", qadapter_template, str(TEMPLATES)
-            )
+        return find_qadapter_template(qadapter_template)
 
     def _structure_dict(self, structure=None):
         if structure is None:
@@ -1335,7 +1340,7 @@ class Job:
         LAUNCHPAD.rerun_fw(self.fw_id)
 
     def add_conformers(self, fw_id, output):
-        """"""
+        """ """
         # load screening options
         max_conformers = self.config["Job"].getint(
             "max_conformers", fallback=None

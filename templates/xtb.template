@@ -1,5 +1,5 @@
-export MKL_NUM_THREADS={{parallel}}
-export OMP_THREAD_LIMIT={{parallel}}
+export MKL_NUM_THREADS={{procs}}
+export OMP_THREAD_LIMIT={{procs}}
 export OMP_NUM_THREADS=${OMP_THREAD_LIMIT},1
 export OMP_STACKSIZE=500m
 ulimit -s unlimited
@@ -7,13 +7,13 @@ ulimit -s unlimited
 cd "{{work_dir}}"
 
 {% if optts %}
-	xtb {{job_name}}.xyz --input {{job_name}}.xcontrol --hess -P {{parallel}} --norestart --namespace {{job_name}} {{cmdline}} > {{job_name}}.xtb 2>&1
-	xtb {{job_name}}.xyz --input {{job_name}}.xcontrol --optts -P {{parallel}} --norestart --namespace {{job_name}} {{cmdline}} >> {{job_name}}.xtb 2>&1
+	xtb {{job_name}}.xyz --input {{job_name}}.xcontrol --hess -P {{procs}} --norestart --namespace {{job_name}} {{cmdline}} > {{job_name}}.xtb 2>&1
+	xtb {{job_name}}.xyz --input {{job_name}}.xcontrol --optts -P {{procs}} --norestart --namespace {{job_name}} {{cmdline}} >> {{job_name}}.xtb 2>&1
 	mv g98.out {{job_name}}.freq
 	echo "Optimized Geometry" >> {{job_name}}.xtb
 	cat {{job_name}}.xtbopt.xyz >> {{job_name}}.xtb
 {% else %}
-	xtb {{job_name}}.xyz --input {{job_name}}.xcontrol --norestart --namespace {{job_name}} -P {{parallel}} {{cmdline}} > {{job_name}}.xtb 2>&1
+	xtb {{job_name}}.xyz --input {{job_name}}.xcontrol --norestart --namespace {{job_name}} -P {{procs}} {{cmdline}} > {{job_name}}.xtb 2>&1
 	echo "Optimized Geometry" >> {{job_name}}.xtb
 	cat {{job_name}}.xtbopt.xyz >> {{job_name}}.xtb
 {% endif %}

@@ -1,0 +1,10 @@
+#!/bin/bash
+
+#MOAB -q $${queue}
+#MOAB -N $${job_name}
+#MOAB -l nodes=$${nodes}:ppn=$${ppn}
+#MOAB -l walltime=$${wall}:00:00
+#MOAB -l mem=$${memory}
+
+cd $${launch_dir}
+$${rocket_launch}

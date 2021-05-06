@@ -1,0 +1,10 @@
+#!/bin/bash
+
+#$ -q $${queue}
+#$ -N $${job_name}
+#$ -pe $${parallel_environment} $${procs}
+#$ -l h_rt=$${wall}:00:00
+#$ -l mem=$${memory}
+
+cd $${launch_dir}
+$${rocket_launch}

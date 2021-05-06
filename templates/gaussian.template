@@ -8,7 +8,7 @@ mkdir -p "{{scratch_dir}}"
 cd "{{scratch_dir}}"
 
 find "{{work_dir}}" -maxdepth 1 -name "fort.*" -exec cp {} . \;
-g09 -m="{{exec_memory}}" -p={{parallel}} "{{work_dir}}/{{job_name}}.com" "{{work_dir}}/{{job_name}}.log"
+g09 -m="{{exec_memory}}" -p={{procs}} "{{work_dir}}/{{job_name}}.com" "{{work_dir}}/{{job_name}}.log"
 
 rm -f "{{work_dir}}/fort.7"
 rm -f Gau*

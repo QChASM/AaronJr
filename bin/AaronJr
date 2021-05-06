@@ -292,6 +292,10 @@ def main(args):
     config.parse_functions()
     configs = {}
     job_dict = {}
+    if args.command not in ["run", "update"]:
+        Job.SKIP_CONNECT = True
+    elif args.command == "update" and args.no_xfer:
+        Job.SKIP_CONNECT = True
 
     # parse child config files and store in `configs`
     if "Configs" in config:
@@ -387,7 +391,7 @@ def run_arguments(run_parser):
 def update_arguments(update_parser):
     update_parser.add_argument("--print_spec", action="store_true", help="")
     update_parser.add_argument(
-        "--no_xfer",
+        "--no-xfer",
         action="store_true",
         help="Don't transfer files from remote HPC",
     )

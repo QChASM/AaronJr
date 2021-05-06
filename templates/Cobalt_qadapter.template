@@ -1,0 +1,9 @@
+#!/bin/bash
+#COBALT --queue $${queue}
+#COBALT --jobname $${job_name}
+#COBALT --nodecount $${nodes}
+#COBALT --proccount $${procs}
+#COBALT --time $${wall}:00:00
+
+cd $${launch_dir}
+$${rocket_launch}
