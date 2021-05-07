@@ -360,7 +360,7 @@ class Job:
         )
         return find_qadapter_template(qadapter_template)
 
-    def _structure_dict(self, structure=None):
+    def _structure_dict(self, structure=None, original_comment=True):
         if structure is None:
             structure = self.structure
         if isinstance(structure, Geometry):
@@ -370,7 +370,10 @@ class Job:
             comment, atoms = structure
         else:
             self.LOG.debug("%s %s", type(structure), structure)
-        return {"comment": comment, "atoms": atoms}
+        if original_comment:
+            return {"comment": self.structure.comment, "atoms": atoms}
+        else:
+            return {"comment": comment, "atoms": atoms}
 
     def _last_launch(self, fw):
         try:
@@ -395,11 +398,15 @@ class Job:
             if key == "conformers" and val is not None:
                 tmp = {}
                 for i, v in enumerate(val):
-                    tmp[str(i)] = self._structure_dict(v)
+                    tmp[str(i)] = self._structure_dict(
+                        v, original_comment=False
+                    )
                 data[str(key)] = tmp
                 continue
             if key == "geometry" and val is not None:
-                data[str(key)] = self._structure_dict(val)
+                data[str(key)] = self._structure_dict(
+                    val, original_comment=False
+                )
                 continue
             if key == "frequency":
                 # this dict can easily be recreated by calling sort_frequencies
@@ -412,7 +419,7 @@ class Job:
         step_dict = {}
         for option, val in self.config["Job"].items():
             key = option.split()
-            if len(key) == 1 and key == "type":
+            if len(key) == 1 and key[0] == "type":
                 step_dict[0] = val
                 continue
             step = key[0]
@@ -777,14 +784,12 @@ class Job:
             launch_id = fw.launches[-1].launch_id
         except IndexError:
             launch_id = fw.archived_launches[-1].launch_id
+        old_name, ext = os.path.splitext(name)
         new_name = os.path.join(
             config["Job"]["top_dir"],
             "archived",
-            "{}_{}.{}.{}".format(
-                name,
-                error_type,
-                fw.fw_id,
-                launch_id,
+            "{}_{}.{}.{}{}".format(
+                old_name, error_type, fw.fw_id, launch_id, ext
             ),
         )
         os.makedirs(os.path.dirname(new_name), exist_ok=True)
@@ -1159,7 +1164,7 @@ class Job:
                 ):
                     count += 1
             if count > 3:
-                if self.config["Job"]["exec_type"] == "gaussian":
+                if config["Job"]["exec_type"] == "gaussian":
                     self.config._kwargs[GAUSSIAN_ROUTE] = {"opt": ["noeigen"]}
                     self.rerun(output.geometry)
                 else:
@@ -1167,7 +1172,7 @@ class Job:
             else:
                 self.rerun(output.geometry)
                 self.set_fw(step=constrain_step)
-                if self.config["Job"]["exec_type"] == "gaussian":
+                if config["Job"]["exec_type"] == "gaussian":
                     self.config._kwargs[GAUSSIAN_ROUTE] = {
                         "opt": [
                             "CalcFC",
@@ -1191,7 +1196,7 @@ class Job:
                 maxstep = [15, 12, 10, 8, 5, 2][maxstep]
             except IndexError:
                 maxstep = 0
-            if self.config["Job"]["exec_type"] == "gaussian":
+            if config["Job"]["exec_type"] == "gaussian":
                 if maxstep:
                     self.config._kwargs[GAUSSIAN_ROUTE] = {
                         "opt": ["maxstep={}".format(maxstep)],
@@ -1277,7 +1282,7 @@ class Job:
                 fw.fw_id,
             )
             fw_action = FWAction(
-                stored_data=self._get_stored_data(output),
+                stored_data=self._get_stored_data(output), propagate=True
             )
         else:
             for a, b in zip(self.structure, output.geometry):
@@ -1366,15 +1371,8 @@ class Job:
         is_new = False
         fws = []
         kept_confs = [output.geometry]
-        comment_special = re.compile("((?:F|C|L|K):\S+)")
         for i, conformer in enumerate(output.conformers):
             energy = conformer.comment.split()[0]
-            # need to do this to keep constraints, etc. available in later steps
-            self_match = comment_special.findall(self.structure.comment)
-            conf_match = comment_special.findall(conformer.comment)
-            for match in self_match:
-                if match not in conf_match:
-                    conformer.comment += " %s" % match
             # screening
             if max_conformers is not None and i >= max_conformers:
                 break
