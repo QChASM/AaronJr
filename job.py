@@ -65,21 +65,20 @@ class Job:
 
     # spec items to skip when building query dict
     SKIP_SPEC = [
-        ("Geometry", "(?!constrain(ts)?).*"),
-        ("Results", ".*"),
-        ("Plot", ".*"),
-        ("HPC", ".*"),
-        # should be able to change conformer restrictions and still find the FW
-        ("Job", "(max_conformers|energy_cutoff|rmsd_cutoff)"),
-        ("Substitution", ".*"),  # already included in config._changes
-        ("Mapping", ".*"),  # already included in config._changes
+        ("Geometry", "^(?!constrain(ts)?).*$"),
+        ("Results", "^.*$"),
+        ("Plot", "^.*$"),
+        ("HPC", "^.*$"),
+        ("Job", "^(?!(type|\d+ type|exec_type)).*$"),
+        ("Substitution", "^.*$"),  # already included in config._changes
+        ("Mapping", "^.*$"),  # already included in config._changes
         # these can change without needing new FW
         (
-            ".*",
-            "(.*_dir|local_only|log_level|.*_citations)",
+            "^.*$",
+            "^(.*_dir|local_only|log_level|.*_citations)$",
         ),
-        (".*", "project"),  # this is included in metadata
-        (".*", "include"),  # this has been parsed into the main body
+        ("^.*$", "project"),  # this is included in metadata
+        ("^.*$", "include"),  # this has been parsed into the main body
     ]
     ENVIRONMENT = Environment(loader=FileSystemLoader(TEMPLATES))
     LOG = None
@@ -505,6 +504,7 @@ class Job:
                 }
             else:
                 query_spec["spec." + key] = val
+        print(query_spec)
         return query_spec
 
     def find_fw(self, step=None, conformer=None, spec=None):
