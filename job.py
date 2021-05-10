@@ -504,7 +504,6 @@ class Job:
                 }
             else:
                 query_spec["spec." + key] = val
-        print(query_spec)
         return query_spec
 
     def find_fw(self, step=None, conformer=None, spec=None):
