@@ -12,7 +12,7 @@ from AaronTools import addlogger, getlogger
 from AaronTools.atoms import Atom
 from AaronTools.comp_output import CompOutput
 from AaronTools.config import Config
-from AaronTools.const import AARONLIB, RMSD_CUTOFF, UNIT
+from AaronTools.const import AARONLIB, UNIT
 from AaronTools.fileIO import Frequency
 from AaronTools.geometry import Geometry
 from AaronTools.theory import GAUSSIAN_ROUTE
@@ -47,6 +47,23 @@ def find_qadapter_template(qadapter_template):
             return rv
     log = getlogger()
     log.exception("Could not find %s in %s", qadapter_template, str(TEMPLATES))
+
+
+def conf_rmsd_tol(geom):
+    """
+    Automatically determine a reasonable rmsd tolerance for the input
+    geometry based on its size and number of atoms
+    """
+    com = geom.COM()
+    tolerance = 0
+    max_d = None
+    for atom in geom.atoms:
+        d = np.linalg.norm(atom.coords - com)
+        tolerance += d ** 2
+        if max_d is None or d > max_d:
+            max_d = d
+    tolerance /= len(geom.atoms)
+    return tolerance ** (1 / 2) / max_d
 
 
 @addlogger
@@ -683,7 +700,7 @@ class Job:
             raise Exception
         if override_style is not None:
             style = override_style
-        theory.geometry.write(
+        self.structure.write(
             name=name, style=style, theory=theory, **config._kwargs
         )
         if xcontrol is not None:
@@ -957,7 +974,6 @@ class Job:
         config = self.config_for_step()
         name = self.get_output_name()
         fw = LAUNCHPAD.get_fw_by_id(self.fw_id)
-
         if isinstance(name, tuple):
             name, freq_name = (
                 os.path.join(config["Job"]["top_dir"], n) for n in name
@@ -1013,13 +1029,14 @@ class Job:
             return None
 
         if update and fw.state not in ["WAITING", "PAUSED", "RESERVED"]:
-            if output.finished:
-                self.complete_launch(fw, output, update=True)
-            elif output.error is not None:
+            if output.error is not None:
                 self.complete_launch(fw, output, update=True)
                 LAUNCHPAD.defuse_fw(self.fw_id)
                 return output
-            fw = LAUNCHPAD.get_fw_by_id(self.fw_id)
+        if output.finished:
+            self.complete_launch(fw, output, update=update)
+        fw = LAUNCHPAD.get_fw_by_id(self.fw_id)
+
         if fw.state == "RUNNING":
             # Catch walltime error manually, FireWorks can't tell if job gets kicked.
             # This will also fix jobs that have been kicked from the queue for any
@@ -1284,15 +1301,25 @@ class Job:
                 stored_data=self._get_stored_data(output), propagate=True
             )
         else:
-            for a, b in zip(self.structure, output.geometry):
+            for i, (a, b) in enumerate(zip(self.structure, output.geometry)):
                 b.name = a.name
+                a.coords = b.coords
             fw_action = FWAction(
                 stored_data=self._get_stored_data(output),
                 update_spec={
-                    "structure": self._structure_dict(output.geometry)
+                    "structure": self._structure_dict(self.structure)
                 },
             )
-        LAUNCHPAD.complete_launch(launch_id, action=fw_action)
+        LAUNCHPAD.complete_launch(
+            launch_id,
+            action=fw_action,
+        )
+        fw = LAUNCHPAD.get_fw_by_id(fw.fw_id)
+        if output.finished and fw.state == "DEFUSED":
+            update_dict = {"state": "COMPLETED"}
+            LAUNCHPAD.fireworks.update_one(
+                {"fw_id": fw.fw_id}, {"$set": update_dict}
+            )
 
     def update_structure(self, structure, kind="output"):
         config = self.config_for_step()
@@ -1341,10 +1368,61 @@ class Job:
         else:
             self.update_structure(structure)
         LAUNCHPAD.reignite_fw(self.fw_id)
-        LAUNCHPAD.rerun_fw(self.fw_id)
+        # LAUNCHPAD.rerun_fw(self.fw_id)
 
     def add_conformers(self, fw_id, output):
-        """ """
+        """
+        :fw_id: the parent fw_id to be assigned to conformer workflows
+        :output: the CompOutput object containing the conformer geometries
+
+        Returns: tuple( list(fws in child workflows),
+                        bool(new child workflows added to LaunchPad) )
+        """
+        # determine what steps we still need to run for conformer child
+        wf = LAUNCHPAD.get_wf_by_fw_id(fw_id)
+        steps = set([])
+        children = wf.links[fw_id].copy()
+        add_best = False
+        while children:
+            fw = LAUNCHPAD.get_fw_by_id(children.pop())
+            steps.add(fw.spec["step"])
+            children += wf.links[fw.fw_id]
+        if not steps:
+            add_best = True
+            for step in self.get_steps():
+                tmp = self.config_for_step(step)
+                if "change" in tmp.get("Job", "type"):
+                    continue
+                if "conf" in tmp.get("Job", "type"):
+                    continue
+                steps.add(step)
+
+        # add conformer children to workflow
+        is_new, fws, n_confs = self._standard_conf_selection(
+            fw_id, steps, output, add_best
+        )
+        if is_new:
+            print(
+                "  Workflow created for {} conformers of {}".format(
+                    n_confs, self.get_basename()
+                )
+            )
+        return fws, is_new
+
+    def _standard_conf_selection(self, fw_id, steps, output, add_best):
+        """
+        :fw_id: parent fw_id for all conformers
+        :steps: workflow steps to apply to conformers
+        :output: the CompOutput object containing the conformers
+        :add_best: True if best conformer should be used to make a new child workflow,
+            ie: the last step of the parent workflow is conformer generation.
+            False if it will be used to update the structure for the parent workflow,
+            ie: conformer generation is not the last step of the parent workflow.
+
+        Returns: tuple( bool(has newly added fws),
+                        list(fws associated with selected conformers),
+                        int(number of conformers selected) )
+        """
         # load screening options
         max_conformers = self.config["Job"].getint(
             "max_conformers", fallback=None
@@ -1353,34 +1431,33 @@ class Job:
             "energy_cutoff", fallback=None
         )
         rmsd_cutoff = self.config["Job"].getfloat(
-            "rmsd_cutoff", fallback=RMSD_CUTOFF
+            "rmsd_cutoff", fallback=conf_rmsd_tol(output.geometry)
         )
-        # determine what steps we still need to run for conformer child
-        wf = LAUNCHPAD.get_wf_by_fw_id(fw_id)
-        steps = set([])
-        children = wf.links[fw_id].copy()
-        while children:
-            fw = LAUNCHPAD.get_fw_by_id(children.pop())
-            steps.add(fw.spec["step"])
-            children += wf.links[fw.fw_id]
-        # add conformer children to workflow
-        best_energy = float(output.other["best_energy"])
         skipped = 0
-        i = 0
         is_new = False
         fws = []
-        kept_confs = [output.geometry]
+        best_energy = float(output.other["best_energy"])
+        if add_best:
+            kept_confs = []
+            output.conformers = [output.geometry] + output.conformers
+        else:
+            kept_confs = [output.geometry]
         for i, conformer in enumerate(output.conformers):
             energy = conformer.comment.split()[0]
             # screening
             if max_conformers is not None and i >= max_conformers:
                 break
             energy_diff = UNIT.HART_TO_KCAL * (float(energy) - best_energy)
-            if energy_cutoff is not None and energy_diff > energy_cutoff:
+            if (
+                not (add_best and i == 0)
+                and energy_cutoff is not None
+                and energy_diff > energy_cutoff
+            ):
                 skipped += 1
                 continue
             for geom in kept_confs:
                 rmsd = conformer.RMSD(geom)
+                # self.LOG.info("%s %s", rmsd, rmsd_cutoff)
                 if rmsd_cutoff is not None and rmsd < rmsd_cutoff:
                     skipped += 1
                     break
@@ -1388,16 +1465,12 @@ class Job:
                 kept_confs += [conformer]
                 for a, b in zip(self.structure, conformer):
                     b.name = a.name
-                fws, is_new = self.add_workflow(
+                res = self.add_workflow(
                     parent_fw_id=fw_id,
                     step_list=sorted(steps),
                     conformer=i + 1,
                     structure=conformer,
                 )
-        if is_new:
-            print(
-                "  Workflow created for {} conformers of {}".format(
-                    i + 1 - skipped, self.get_basename()
-                )
-            )
-        return fws, is_new
+                fws += res[0]
+                is_new |= res[1]
+        return is_new, fws, i + 1 - skipped
