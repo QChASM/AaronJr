@@ -70,14 +70,21 @@ def conf_rmsd_tol(geom):
 class Job:
     """
     Attributes:
-    :structure: (Geometry) the structure
-    :config: (Config) the configuration object
-    :step: (float or int) the current step
-    :step_list: ([float or int]) all steps to perform
-    :root_fw_id: (int) FW id for root FW of this job's workflow
-    :fw_id: (int) the FW id for the current step
-    :parent_fw_id: (int) FW id for direct parent of fw_id
-    :quiet: (bool) supress extraneous printing if true
+    :structure: Geometry - the structure (updated during run)
+    :config: Config - the configuration object
+    :step: Union[float, int] - the current step
+    :step_list: List[Union[float, int]] - all steps to perform
+    :fw_id: int - the FW id for the current step
+    :parent_fw_id: int - FW id for direct parent of fw_id
+    :root_fw_id: int - FW id for root FW of this job's workflow
+    :quiet: bool - supress extraneous printing if true
+
+    Class constants:
+    :SKIP_SPEC: List[Tuple[str]] - (Config section name, Config option regex) pairs
+        used to exclude spec items when querying the launchpad database
+    :ENVIRONMENT: Environment - the jinja2 template environment loader
+    :SKIP_CONNECT: bool - when True, paramkio.Connection objects will NOT be created on
+        initialization of new Job objects (default is False)
     """
 
     # spec items to skip when building query dict
@@ -98,20 +105,26 @@ class Job:
         ("^.*$", "include"),  # this has been parsed into the main body
     ]
     ENVIRONMENT = Environment(loader=FileSystemLoader(TEMPLATES))
+    SKIP_CONNECT = False
     LOG = None
     LOGLEVEL = "INFO"
-    SKIP_CONNECT = False
 
     def __init__(
-        self, structure, config, quiet=True, make_root=True, testing=False
+        self,
+        structure,
+        config,
+        quiet=True,
+        make_root=True,
+        testing=False,
     ):
         """
-        :structure: the geometry structure
-        :config: the configuration object to associate with this job
-        :quiet: print extra info when loading config if False
-        :make_changes: do structure modification as specified in config
-        :make_root: set to False to prevent addition of root FW (it will still check to see if it's there)
-        :testing: this should only be set to True for testing purposes
+        :structure Union[Geometry, Firework, str]: the starting geometry structure
+        :config Config: the configuration object to associate with this job
+        :quiet bool: print extra info when loading config if False
+        :make_changes bool: do structure modification as specified in config
+        :make_root bool: set to False to prevent addition of root FW (it will still check to see if it's there)
+        :testing bool: prevents adding new FW to launchpad upon initialization of the
+            job object; this should only be set to True for testing purposes
         """
         self.quiet = quiet
         self.config = None
@@ -139,22 +152,7 @@ class Job:
         except IndexError:
             pass
 
-        run_user = self.config.get("HPC", "user", fallback=False)
-        run_host = self.config.get("HPC", "host", fallback=False)
-        xfer_user = self.config.get("HPC", "transfer_user", fallback=run_user)
-        xfer_host = self.config.get("HPC", "transfer_host", fallback=run_host)
-        if not self.SKIP_CONNECT and self.RUN_CONNECTION is None and run_host:
-            self.RUN_CONNECTION = paramiko.client.SSHClient()
-            self.RUN_CONNECTION.load_system_host_keys()
-            self.RUN_CONNECTION.connect(run_host, username=run_user)
-        if (
-            not self.SKIP_CONNECT
-            and self.XFER_CONNECTION is None
-            and xfer_host
-        ):
-            self.XFER_CONNECTION = paramiko.client.SSHClient()
-            self.XFER_CONNECTION.load_system_host_keys()
-            self.XFER_CONNECTION.connect(xfer_host, username=xfer_user)
+        self.set_connections(self.config)
 
         make_changes = True
         # load structure from fw spec
@@ -179,7 +177,36 @@ class Job:
             self.set_root(make_root=make_root)
 
     # remote connection commands
+    def set_connections(self, config, skip_connect=None):
+        """
+        Sets RUN_CONNECTION and XFER_CONNECTION using config options to initialize
+        paramiko connection objects
+
+        :config: the configuration object with user/host info
+        :skip_connect: overrides self.SKIP_CONNECT
+        """
+        if skip_connect or (skip_connect is None and self.SKIP_CONNECT):
+            return
+        run_user = config.get("HPC", "user", fallback=False)
+        run_host = config.get("HPC", "host", fallback=False)
+        xfer_user = config.get("HPC", "transfer_user", fallback=run_user)
+        xfer_host = config.get("HPC", "transfer_host", fallback=run_host)
+        if run_host:
+            self.RUN_CONNECTION = paramiko.client.SSHClient()
+            self.RUN_CONNECTION.load_system_host_keys()
+            self.RUN_CONNECTION.connect(run_host, username=run_user)
+        if xfer_host:
+            self.XFER_CONNECTION = paramiko.client.SSHClient()
+            self.XFER_CONNECTION.load_system_host_keys()
+            self.XFER_CONNECTION.connect(xfer_host, username=xfer_user)
+
     def remote_mkdir(self, dirname):
+        """
+        Make a directory on the remote machine.
+        Will create parent directories as needed.
+
+        :dirname: the path name of the directory to create
+        """
         if not dirname:
             return
         with self.XFER_CONNECTION.open_sftp() as sftp:
@@ -197,6 +224,16 @@ class Job:
                 )
 
     def remote_put(self, source, target):
+        """
+        Copies `source` to the remote `target` location
+
+        Returns: True if put command exited successfully, False if self.XFER_CONNECTION
+            not associated with a connection object.
+
+        :source: path to local file or file-like object
+        :target: path to desired remote file location, can be a directory if `source`
+            is a path to a file
+        """
         if self.XFER_CONNECTION is None:
             return False
 
@@ -215,6 +252,15 @@ class Job:
         return True
 
     def remote_get(self, source, target):
+        """
+        Copy file from remote `source` to local `target`.
+        Will only copy the remote file if one of the following conditions are met:
+            1. The local file does not exist
+            2. The remote file was modified more recently than the target file
+
+        :source: path to remote file
+        :target: path to local file
+        """
         if self.XFER_CONNECTION is None:
             return False
         try:
@@ -586,9 +632,11 @@ class Job:
 
     def set_root(self, make_root=True):
         """
-        Sets self.root_fw_id to the root FW for the workflow containing `fw_id`
+        Sets self.root_fw_id to the root FW for the workflow containing `fw_id`,
+        creating it if not found in when make_root=True
 
         :fw_id: defaults to self.fw_id
+        :make_root: set to False to prevent root FW creation
         """
         if self.fw_id is None:
             self.set_fw()
@@ -1384,10 +1432,19 @@ class Job:
         children = wf.links[fw_id].copy()
         add_best = False
         while children:
+            # if conformer generation is not the last step in the workflow, we
+            # need to use the remaining steps of the parent workflow to make the
+            # children workflows
             fw = LAUNCHPAD.get_fw_by_id(children.pop())
+            # only add steps from parent conformer (conformer = 0)
+            if fw.spec["conformer"]:
+                continue
             steps.add(fw.spec["step"])
             children += wf.links[fw.fw_id]
         if not steps:
+            # if conformer generation happens as the last step in the workflow,
+            # we want to run the whole workflow again, excluding relaxation of
+            # changes and conformer generation
             add_best = True
             for step in self.get_steps():
                 tmp = self.config_for_step(step)

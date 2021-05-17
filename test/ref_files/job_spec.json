@@ -1,91 +1,92 @@
 {
-  "starting_structure": 5169295184525441022,
-  "structure": {
-    "comment": "",
-    "atoms": [
-      "   1 C      0.164100  -1.372600  -0.000200",
-      "   2 C     -1.106600  -0.828400   0.000100",
-      "   3 C     -1.270700   0.544200   0.000000",
-      "   4 C     -0.164100   1.372600   0.000000",
-      "   5 C      1.106600   0.828400   0.000600",
-      "   6 C      1.270700  -0.544200  -0.000700",
-      "   7 C      0.346913  -2.901697   0.006360",
-      "  10 H     -0.292300   2.444900  -0.000800",
-      "  11 H      1.971200   1.475600  -0.000100",
-      "  12 H      2.263500  -0.969300   0.000200",
-      " 7.2 H      1.118737  -3.194312  -0.736651",
-      " 7.3 H     -0.611491  -3.399103  -0.253313",
-      " 7.4 H      0.668476  -3.240641   1.013888",
-      " 8.1 C     -2.438602  -1.601298  -0.000100",
-      " 8.3 C     -3.703914  -1.004390  -0.000634",
-      " 8.4 C     -3.819635   0.389863  -0.000921",
-      " 8.5 C     -2.670039   1.187201  -0.000673",
-      " 8.8 H     -2.759567   2.265831  -0.000887",
-      "8.10 H     -2.349082  -2.679933   0.000114",
-      "8.11 H     -4.798515   0.851644  -0.001325",
-      "8.12 H     -4.593279  -1.621236  -0.000825"
-    ]
-  },
-  "step_list": [
-    1,
-    2,
-    3
-  ],
-  "step": 1,
-  "conformer": 0,
-  "_changes": {
-    "sub1": [
-      {
-        "7": "Me",
-        "(8,9)": "benzene"
-      },
-      "Substitution"
-    ]
-  },
-  "_changed_list": [
-    "7",
-    "7.2",
-    "7.3",
-    "7.4",
-    "8.1",
-    "8.3",
-    "8.4",
-    "8.5",
-    "8.8",
-    "8.10",
-    "8.11",
-    "8.12"
-  ],
-  "_args": [],
-  "_kwargs": {},
-  "infile": "/home/deo/pyChASM/Aaron/test/test_files/substitution.ini",
-  "metadata": {
-    "user": "vmi38398",
-    "project": "test"
-  },
-  "Job/include": "Job.Minimum",
-  "Job/exec_type": "gaussian",
-  "Job/memory": "4GB",
-  "Job/exec_memory": "3GB",
-  "Job/parallel": "2",
-  "Job/nodes": "1",
-  "Job/ppn": "2",
-  "Job/wall": "2",
-  "Job/remote_dir": "/home/vmi38398/v_inbox/test/sub1/c1ccccc1",
-  "Job/name": "sub1/c1ccccc1",
-  "Job/type": "optimize.changes",
-  "Theory/charge": "0",
-  "Theory/multiplicity": "1",
-  "Theory/method": "PM6",
-  "Theory/denfit": "1",
-  "Theory/basis": "",
-  "HPC/user": "vmi38398",
-  "HPC/host": "",
-  "HPC/transfer_host": "",
-  "HPC/scratch_dir": "/scratch/vmi38398",
-  "HPC/queue_type": "SLURM",
-  "HPC/queue": "wheeler_p",
-  "HPC/work_dir": "/home/vmi38398/v_inbox/test/substitution",
-  "Geometry/structure": "c1ccccc1",
-  "Substitution/sub1": "\n7=Me\n(8,9)=benzene"
+    "starting_structure": -4305195437860396482,
+    "structure": {
+        "comment": "",
+        "atoms": [
+            "   1 C     -1.300400   0.436200  -0.072700",
+            "   2 C     -0.281500   1.349200  -0.057400",
+            "   3 C      1.019000   0.932600   0.014700",
+            "   4 C      1.300200  -0.437600   0.072800",
+            "   5 C      0.280400  -1.352100   0.057400",
+            "   6 C     -1.021800  -0.934700  -0.014800",
+            "   7 C     -2.771801   0.883454  -0.153583",
+            "  10 H      2.346400  -0.749400   0.130000",
+            "  11 H      0.504900  -2.397800   0.102200",
+            "  12 H     -1.854900  -1.629600  -0.029000",
+            " 7.2 H     -3.384839   0.086381  -0.625028",
+            " 7.3 H     -2.853638   1.809304  -0.761437",
+            " 7.4 H     -3.163298   1.084888   0.866002",
+            " 8.1 C     -0.428406   2.881101  -0.114824",
+            " 8.3 C      0.643614   3.779851  -0.096554",
+            " 8.4 C      1.956240   3.301561  -0.021820",
+            " 8.5 C      2.196837   1.924519   0.034645",
+            " 8.8 H      3.212318   1.554505   0.092469",
+            "8.10 H     -1.443890   3.251125  -0.172649",
+            "8.11 H      2.785582   3.996860  -0.007677",
+            "8.12 H      0.457482   4.845176  -0.140236"
+        ]
+    },
+    "step_list": [
+        1,
+        2,
+        3
+    ],
+    "step": 1,
+    "conformer": 0,
+    "_changes": {
+        "sub1": [
+            {
+                "7": "Me",
+                "(8,9)": "benzene"
+            },
+            "Substitution"
+        ]
+    },
+    "_changed_list": [
+        "7",
+        "7.2",
+        "7.3",
+        "7.4",
+        "8.1",
+        "8.3",
+        "8.4",
+        "8.5",
+        "8.8",
+        "8.10",
+        "8.11",
+        "8.12"
+    ],
+    "_args": [],
+    "_kwargs": {},
+    "infile": "/home/deo/pyChASM/Aaron/test/test_files/substitution.ini",
+    "metadata": {
+        "user": "vmi38398",
+        "project": "test"
+    },
+    "Job/include": "Job.Minimum",
+    "Job/exec_type": "gaussian",
+    "Job/memory": "4GB",
+    "Job/exec_memory": "3GB",
+    "Job/parallel": "2",
+    "Job/procs": "2",
+    "Job/nodes": "1",
+    "Job/ppn": "2",
+    "Job/wall": "2",
+    "Job/remote_dir": "/home/vmi38398/v_inbox/test/sub1/c1ccccc1",
+    "Job/name": "sub1/c1ccccc1",
+    "Job/type": "optimize.changes",
+    "Theory/charge": "0",
+    "Theory/multiplicity": "1",
+    "Theory/method": "PM6",
+    "Theory/denfit": "1",
+    "Theory/basis": "",
+    "HPC/user": "vmi38398",
+    "HPC/host": "",
+    "HPC/transfer_host": "",
+    "HPC/scratch_dir": "/scratch/vmi38398",
+    "HPC/queue_type": "SLURM",
+    "HPC/queue": "wheeler_p",
+    "HPC/work_dir": "/home/vmi38398/v_inbox/test/substitution",
+    "Geometry/structure": "c1ccccc1",
+    "Substitution/sub1": "\n7=Me\n(8,9)=benzene"
 }
