@@ -1416,7 +1416,7 @@ class Job:
         else:
             self.update_structure(structure)
         LAUNCHPAD.reignite_fw(self.fw_id)
-        # LAUNCHPAD.rerun_fw(self.fw_id)
+        LAUNCHPAD.rerun_fw(self.fw_id)
 
     def add_conformers(self, fw_id, output):
         """
