@@ -4,6 +4,7 @@ import datetime
 import io
 import itertools as it
 import os
+import time
 from time import sleep
 
 from Aaron.job import LAUNCHPAD, Job
@@ -12,89 +13,119 @@ from AaronTools.config import Config
 from fireworks import LaunchPad
 
 
-def monitor(job, verbose=False, force_rerun=False, dryrun=False):
-    """
-    Checks status of FW
-    :fw_id: the id of the FW
-    :verbose: print more details to stdout if true
-    :force_rerun: passed to Job.resolve_error() as force_rerun parameter
-    """
-    job.quiet = not verbose
-    output = job.validate(transfer=not dryrun)
-    fw = LAUNCHPAD.get_fw_by_id(job.fw_id)
-    if verbose or fw.state not in ["WAITING"]:
-        print(
-            "{:9}{: 9} {} {}".format(
-                fw.state,
-                fw.fw_id,
-                job.config["DEFAULT"]["name"],
-                fw.name,
-            )
-        )
-    if dryrun:
-        return True
-    if fw.state == "READY":
-        job.launch_job()
-        return False
-    if fw.state == "RUNNING" and output is not None:
-        progress = output.get_progress()
-        if "not found" not in progress:
-            print("  %s" % progress)
-        return False
-    if fw.state == "COMPLETED":
-        return True
-    if fw.state in ["DEFUSED", "FIZZLED"]:
-        if job.resolve_error(force_rerun=force_rerun):
-            job.launch_job()
-    return False
-
-
-def get_fws(args, template, config):
-    all_jobs = []
-    all_changes = []
-    if not config._changes:
-        config._changes = {"": ({}, None)}
-    for name, (changes, kind) in sorted(
-        config._changes.items(), key=lambda x: x[0]
+def main(args):
+    config = Config(args.config, quiet=args.quiet)
+    config.parse_functions()
+    configs = {}
+    job_dict = {}
+    if args.command not in ["run", "update"]:
+        Job.SKIP_CONNECT = True
+    elif args.command == "update" and args.no_xfer:
+        Job.SKIP_CONNECT = True
+    elif args.command == "run" and args.dryrun:
+        Job.SKIP_CONNECT = True
+    if (
+        args.command == "results"
+        and not args.reload
+        and os.path.exists(args.cache)
     ):
-        structure = template.copy()
-        this_config = config.for_change(name, structure=structure)
-        parent = None
-        for i, ac in enumerate(all_changes):
-            for c in changes:
-                if c in ac and ac[c] == changes[c]:
-                    del changes[c]
-                    break
-            else:
+        Results(args)
+        return
+
+    # parse child config files and store in `configs`
+    if "Configs" in config:
+        for key in config["Configs"]:
+            if key in config["DEFAULT"] or key in ["override"]:
                 continue
-            parent = all_jobs[i].fw_id
-            structure.atoms = all_jobs[i].structure.atoms
-            break
-        job = Job(
-            structure,
-            config=this_config,
-            quiet=args.quiet,
-            make_root=(args.command in ["update", "run"]),
-        )
-        if hasattr(args, "show") and args.show:
-            job.structure.write()
-            os.system("chimerax {}.xyz".format(job.structure.name))
-            print(job.structure)
-            ans = input("Starting structure OK? (Y/n) ")
-            if ans.lower() in ["n", "no"]:
-                exit(2)
-        if args.command in ["update", "run"]:
-            job.add_workflow(parent_fw_id=parent)
-        else:
-            for step in job.get_steps():
-                fw = job.set_fw(step=step)
-                if not fw:
-                    continue
-        all_changes += [changes]
-        all_jobs += [job]
-    return all_jobs
+            configs[key] = []
+            for this_config in config["Configs"][key].split("\n"):
+                tmp = Config(os.path.relpath(this_config), quiet=True)
+                for override in config.get(
+                    "Configs", "override", fallback=""
+                ).split("\n"):
+                    if override:
+                        k, v = [i.strip() for i in override.split("=")]
+                        tmp.set("DEFAULT", k, v)
+                configs[key] += [tmp]
+    else:
+        # no children configs, just use args.config
+        configs = {
+            config["DEFAULT"]["name"]: [Config(args.config, quiet=True)]
+        }
+
+    # get fws
+    for name, conf_list in sorted(configs.items(), key=lambda x: x[0]):
+        all_jobs = set([])
+        for this_config in conf_list:
+            try:
+                template = this_config.get_template()
+            except FileNotFoundError as e:
+                raise e
+            for template, kind in sorted(
+                this_config.get_template(), key=lambda x: (x[1], x[0].name)
+            ):
+                if not args.quiet:
+                    print(
+                        "Loading jobs ({})... {}".format(
+                            this_config["DEFAULT"]["name"], template.name
+                        )
+                        + " " * 50,
+                        end="\r",
+                    )
+                all_jobs.update(get_fws(args, template, this_config))
+            if args.command not in ["run", "update"]:
+                # calling the 'update' method already gets conformers
+                # AND creates workflows for new conformers discovered during
+                # validation. This other way of getting conformers is only for
+                # conformers already present in the workflow (thus, this section
+                # is appropriate for `results` and `resources` commands)
+                conformers = set([])
+                for job in all_jobs:
+                    if job.fw_id is None:
+                        continue
+                    conf_job = {}
+                    children = LAUNCHPAD.get_wf_by_fw_id_lzyfw(job.fw_id)
+                    for child in children.fws:
+                        try:
+                            n_conf = child.spec["conformer"]
+                        except KeyError:
+                            # these are root fws
+                            continue
+                        if n_conf == 0:
+                            continue
+                        if n_conf in conf_job:
+                            # one job for all steps
+                            continue
+                        conf_job[n_conf] = Job(child, job.config)
+                    conformers.update(conf_job.values())
+                all_jobs.update(conformers)
+            if not args.quiet:
+                print(
+                    "Loading jobs ({})... {}".format(
+                        this_config["DEFAULT"]["name"], "Done"
+                    )
+                    + " " * 50,
+                )
+        all_jobs = sorted(all_jobs, key=lambda x: x.config["Job"]["name"])
+        job_dict[name] = all_jobs
+
+    all_jobs = set(it.chain.from_iterable(job_dict.values()))
+    all_jobs = sorted(all_jobs, key=lambda x: x.config["Job"]["name"])
+    if args.command == "run":
+        fw_jobs = update(args, all_jobs)
+        run(args, fw_jobs)
+    if args.command == "update":
+        fws = update(args, all_jobs)
+        if args.print_spec:
+            for fw in fws:
+                print(fw.spec)
+    if args.command == "resources":
+        resources(args, all_jobs)
+    if args.command in ["results", "plot"]:
+        Results(args, job_dict)
 
 
+# command methods
 def resources(args, all_jobs):
     workflows = set([])
     for job in all_jobs:
@@ -190,19 +221,6 @@ def resources(args, all_jobs):
             print()
 
 
-def print_countdown(minutes, msg="{: 2}:{:02}"):
-    now = datetime.datetime.now
-    end = now() + datetime.timedelta(minutes=minutes)
-    while True:
-        if now() > end:
-            break
-        seconds = datetime.timedelta.total_seconds(end - now())
-        minutes = seconds // 60
-        seconds = round(seconds % 60, 0)
-        print(msg.format(int(minutes), int(seconds)), end="\r")
-        sleep(1)
-
-
 def run(args, fw_jobs):
     first = True
     while fw_jobs:
@@ -242,6 +260,10 @@ def run(args, fw_jobs):
 
 
 def update(args, all_jobs):
+    """
+    Returns:
+        dict fw_jobs, where fw_jobs[fw_id] = job
+    """
     fw_jobs = {}
     if hasattr(args, "no_xfer"):
         no_xfer = getattr(args, "no_xfer")
@@ -281,82 +303,113 @@ def update(args, all_jobs):
             # until after validation)
             done.add(fw_id)
             done.add(job.root_fw_id)
-            updated_wf = LAUNCHPAD.get_wf_by_fw_id(fw_id)
+            updated_wf = LAUNCHPAD.get_wf_by_fw_id_lzyfw(fw_id)
             updated_wf = set(fw.fw_id for fw in updated_wf.fws)
             wf = sorted(updated_wf.union(wf) - done)
     return fw_jobs
 
 
-def main(args):
-    config = Config(args.config, quiet=args.quiet)
-    config.parse_functions()
-    configs = {}
-    job_dict = {}
-    if args.command not in ["run", "update"]:
-        Job.SKIP_CONNECT = True
-    elif args.command == "update" and args.no_xfer:
-        Job.SKIP_CONNECT = True
+# utility methods
+def monitor(job, verbose=False, force_rerun=False, dryrun=False):
+    """
+    Checks status of FW
+    :fw_id: the id of the FW
+    :verbose: print more details to stdout if true
+    :force_rerun: passed to Job.resolve_error() as force_rerun parameter
+    """
+    job.quiet = not verbose
+    output = job.validate(transfer=not dryrun)
+    fw = LAUNCHPAD.get_fw_by_id(job.fw_id)
+    if verbose or fw.state not in ["WAITING"]:
+        print(
+            "{:9}{: 9} {} {}".format(
+                fw.state,
+                fw.fw_id,
+                job.config["DEFAULT"]["name"],
+                fw.name,
+            )
+        )
+    if dryrun:
+        return True
+    if fw.state == "READY":
+        job.launch_job()
+        return False
+    if fw.state == "RUNNING" and output is not None:
+        progress = output.get_progress()
+        if "not found" not in progress:
+            print("  %s" % progress)
+        return False
+    if fw.state == "COMPLETED":
+        return True
+    if fw.state in ["DEFUSED", "FIZZLED"]:
+        if job.resolve_error(force_rerun=force_rerun):
+            job.launch_job()
+    return False
 
-    # parse child config files and store in `configs`
-    if "Configs" in config:
-        for key in config["Configs"]:
-            if key in config["DEFAULT"] or key in ["override"]:
+
+def get_fws(args, template, config):
+    """
+    Returns: list(Job) associated with template and config
+    """
+    all_jobs = []
+    all_changes = []
+    if not config._changes:
+        config._changes = {"": ({}, None)}
+    for name, (changes, kind) in sorted(
+        config._changes.items(), key=lambda x: x[0]
+    ):
+        structure = template.copy()
+        this_config = config.for_change(name, structure=structure)
+        parent = None
+        for i, ac in enumerate(all_changes):
+            for c in changes:
+                if c in ac and ac[c] == changes[c]:
+                    del changes[c]
+                    break
+            else:
                 continue
-            configs[key] = []
-            for conf in config["Configs"][key].split("\n"):
-                tmp = Config(os.path.relpath(conf), quiet=True)
-                for override in config.get(
-                    "Configs", "override", fallback=""
-                ).split("\n"):
-                    if override:
-                        k, v = [i.strip() for i in override.split("=")]
-                        tmp["DEFAULT"][k] = v
-                configs[key] += [tmp]
-    else:
-        # no children configs, just use args.config
-        configs = {
-            config["DEFAULT"]["name"]: [Config(args.config, quiet=True)]
-        }
-
-    # get fws
-    for name, conf_list in sorted(configs.items(), key=lambda x: x[0]):
-        all_jobs = set([])
-        for conf in conf_list:
-            try:
-                template = conf.get_template()
-            except FileNotFoundError as e:
-                raise e
-            for template, kind in sorted(
-                conf.get_template(), key=lambda x: (x[1], x[0].name)
-            ):
-                if not args.quiet:
-                    print(
-                        "Loading jobs... " + template.name + " " * 50,
-                        end="\r",
-                    )
-                all_jobs.update(get_fws(args, template, conf))
-            if not args.quiet:
-                print(
-                    "Loading jobs... " + "Done" + " " * 50,
-                )
-        job_dict[name] = list(all_jobs)
-
-    all_jobs = it.chain.from_iterable(job_dict.values())
-    all_jobs = sorted(all_jobs, key=lambda x: x.config["Job"]["name"])
-    if args.command == "run":
-        fw_jobs = update(args, all_jobs)
-        run(args, fw_jobs)
-    if args.command == "update":
-        fws = update(args, all_jobs)
-        if args.print_spec:
-            for fw in fws:
-                print(fw.spec)
-    if args.command == "resources":
-        resources(args, all_jobs)
-    if args.command in ["results", "plot"]:
-        Results(args, job_dict)
+            parent = all_jobs[i].fw_id
+            structure.atoms = all_jobs[i].structure.atoms
+            break
+        job = Job(
+            structure,
+            config=this_config,
+            quiet=args.quiet,
+            make_root=(args.command in ["update", "run"]),
+        )
+        if hasattr(args, "show") and args.show:
+            job.structure.write()
+            os.system("chimerax {}.xyz".format(job.structure.name))
+            print(job.structure)
+            ans = input("Starting structure OK? (Y/n) ")
+            if ans.lower() in ["n", "no"]:
+                exit(2)
+        if args.command in ["update", "run"]:
+            job.add_workflow(parent_fw_id=parent)
+        else:
+            for step in job.get_steps():
+                fw = job.set_fw(step=step)
+                if not fw:
+                    continue
+        all_changes += [changes]
+        all_jobs += [job]
+    return all_jobs
 
 
+def print_countdown(minutes, msg="{: 2}:{:02}"):
+    now = datetime.datetime.now
+    end = now() + datetime.timedelta(minutes=minutes)
+    while True:
+        if now() > end:
+            break
+        seconds = datetime.timedelta.total_seconds(end - now())
+        minutes = seconds // 60
+        seconds = round(seconds % 60, 0)
+        print(msg.format(int(minutes), int(seconds)), end="\r")
+        sleep(1)
+
+
+# argument handling
 def add_common_arguments(parser):
     parser.add_argument(
         "config",
@@ -404,6 +457,12 @@ def resources_arguments(resources_parser):
 
 
 def results_arguments(results_parser):
+    results_parser.add_argument(
+        "--script",
+        nargs="*",
+        type=str,
+        help="Pass geometries through an AaronTools command line script. eg: --script 'bond.py -m 1 2' (note the single quotes!)",
+    )
     results_parser.add_argument(
         "--change",
         nargs="*",

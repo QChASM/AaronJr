@@ -1,15 +1,20 @@
 #!/usr/bin/env python
+import io
 import itertools as it
 import json
 import os
 import pickle
 import re
+import subprocess
 import sys
 import tkinter as tk
 
+import numpy as np
+import pandas as pd
 from AaronTools.comp_output import CompOutput
 from AaronTools.config import Config
-from AaronTools.const import UNIT
+from AaronTools.const import PHYSICAL, UNIT
+from AaronTools.utils import utils
 from AaronTools.utils.utils import progress_bar
 from matplotlib import patches
 from matplotlib import pyplot as plt
@@ -30,470 +35,375 @@ def get_curr_screen_geometry():
     return dpi
 
 
+def row2output(row):
+    output = CompOutput()
+    other = {}
+    for col, val in row.iteritems():
+        try:
+            if np.isnan(val):
+                continue
+        except (TypeError, ValueError):
+            pass
+        if col in [
+            "name",
+            "change",
+            "template",
+            "selectivity",
+            "conformer",
+            "step",
+        ]:
+            continue
+        if col.startswith("other"):
+            key = col.split(".")[1]
+            other[key] = val
+            continue
+        setattr(output, col, val)
+    if other:
+        setattr(output, "other", other)
+    return output
+
+
+def boltzmann_weight(energy, temperature):
+    return np.exp(energy / (PHYSICAL.R * temperature))
+
+
 class Results:
     # job_patt groups: full match, name, template, change
     job_patt = re.compile("((&?[\w-]+)(?:{([\w-]+)})?(?::([\w-]+))?)")
 
-    def __init__(self, args, job_dict):
+    def __init__(self, args, job_dict=None):
         self.config = Config(args.config, quiet=True)
         self.config.parse_functions()
         self.thermo = args.thermo
         if args.thermo in ["RRHO", "QRRHO", "QHARM"]:
             self.thermo = "free_energy"
-        self.data = {}
+        self.data = pd.DataFrame()
         try:
-            with open(args.cache, "rb") as f:
-                self.data = pickle.load(f)
+            self.data = pd.read_pickle(args.cache)
         except (FileNotFoundError, EOFError, OSError):
+            if job_dict is None:
+                raise OSError(
+                    "There is something wrong with the results cache file. Please use the --reload option to fix this"
+                )
             pass
-        if args.reload or args.step or not self.data:
-            self.load_jobs(job_dict, args=args)
-            if not args.step:
-                with open(args.cache, "wb") as f:
-                    pickle.dump(self.data, f)
+        if args.reload or self.data.empty:
+            self.load_jobs(job_dict)
+            pd.to_pickle(self.data, args.cache)
 
         self.apply_corrections(args)
-        if self.config.get("Results", "group", fallback=""):
-            self.parse_groups()
-        self.parse_functions(args)
         if args.command == "results":
             self.print_results(args)
         if args.command == "plot":
             Plot(self, args)
 
-    def load_jobs(self, job_dict, args=None):
-        self.data = {}
-        pb_i = 0
-        pb_max = len(list(it.chain.from_iterable(job_dict.values())))
-        for config_name, job_list in job_dict.items():
+    def load_jobs(self, job_dict):
+        data = []
+        for name, job_list in job_dict.items():
             for job in job_list:
-                pb_i += 1
-                progress_bar(pb_i, pb_max, name="Loading job output")
-                step_list = job.get_steps()
-                if not step_list:
-                    step_list = [0]
-                step_list.reverse()
-                keep_step = None
-                for step in step_list:
-                    job.step = step
-                    if args.step and job.step not in args.step:
+                change, template = os.path.split(job.config["Job"]["name"])
+                change, selectivity = os.path.split(change)
+                if not change:
+                    change = selectivity
+                    selectivity = None
+                conformer = job.conformer
+                data_row = {
+                    "name": name,
+                    "change": change,
+                    "template": template,
+                    "selectivity": selectivity,
+                    "conformer": conformer,
+                }
+                for step in reversed(job.step_list):
+                    if "conformer" in job.config.for_step(step).get(
+                        "Job", "type"
+                    ):
                         continue
-                    job.fw_id = job.find_fw().fw_id
-                    if not job.fw_id:
-                        if job.step != 1:
-                            print(job.get_query_spec(job._get_metadata()))
+                    fw = job.set_fw(step=step)
+                    if fw is None:
                         continue
-                    change, template = os.path.split(job.config["Job"]["name"])
-                    key = config_name, template, change
-                    output = job.get_output()
-                    if keep_step is None:
-                        # keep step the first time we successfully find a job
-                        keep_step = step
-                    job.step = keep_step
+                    output = job.get_output(load_geom=True)
                     if output is None:
                         continue
-                    if not output.finished:
-                        continue
-                    remove = set()
-                    for attr in job.__dict__:
-                        if "CONNECTION" in attr:
-                            remove.add(attr)
-                    for attr in remove:
-                        delattr(job, attr)
-                    # add missing output values from earlier steps
-                    # allows us to use SP energies and lower-level frequencies
-                    if key not in self.data:
-                        self.data[key] = output, job
-                    else:
-                        for attr in output.__dict__:
-                            if getattr(self.data[key][0], attr) is None:
-                                setattr(
-                                    self.data[key][0],
-                                    attr,
-                                    getattr(output, attr),
-                                )
+                    if "fw_id" not in data_row:
+                        data_row["fw_id"] = int(fw.fw_id)
+                        data_row["step"] = step
+                    for attr in output.__dict__:
+                        if attr == "other" and output.other:
+                            for key, val in output.other.items():
+                                key = "other.{}".format(key)
+                                if key not in data_row:
+                                    data_row[key] = val
+                        if attr in ["opts", "conformers", "archive", "other"]:
+                            continue
+                        val = getattr(output, attr)
+                        if not val:
+                            continue
+                        if attr not in data_row:
+                            data_row[attr] = val
+                if "fw_id" in data_row and data_row["fw_id"]:
+                    data_row = pd.Series(data_row)
+                    data.append(data_row)
+        self.data = pd.DataFrame(data)
+        for column in [
+            "charge",
+            "conformer",
+            "fw_id",
+            "multiplicity",
+            "opt_steps",
+        ]:
+            try:
+                self.data[column] = self.data[column].astype(
+                    int, errors="ignore"
+                )
+            except KeyError:
+                pass
+        self.data.set_index("fw_id", inplace=True)
 
     def apply_corrections(self, args):
         """
         Applies the thermodynamic correction requested with args.thermo
         """
-        for key, (output, job) in self.data.items():
-            try:
-                corr = None
-                if args.thermo in ["energy", "enthalpy"]:
-                    dE, dH, s = output.therm_corr(temperature=args.temp)
-                    output.energy += output.ZPVE
-                    output.enthalpy += dH
-                elif args.thermo in ["free_energy", "RRHO"]:
-                    corr = output.calc_G_corr(
-                        v0=0, temperature=args.temp, method="RRHO"
-                    )
-                elif args.thermo in ["QRRHO"]:
-                    corr = output.calc_G_corr(
-                        v0=args.w0, temperature=args.temp, method="QRRHO"
-                    )
-                elif args.thermo in ["QHARM"]:
-                    corr = output.calc_G_corr(
-                        v0=args.w0, temperature=args.temp, method="QHARM"
-                    )
-                if corr:
-                    output.free_energy = output.energy + corr
-            except AttributeError:
-                if args.thermo.lower() not in ["energy", "enthalpy"]:
-                    print(
-                        "Warning: frequencies not found for {} {} {}".format(
-                            *key
-                        ),
-                        file=sys.stderr,
-                    )
-
-    def parse_functions(self, args):
-        def add_data(data_key, to_parse):
-            data = CompOutput()
-            for i, t in enumerate(to_parse):
-                # use original data for calculation when updating
-                if t in original_data:
-                    to_parse[i] = str(
-                        getattr(original_data[t][0], self.thermo)
-                    )
-                elif t in self.data:
-                    to_parse[i] = str(getattr(self.data[t][0], self.thermo))
-            to_parse = " ".join(to_parse)
-            try:
-                setattr(data, self.thermo, eval(to_parse, {}))
-            except (TypeError, NameError, SyntaxError):
-                setattr(data, self.thermo, None)
-            if data_key in self.data:
-                job = self.data[data_key][1]
-            else:
-                job = None
-            self.data[data_key] = data, job
-
-        def split_function(val):
-            """
-            split function into words and determine what data keys to use
-            we will replace jobspec-words with data values before eval
-
-            Returns: val, jobspec
-                val ([str]): the value split into words
-                jobspec (dict): keys are indexes in val, values are keys for self.data
-            """
-            matches = [m[0] for m in job_patt.findall(val) if m[0] != "-"]
-            hash_match = {}
-            for m in sorted(matches, key=lambda x: len(x), reverse=True):
-                hash_match[hash(m)] = m
-                val.replace(m, " {} ".format(hash(m)))
-            for h, m in hash_match.items():
-                val.replace(str(h), m)
-            val = val.split()
-            # parse datakey and store in jobspec keyed by new_val index
-            jobspec = {}
-            for i, v in enumerate(val):
-                match = job_patt.search(v)
-                if match is None:
-                    continue
-                match, name, template, change = match.groups()
-                for data_key in self.keys_where(
-                    name=name, template=template, change=change
-                ):
-                    jobspec.setdefault(i, [])
-                    jobspec[i] += [(i, data_key)]
-            return val, jobspec
-
-        if "Results" not in self.config:
-            # nothing to parse
-            return
-        job_patt = Results.job_patt
-        original_names = set([key for key in self.data.keys()])
-        original_data = self.data.copy()
-        done = set([])
-
-        for key, val in self.config["Results"].items():
-            if key in self.config["DEFAULT"]:
-                continue
-            if key in ["group", "hide"]:
-                continue
-            new_val, jobspec = split_function(val)
-            # match up data_key possibilities for each variable in function
-            # empty strings act like wildcards so we can use templates/changes
-            # as filters relative to a base case (ie: original structure)
-            for key_list in it.product(*jobspec.values()):
-                template, changed, not_changed = set([]), set([]), set([])
-                for i, data_key in key_list:
-                    new_val[i] = data_key
-                    if data_key[1]:
-                        template.add(data_key[1])
-                    if data_key[2]:
-                        changed.add(data_key[2])
-                    if not data_key[2]:
-                        not_changed.add(i)
-                # skip non-matching changes
-                if len(changed) > 1:
-                    continue
-                # now we're just looking at a single change
-                if changed:
-                    changed = changed.pop()
-                else:
-                    changed = ""
-                # if change is an option for the unchanged species,
-                # skip b/c we want to match changes if we can
-                skip = False
-                for i in not_changed:
-                    if key.startswith("&"):
-                        # new data keys start with '&'
-                        tmp = [
-                            c[2]
-                            for c in self.keys_where(
-                                name=new_val[i][0],
-                                template=new_val[i][1],
-                            )
-                        ]
-                    else:
-                        tmp = [
-                            c[2]
-                            for c in original_names
-                            if new_val[i][0] == c[0] and new_val[i][1] == c[1]
-                        ]
-                    if changed and changed in tmp:
-                        skip = True
-                if skip:
-                    continue
-                if key.startswith("&") or key == "relative":
-                    # these are new data keys, not associated with a template file
-                    data_key = (
-                        key,
-                        "",
-                        changed,
-                    )
-                else:
-                    #  get correct template name
-                    if "group" in self.config["Results"]:
-                        tmp = self.keys_where(key, "", changed)
-                        template &= {t[1] for t in tmp}
-                    # if we have a template mis-match, skip
-                    if len(template) > 1:
-                        continue
-                    data_key = (
-                        key,
-                        template.pop() if template else "",
-                        changed,
-                    )
-                if data_key in done:
-                    continue
-                done.add(data_key)
-                add_data(data_key, new_val)
-
-    def get_relative(self):
-        """
-        For each change made to structure, find the lowest energy datapoint
-        Save data in self.relative keyed by change
-        """
-        relative = {}
-        atoms = {}
-        compatable_changes = {}
-        for key, val in self.data.items():
-            change = key[2]
-            output, job = val
-            atoms[key] = sorted(job.structure.elements)
-            compatable_changes.setdefault(change, set([key]))
-            for k, e in atoms.items():
-                if len(atoms[key]) != len(e):
-                    continue
-                for a, b in zip(atoms[key], e):
-                    if a != b:
-                        break
-                else:
-                    compatable_changes[change].add(k)
-                    compatable_changes[k[2]].add(key)
-            thermo = getattr(output, self.thermo)
-            if change not in relative:
-                relative[change] = thermo, key
-            elif relative[change][0] > thermo:
-                relative[change] = thermo, key
-        for key, val in self.data.items():
-            change = key[2]
-            for k in compatable_changes[change]:
-                if relative[change][0] > relative[k[2]][0]:
-                    relative[change] = relative[k[2]]
-        return relative
+        for key, data in self.data.groupby(
+            ["name", "change", "template", "selectivity", "conformer"]
+        ):
+            for index, row in data.iterrows():
+                output = row2output(row)
+                try:
+                    corr = None
+                    if args.thermo in ["energy", "enthalpy"]:
+                        dE, dH, s = output.therm_corr(temperature=args.temp)
+                        self.data.loc[index, "energy"] = (
+                            output.energy + output.ZPVE
+                        )
+                        self.data.loc[index, "enthalpy"] = output.enthalpy + dH
+                    elif args.thermo in ["free_energy", "RRHO"]:
+                        corr = output.calc_G_corr(
+                            v0=0, temperature=args.temp, method="RRHO"
+                        )
+                    elif args.thermo in ["QRRHO"]:
+                        corr = output.calc_G_corr(
+                            v0=args.w0, temperature=args.temp, method="QRRHO"
+                        )
+                    elif args.thermo in ["QHARM"]:
+                        corr = output.calc_G_corr(
+                            v0=args.w0, temperature=args.temp, method="QHARM"
+                        )
+                    if corr:
+                        self.data.loc[index, "free_energy"] = (
+                            output.energy + corr
+                        )
+                except (TypeError, AttributeError):
+                    pass
 
     def print_results(self, args):
-        results = []
-        relative = self.get_relative()
-        names, templates, changes = set([]), set([]), set([])
-        for n, t, c in self.data.keys():
-            if (
-                not c
-                and args.change
-                and "none" not in [a.lower() for a in args.change]
+        thermo = args.thermo.lower()
+        if thermo in ["rrho", "qrrho", "qharm"]:
+            thermo = "free_energy"
+        thermo_unit = "{} ({})".format(thermo, args.unit)
+        cols = [
+            "name",
+            "change",
+            "selectivity",
+            "template",
+            "conformer",
+        ]
+        data = self.data.copy()
+        data.sort_values(by=cols, inplace=True)
+        geoms = data["geometry"]
+        if args.script:
+            data = data[cols]
+            for index, geom in geoms.iteritems():
+                with subprocess.Popen(
+                    args.script,
+                    stdin=subprocess.PIPE,
+                    stdout=subprocess.PIPE,
+                    stderr=subprocess.PIPE,
+                    shell=True,
+                ) as proc:
+                    out, err = proc.communicate(
+                        geom.write(style="xyz", outfile=False).encode()
+                    )
+                if err:
+                    raise RuntimeError(err.decode())
+                data.loc[index, args.script] = out.decode().strip()
+            with pd.option_context(
+                "display.max_rows", None, "display.max_columns", None
             ):
-                continue
-            if c and args.change and c not in args.change:
-                continue
-            names.add(n)
-            templates.add(t)
-            changes.add(c)
-        line = "{:>5} {:<%d} {:<%d} {:<%d} {: 15.1f}" % (
-            max([len(n) for n in names] + [4]),
-            max([len(t) for t in templates] + [8]),
-            max([len(c) for c in changes] + [6]),
-        )
-        header = "{:>5} {:<%d} {:<%d} {:<%d} {:>15}" % (
-            max([len(n) for n in names] + [4]),
-            max([len(t) for t in templates] + [8]),
-            max([len(c) for c in changes] + [6]),
-        )
+                print(data)
+            return
 
-        last_change = None
-        last_min_key = None
-        hidden = self.parse_hidden()
-        for name, template, change in sorted(
-            self.data.keys(), key=lambda x: (x[2], x[0], x[1])
-        ):
-            if (name, template, change) in hidden:
-                continue
+        data.dropna(subset=[thermo], inplace=True)
+        data[thermo] = data[thermo] * UNIT.HART_TO_KCAL
+        if "Results" in self.config:
+            data = self.parse_functions(data, self.config, thermo)
+        elif not args.absolute:
+            relative = []
+            for atoms, group in data.groupby(["name", "change"]):
+                group[thermo] -= group[thermo].min()
+                relative.append(group)
+            data = relative
+        else:
+            data = [data]
+
+        for d in data:
+            tmp_cols = cols.copy()
             if (
-                args.change
-                and not change
-                and "none" not in [a.lower() for a in args.change]
+                "conformer" not in d.columns
+                or len(d.groupby("conformer")) == 1
             ):
-                continue
-            if args.change and change and change not in args.change:
-                continue
-            if name == "relative" or name.startswith("&"):
-                continue
-            output, job = self.data[(name, template, change)]
-            val = getattr(output, self.thermo)
-            if val is None:
-                continue
-            minimum, min_key = relative[change]
-            if minimum is None or args.absolute:
-                minimum = 0
+                tmp_cols.remove("conformer")
+            if (
+                "selectivity" not in d.columns
+                or len(d.groupby("selectivity")) == 1
+            ):
+                tmp_cols.remove("selectivity")
+            d = d[tmp_cols + [thermo]]
             if args.unit == "kcal/mol":
-                minimum *= UNIT.HART_TO_KCAL
-                val = (val * UNIT.HART_TO_KCAL) - minimum
-            elif args.unit == "J/mol":
-                minimum *= UNIT.HART_TO_JOULE
-                val = (val * UNIT.HART_TO_JOULE) - minimum
+                d.rename(columns={thermo: thermo_unit}, inplace=True)
             else:
-                val = val - minimum
-            results += [(change, name, template, val)]
-            if not args.csv:
-                if change != last_change:
-                    if minimum and min_key != last_min_key:
-                        print()
-                        print(
-                            "relative to {} ({:.1f} {})".format(
-                                min_key[2] if min_key[2] else "original",
-                                minimum,
-                                args.unit,
-                            )
-                        )
-                        print(
-                            header.format(
-                                "wf_id",
-                                "name",
-                                "template",
-                                "change",
-                                args.unit,
-                            )
-                        )
-                print(
-                    line.format(
-                        (job.root_fw_id if job and job.root_fw_id else ""),
-                        name,
-                        template,
-                        change if change else "original",
-                        val,
-                    )
-                )
-                last_change = change
-                last_min_key = min_key
-        with open("results.csv", "w") as f:
-            f.write(
-                "\n".join(
-                    [",".join([str(cell) for cell in row]) for row in results]
-                )
+                d[thermo] = d[thermo] / UNIT.HART_TO_KCAL
+                d.rename(columns={thermo: thermo_unit}, inplace=True)
+            with pd.option_context(
+                "display.max_rows", None, "display.max_columns", None
+            ):
+                print(d)
+            print()
+
+        header = True
+        for d in self.boltzmann_average(data, cols[:-1], thermo):
+            if len(d.groupby("conformer")) == 1:
+                continue
+            d = d[cols[:-1] + [thermo]]
+            if args.unit == "kcal/mol":
+                d.rename(columns={thermo: thermo_unit}, inplace=True)
+            else:
+                d[thermo] = d[thermo] / UNIT.HART_TO_KCAL
+                d.rename(columns={thermo: thermo_unit}, inplace=True)
+            if not header:
+                print()
+                print("Boltzmann averaged over conformers for template")
+                header = False
+            with pd.option_context(
+                "display.max_rows", None, "display.max_columns", None
+            ):
+                print(d)
+            print()
+
+        header = True
+        for d in self.boltzmann_average(data, cols[:-2], thermo):
+            if len(d.groupby("selectivity")) == 1:
+                continue
+            temperature = d["temperature"].tolist()[0]
+            p = d[thermo].map(
+                lambda x: np.exp(-x / (PHYSICAL.R * temperature))
             )
-
-    def keys_where(self, name="", template="", change="", strict_change=False):
-        rv = []
-        for key, val in self.data.items():
-            output, job = val
-            if name and key[0] and key[0] != name:
-                continue
-            if template and key[1] and key[1] != template:
-                continue
-            if change and key[2] != change:
-                continue
-            if strict_change and key[2] != change:
-                continue
-            rv += [key]
-        return rv
-
-    def parse_groups(self):
-        # get changes that should be grouped together
-        groups = {}
-        val = [v for v in self.config["Results"]["group"].split("\n") if v]
-        key = None
-        for v in val:
-            if "=" in v:
-                v = [i.strip() for i in v.split("=")]
-                key = v[0]
-                groups.setdefault(key, set([]))
-                if not v[1]:
-                    continue
-                v = v[1]
-            v = [i.strip() for i in v.split(",") if i.strip()]
-            for tmp in v:
-                name, change = tmp.split(":")
-                if change.lower() == "none":
-                    change = ""
-                groups[key] |= set(
-                    self.keys_where(
-                        name=name, change=change, strict_change=True
-                    )
-                )
-        # update data dict to use new change identification
-        for change, key_list in groups.items():
-            for select in key_list:
-                for key in self.keys_where(*select, strict_change=True):
-                    new_key = (
-                        key[0],
-                        "{}:{}".format(
-                            key[1], key[2] if key[2] else "original"
-                        ),
-                        change,
-                    )
-                    self.data[new_key] = self.data[key]
-                    del self.data[key]
-
-    def parse_hidden(self):
-        hidden = set([])
-        for h in self.config.get("Results", "hide", fallback="").split(","):
-            if not h:
-                continue
-            match, name, template, change = Results.job_patt.search(h).groups()
-            strict_change = False
-            if change and change.lower() == "none":
-                change = "original"
-                strict_change = True
-            if template and "group" in self.config["Results"]:
-                keys = self.keys_where(
-                    name=name,
-                    change=change if change != "original" else "",
-                    strict_change=strict_change,
-                )
-                keys = [k for k in keys if template == k[1].split(":")[0]]
+            p["selectivity"] = d["selectivity"]
+            p = p.groupby("selectivity").sum()
+            p = 100 * p / sum(p)
+            d = d[cols[:-2] + [thermo]]
+            if args.unit == "kcal/mol":
+                d.rename(columns={thermo: thermo_unit}, inplace=True)
             else:
-                keys = self.keys_where(
-                    name=name,
-                    template=template,
-                    change=change if change != "original" else "",
-                    strict_change=strict_change,
+                d[thermo] = d[thermo] / UNIT.HART_TO_KCAL
+                d.rename(columns={thermo: thermo_unit}, inplace=True)
+            if header:
+                print()
+                print("Boltzmann averaged over selectivity")
+                header = False
+            with pd.option_context(
+                "display.max_rows", None, "display.max_columns", None
+            ):
+                print(d)
+            print(", ".join(["{:0.1f}% {}".format(p[i], i) for i in p.index]))
+            print()
+
+    @staticmethod
+    def boltzmann_average(data, cols, thermo):
+        boltzmann_avg = []
+        for d in data:
+            new_d = []
+            try:
+                data_grouped = d.groupby(cols + ["temperature"])
+            except KeyError:
+                continue
+            for key, group in data_grouped:
+                try:
+                    temperature = group["temperature"].tolist()[0]
+                except KeyError:
+                    continue
+                avg = utils.boltzmann_average(
+                    group[thermo].to_numpy(),
+                    group[thermo].to_numpy(),
+                    temperature,
+                    absolute=False,
                 )
-            hidden |= set(keys)
-        return hidden
+                tmp = group.iloc[0]
+                tmp[thermo] = avg
+                new_d.append(tmp)
+            if len(new_d):
+                boltzmann_avg.append(pd.concat(new_d, axis=1).T)
+        return boltzmann_avg
+
+    @staticmethod
+    def parse_functions(data, config, thermo):
+        data = data.copy()[["name", "change", "template", thermo]]
+        relative = None
+        for key, val in config["Results"].items():
+            if not key.startswith("&") and key != "relative":
+                continue
+            subst = []
+            for match in Results.job_patt.findall(val):
+                if match[0] == "-":
+                    continue
+                tmp = data.copy()
+                if match[1]:
+                    tmp = tmp[tmp["name"] == match[1]]
+                if match[2]:
+                    tmp = tmp[tmp["template"] == match[2]]
+                if match[3].lower() == "none":
+                    tmp = tmp[tmp["change"] == ""]
+                elif match[3]:
+                    tmp = tmp[tmp["change"] == match[3]]
+                tmp.set_index("change", inplace=True)
+                if tmp.shape[0] == 1:
+                    subst.append(tmp.iloc[0])
+                else:
+                    subst.append(tmp)
+                val = val.replace(
+                    match[0],
+                    "subst[{}][{}]".format(len(subst) - 1, "thermo"),
+                    1,
+                )
+            val = eval(val, {"subst": subst, "thermo": thermo})
+            val = pd.concat([val, subst[0]["template"]], axis=1)
+            val["name"] = key.lstrip("&")
+            val.reset_index(inplace=True)
+            if key == "relative":
+                relative = val
+            else:
+                data = data.append(val)
+                data.drop_duplicates(
+                    subset=["name", "template", "change"],
+                    keep="last",
+                    inplace=True,
+                )
+        if relative.shape[0] == 1:
+            relative = relative.iloc[0]
+        tmp = []
+        for change, group in data.groupby("change"):
+            rel = relative[relative["change"] == change][thermo].to_list()
+            if len(rel) < 1:
+                rel = relative[relative["change"] == ""][thermo].to_list()
+            if len(rel) != 1:
+                raise RuntimeError("[Results] relative setting is ambiguious")
+            rel = rel[0]
+            group[thermo] = group[thermo] - rel
+            tmp.append(group)
+        if tmp:
+            data = tmp
+        else:
+            data = [data]
+        return data
 
 
 class Plot:

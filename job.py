@@ -5,6 +5,7 @@ import itertools as it
 import os
 import re
 import shutil
+import time
 
 import numpy as np
 import paramiko
@@ -24,6 +25,7 @@ from fireworks import (
     ScriptTask,
     Workflow,
 )
+from fireworks.core.launchpad import LazyFirework
 from fireworks.user_objects.queue_adapters.common_adapter import (
     CommonAdapter as QueueAdapter,
 )
@@ -33,6 +35,7 @@ TEMPLATES = [
     os.path.join(AARONLIB, "templates"),
     os.path.join(os.path.dirname(os.path.abspath(__file__)), "templates"),
 ]
+ENVIRONMENT = Environment(loader=FileSystemLoader(TEMPLATES))
 LAUNCHPAD = LaunchPad.auto_load()
 MAX_ATTEMPTS = 10  # number of attempts, regardless of error
 MAX_SUBMIT = (
@@ -47,6 +50,15 @@ def find_qadapter_template(qadapter_template):
             return rv
     log = getlogger()
     log.exception("Could not find %s in %s", qadapter_template, str(TEMPLATES))
+
+
+def find_exec_template(exec_template):
+    for path in TEMPLATES:
+        rv = os.path.join(path, exec_template)
+        if os.access(rv, os.R_OK):
+            return rv
+    log = getlogger()
+    log.exception("Could not find %s in %s", exec_template, str(TEMPLATES))
 
 
 def conf_rmsd_tol(geom):
@@ -66,6 +78,27 @@ def conf_rmsd_tol(geom):
     return tolerance ** (1 / 2) / max_d
 
 
+def get_steps(config):
+    step_dict = {}
+    for option, val in config["Job"].items():
+        key = option.split()
+        if len(key) == 1 and key[0] == "type":
+            step_dict[0] = val
+            continue
+        step = key[0]
+        key = "".join(key[1:])
+        if "type" != key:
+            continue
+        if "changes" in val and not "".join(config._changes.keys()):
+            continue
+        if int(step) == float(step):
+            step_dict[int(step)] = val
+        else:
+            step_dict[float(step)] = val
+    step_list = sorted(step_dict.keys())
+    return step_list
+
+
 @addlogger
 class Job:
     """
@@ -82,7 +115,6 @@ class Job:
     Class constants:
     :SKIP_SPEC: List[Tuple[str]] - (Config section name, Config option regex) pairs
         used to exclude spec items when querying the launchpad database
-    :ENVIRONMENT: Environment - the jinja2 template environment loader
     :SKIP_CONNECT: bool - when True, paramkio.Connection objects will NOT be created on
         initialization of new Job objects (default is False)
     """
@@ -104,7 +136,6 @@ class Job:
         ("^.*$", "project"),  # this is included in metadata
         ("^.*$", "include"),  # this has been parsed into the main body
     ]
-    ENVIRONMENT = Environment(loader=FileSystemLoader(TEMPLATES))
     SKIP_CONNECT = False
     LOG = None
     LOGLEVEL = "INFO"
@@ -132,7 +163,7 @@ class Job:
         self.structure = None
         self.structure_hash = None
 
-        self.step = 0
+        self.step = None
         self.conformer = 0
         self.fw_id = None
         self.parent_fw_id = None
@@ -146,17 +177,11 @@ class Job:
             self.config = config
         else:
             self.config = Config(config, quiet=quiet)
-        self.step_list = self.get_steps()
-        try:
-            self.step = self.step_list[0]
-        except IndexError:
-            pass
-
         self.set_connections(self.config)
 
         make_changes = True
         # load structure from fw spec
-        if isinstance(structure, Firework):
+        if isinstance(structure, (Firework, LazyFirework)):
             self.load_fw(structure)
             make_changes = False
         # or from passed geometry
@@ -172,7 +197,29 @@ class Job:
             self.structure_hash = hash(self.structure.copy())
             Geometry.LOG.setLevel(old_level)
 
+        if self.config.get("Job", "include", fallback="").lower() == "detect":
+            if self.structure.name.lower().startswith("int"):
+                self.config.set("Job", "include", "Minimum")
+            elif self.structure.name.lower().startswith("ts"):
+                self.config.set("Job", "include", "TS")
+            else:
+                raise RuntimeError(
+                    "Could not detect workflow type for {}. [Job] include=detect is only valid for template files starting with 'int' or 'ts' (case insensitive)".format(
+                        self.structure.name
+                    )
+                )
+            self.config._parse_includes("Job")
+        self.step_list = self.get_steps()
+        if self.step is None:
+            try:
+                self.step = self.step_list[0]
+            except IndexError:
+                self.step = 0
+
         # find fw id for root and current step's job
+        self.config["Job"]["name"] = os.path.join(
+            ".".join(self.config._changes.keys()), self.structure.name
+        )
         if not testing:
             self.set_root(make_root=make_root)
 
@@ -333,7 +380,7 @@ class Job:
         if structure is None:
             structure = self.structure
         exec_type = config["Job"]["exec_type"]
-        exec_template = self.ENVIRONMENT.get_template(exec_type + ".template")
+        exec_template = ENVIRONMENT.get_template(exec_type + ".template")
         options = dict(
             list(config["HPC"].items()) + list(config["Job"].items())
         )
@@ -478,23 +525,7 @@ class Job:
         return data
 
     def get_steps(self):
-        step_dict = {}
-        for option, val in self.config["Job"].items():
-            key = option.split()
-            if len(key) == 1 and key[0] == "type":
-                step_dict[0] = val
-                continue
-            step = key[0]
-            key = "".join(key[1:])
-            if "type" != key:
-                continue
-            if "changes" in val and not "".join(self.config._changes.keys()):
-                continue
-            if int(step) == float(step):
-                step_dict[int(step)] = val
-            else:
-                step_dict[float(step)] = val
-        self.step_list = sorted(step_dict.keys())
+        self.step_list = get_steps(self.config)
         return self.step_list
 
     def config_for_step(self, step=None, conformer=None):
@@ -645,7 +676,7 @@ class Job:
             if self.parent_fw_id is None:
                 self.parent_fw_id = self.root_fw_id
             return
-        links = LAUNCHPAD.get_wf_by_fw_id(self.fw_id).links
+        links = LAUNCHPAD.get_wf_by_fw_id_lzyfw(self.fw_id).links
         self.parent_fw_id = []
         for key, val in links.items():
             if self.fw_id in val:
@@ -868,8 +899,11 @@ class Job:
         for key, val in fw.launches[-1].action.stored_data.items():
             if key == "geometry" and load_geom:
                 atoms = []
-                for element, coords in val:
-                    atoms.append(Atom(element, coords))
+                for v in val["atoms"]:
+                    name, element, x, y, z = v.split()
+                    atoms.append(
+                        Atom(name=name, element=element, coords=[x, y, z])
+                    )
                 val = Geometry(atoms)
             if key == "frequency" and val:
                 val = Frequency(
@@ -966,6 +1000,20 @@ class Job:
         else:
             self.parent_fw_id = parent_fw_id
 
+        step_list += [None]
+        child_parent = {
+            str(step_list[i + 1]): str(step)
+            for i, step in enumerate(step_list[:-1])
+        }
+        step_list = step_list[:-1]
+        step_fw = {str(step): None for step in step_list}
+        if "concurrent" in self.config["Job"]:
+            concurrent = [
+                s.strip() for s in self.config["Job"]["concurrent"].split(",")
+            ]
+            for c in sorted(concurrent)[1:]:
+                child_parent[c] = child_parent[concurrent[0]]
+
         # create workflow
         fws = []
         # self.LOG.debug(self.get_workflow_name())
@@ -988,7 +1036,13 @@ class Job:
                     ),
                 )
             fws += [fw.fw_id]
-            self.parent_fw_id = fw.fw_id
+            step_fw[str(step)] = fw.fw_id
+            if str(step) in child_parent:
+                parent = child_parent[str(step)]
+                parent = step_fw[parent]
+                self.parent_fw_id = parent
+            else:
+                self.parent_fw_id = fw.fw_id
         return fws, isNew
 
     def launch_job(self, override_style=None, send=True):
@@ -1034,6 +1088,8 @@ class Job:
             if transfer:
                 self.transfer_output(state=fw.state, update=update)
             output = CompOutput(name, get_all=get_all, freq_name=freq_name)
+            for a, b in zip(self.structure, output.geometry):
+                b.name = a.name
         except (IndexError, KeyError):
             # this can be caused by partial log files missing all or some of the
             # atomic coordinate listing
@@ -1076,6 +1132,16 @@ class Job:
                 )
             return None
 
+        # Additional Runtime Error checks
+        # check connectivity issues
+        if fw.state in ["RUNNING", "COMPLETED", "DEFUSED"]:
+            if not self.is_connectivity_ok(output):
+                output.error = "CONNECTIVITY"
+
+        # KEEP RUNTIME ERROR DETECTION ABOVE THIS IF-STATEMENT!!!
+        if output.error is not None and fw.state == "RUNNING":
+            self._qdel(fw)
+
         if update and fw.state not in ["WAITING", "PAUSED", "RESERVED"]:
             if output.error is not None:
                 self.complete_launch(fw, output, update=True)
@@ -1093,10 +1159,13 @@ class Job:
             runtime = datetime.datetime.utcnow() - state["created_on"]
             walltime = datetime.timedelta(hours=int(config["Job"]["wall"]))
             if runtime > walltime:
-                self.LOG.debug("runtime:%s walltime:%s", runtime, walltime)
-                output.error = "WALLTIME"
+                # self.LOG.debug("runtime:%s walltime:%s", runtime, walltime)
+                if output.error is None:
+                    output.error = "WALLTIME"
                 self.complete_launch(fw, output)
-                LAUNCHPAD.defuse_fw(fw.fw_id)
+                if not output.finished:
+                    LAUNCHPAD.defuse_fw(fw.fw_id)
+
         if fw.state in ["READY", "WAITING", "RESERVED", "RUNNING", "PAUSED"]:
             return output
         # if we get here, fw.state can only be COMPLETED, DEFUSED, or FIZZLED
@@ -1116,6 +1185,28 @@ class Job:
         if "conformers" in config["Job"]["type"]:
             self.add_conformers(fw.fw_id, output)
         return output
+
+    def _qdel(self, fw):
+        qdel = {
+            "Cobalt": "qdel {}",
+            "LoadLeveler": "llcancel {}",
+            "LSF": "bkill {}",
+            "MOAB": "mjobctl -c {}",
+            "PBS": "qdel {}",
+            "SGE": "qdel {}",
+            "SLURM": "scancel {}",
+        }[self.config["HPC"]["queue_type"]]
+        qid = None
+        if fw is None or len(fw.launches) == 0:
+            return
+        for hist in reversed(fw.launches[-1].state_history):
+            if "reservation_id" in hist:
+                qid = hist["reservation_id"]
+                break
+        qdel = qdel.format(qid)
+        self.LOG.info(qid)
+        self.LOG.info(qdel)
+        self.remote_run(qdel)
 
     def resolve_error(self, force_rerun=False):
         """
@@ -1189,6 +1280,9 @@ class Job:
         if output.error in ["UNKNOWN", "WALLTIME", "CHK"]:
             resolved = True
             self.rerun(output.geometry)
+        if output.error == "CONNECTIVITY":
+            resolved = True
+            self.rerun(self.fix_connectivity(output))
         if output.error in ["REDUND", "FBX"]:
             resolved = True
             for a in output.geometry:
@@ -1227,7 +1321,7 @@ class Job:
                     and "EIGEN" == launch.action.stored_data["error"]
                 ):
                     count += 1
-            if count > 3:
+            if count > 1:
                 if config["Job"]["exec_type"] == "gaussian":
                     self.config._kwargs[GAUSSIAN_ROUTE] = {"opt": ["noeigen"]}
                     self.rerun(output.geometry)
@@ -1240,7 +1334,7 @@ class Job:
                     self.config._kwargs[GAUSSIAN_ROUTE] = {
                         "opt": [
                             "CalcFC",
-                            "maxstep={}".format(int(round(30 / (count + 1)))),
+                            "maxstep=10",
                         ]
                     }
                     self.rerun(output.geometry)
@@ -1405,6 +1499,44 @@ class Job:
         spec["_tasks"] = [self._get_exec_task().to_dict()]
         LAUNCHPAD.update_spec([self.fw_id], spec)
 
+    def is_connectivity_ok(self, output):
+        """
+        Returns:
+        True if atom distances had to be changed due to unexpected connectivity change
+        False if no updates to the geometry were needed
+        """
+        if output is None or output.geometry is None:
+            return True
+        broken, formed = output.geometry.compare_connectivity(
+            self.structure, return_idx=True
+        )
+        bad_connections = broken.union(formed)
+        if bad_connections:
+            return False
+        else:
+            return True
+
+    def fix_connectivity(self, output):
+        """
+        Returns:
+        True if atom distances had to be changed due to unexpected connectivity change
+        False if no updates to the geometry were needed
+        """
+        broken, formed = output.geometry.compare_connectivity(
+            self.structure, return_idx=True
+        )
+        bad_connections = broken.union(formed)
+        for i, j in bad_connections:
+            a = output.geometry.atoms[i]
+            b = output.geometry.atoms[j]
+            dist = self.structure.atoms[i].dist(self.structure.atoms[j])
+            if (i, j) in broken:
+                dist -= 0.1
+            else:
+                dist += 0.1
+            output.geometry.change_distance(a, b, dist=dist, adjust=False)
+        return output.geometry
+
     def rerun(self, structure):
         LAUNCHPAD.defuse_fw(self.fw_id)
         if isinstance(structure, str) and structure in [
@@ -1493,7 +1625,7 @@ class Job:
         skipped = 0
         is_new = False
         fws = []
-        best_energy = float(output.other["best_energy"])
+        best_energy = output.energy
         if add_best:
             kept_confs = []
             output.conformers = [output.geometry] + output.conformers

@@ -4,10 +4,11 @@ import string
 from Aaron.job import find_qadapter_template
 
 
-def main(args):
-    qadapter_template = "{}_qadapter.template".format(args.queue_type)
+def main(queue_type, verbose=True):
+    qadapter_template = "{}_qadapter.template".format(queue_type)
     qadapter_template = find_qadapter_template(qadapter_template)
-    print("Using %s" % qadapter_template)
+    if verbose:
+        print("Using %s" % qadapter_template)
 
     with open(qadapter_template) as f:
         contents = f.read()
@@ -16,9 +17,11 @@ def main(args):
         for k in string.Formatter().parse(contents)
         if k[1] not in [None, "job_name", "launch_dir", "rocket_launch"]
     ]
-    print("[Job] options found:")
-    for k in template_keys:
-        print(" ", k)
+    if verbose:
+        print("[Job] options found:")
+        for k in template_keys:
+            print(" ", k)
+    return template_keys
 
 
 if __name__ == "__main__":
@@ -33,4 +36,4 @@ if __name__ == "__main__":
     )
 
     args = parser.parse_args()
-    main(args)
+    main(args.queue_type)
