@@ -318,7 +318,14 @@ def monitor(job, verbose=False, force_rerun=False, dryrun=False):
     :force_rerun: passed to Job.resolve_error() as force_rerun parameter
     """
     job.quiet = not verbose
-    output = job.validate(transfer=not dryrun)
+    try:
+        output = job.validate(transfer=not dryrun)
+    except IndexError:
+        if dryrun:
+            output = None
+        else:
+            raise
+
     fw = LAUNCHPAD.get_fw_by_id(job.fw_id)
     if verbose or fw.state not in ["WAITING"]:
         print(

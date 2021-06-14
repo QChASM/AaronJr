@@ -263,12 +263,13 @@ class Job:
                 self.remote_mkdir(os.path.dirname(dirname))
                 sftp.mkdir(dirname)
             except OSError:
-                self.LOG.exception(
+                self.LOG.error(
                     "Couldn't mkdir %s on remote host. This can often be resolved by "
                     "simply restarting AaronJr. If you still have problems, try "
                     "creating the directory manually.",
                     dirname,
                 )
+                exit(1)
 
     def remote_put(self, source, target):
         """
@@ -1019,6 +1020,10 @@ class Job:
         # self.LOG.debug(self.get_workflow_name())
         for step in step_list:
             fw = self.find_fw(step=step, conformer=conformer)
+            if str(step) in child_parent:
+                parent = child_parent[str(step)]
+                parent = step_fw[parent]
+                self.parent_fw_id = parent
             if fw is None:
                 isNew = True
                 fw = self.add_fw(
@@ -1037,12 +1042,7 @@ class Job:
                 )
             fws += [fw.fw_id]
             step_fw[str(step)] = fw.fw_id
-            if str(step) in child_parent:
-                parent = child_parent[str(step)]
-                parent = step_fw[parent]
-                self.parent_fw_id = parent
-            else:
-                self.parent_fw_id = fw.fw_id
+            self.parent_fw_id = fw.fw_id
         return fws, isNew
 
     def launch_job(self, override_style=None, send=True):
@@ -1148,7 +1148,10 @@ class Job:
                 LAUNCHPAD.defuse_fw(self.fw_id)
                 return output
         if output.finished:
-            self.complete_launch(fw, output, update=update)
+            try:
+                self.complete_launch(fw, output, update=update)
+            except IndexError:
+                return None
         fw = LAUNCHPAD.get_fw_by_id(self.fw_id)
 
         if fw.state == "RUNNING":
