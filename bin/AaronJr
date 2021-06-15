@@ -25,7 +25,7 @@ def main(args):
     elif args.command == "run" and args.dryrun:
         Job.SKIP_CONNECT = True
     if (
-        args.command == "results"
+        args.command in ["results", "plot"]
         and not args.reload
         and os.path.exists(args.cache)
     ):

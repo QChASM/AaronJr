@@ -74,27 +74,28 @@ class Results:
     def __init__(self, args, job_dict=None):
         self.config = Config(args.config, quiet=True)
         self.config.parse_functions()
-        self.thermo = args.thermo
-        if args.thermo in ["RRHO", "QRRHO", "QHARM"]:
+        self.args = args
+        self.thermo = self.args.thermo.lower()
+        if self.thermo in ["rrho", "qrrho", "qharm"]:
             self.thermo = "free_energy"
         self.data = pd.DataFrame()
         try:
-            self.data = pd.read_pickle(args.cache)
+            self.data = pd.read_pickle(self.args.cache)
         except (FileNotFoundError, EOFError, OSError):
             if job_dict is None:
                 raise OSError(
                     "There is something wrong with the results cache file. Please use the --reload option to fix this"
                 )
             pass
-        if args.reload or self.data.empty:
+        if self.args.reload or self.data.empty:
             self.load_jobs(job_dict)
-            pd.to_pickle(self.data, args.cache)
+            pd.to_pickle(self.data, self.args.cache)
 
-        self.apply_corrections(args)
-        if args.command == "results":
-            self.print_results(args)
-        if args.command == "plot":
-            Plot(self, args)
+        self.apply_corrections()
+        if self.args.command == "results":
+            self.print_results(self.args)
+        if self.args.command == "plot":
+            Plot(self, self.args)
 
     def load_jobs(self, job_dict):
         data = []
@@ -159,7 +160,7 @@ class Results:
                 pass
         self.data.set_index("fw_id", inplace=True)
 
-    def apply_corrections(self, args):
+    def apply_corrections(self):
         """
         Applies the thermodynamic correction requested with args.thermo
         """
@@ -170,23 +171,29 @@ class Results:
                 output = row2output(row)
                 try:
                     corr = None
-                    if args.thermo in ["energy", "enthalpy"]:
-                        dE, dH, s = output.therm_corr(temperature=args.temp)
+                    if self.thermo in ["energy", "enthalpy"]:
+                        dE, dH, s = output.therm_corr(
+                            temperature=self.args.temp
+                        )
                         self.data.loc[index, "energy"] = (
                             output.energy + output.ZPVE
                         )
                         self.data.loc[index, "enthalpy"] = output.enthalpy + dH
-                    elif args.thermo in ["free_energy", "RRHO"]:
+                    elif self.args.thermo.lower() in ["free_energy", "rrho"]:
                         corr = output.calc_G_corr(
-                            v0=0, temperature=args.temp, method="RRHO"
+                            v0=0, temperature=self.args.temp, method="RRHO"
                         )
-                    elif args.thermo in ["QRRHO"]:
+                    elif self.args.thermo.upper() in ["QRRHO"]:
                         corr = output.calc_G_corr(
-                            v0=args.w0, temperature=args.temp, method="QRRHO"
+                            v0=self.args.w0,
+                            temperature=self.args.temp,
+                            method="QRRHO",
                         )
-                    elif args.thermo in ["QHARM"]:
+                    elif self.args.thermo.upper() in ["QHARM"]:
                         corr = output.calc_G_corr(
-                            v0=args.w0, temperature=args.temp, method="QHARM"
+                            v0=self.args.w0,
+                            temperature=self.args.temp,
+                            method="QHARM",
                         )
                     if corr:
                         self.data.loc[index, "free_energy"] = (
@@ -196,10 +203,7 @@ class Results:
                     pass
 
     def print_results(self, args):
-        thermo = args.thermo.lower()
-        if thermo in ["rrho", "qrrho", "qharm"]:
-            thermo = "free_energy"
-        thermo_unit = "{} ({})".format(thermo, args.unit)
+        thermo_unit = "{} ({})".format(self.args.thermo, self.args.unit)
         cols = [
             "name",
             "change",
@@ -232,18 +236,7 @@ class Results:
                 print(data)
             return
 
-        data.dropna(subset=[thermo], inplace=True)
-        data[thermo] = data[thermo] * UNIT.HART_TO_KCAL
-        if "Results" in self.config:
-            data = self.parse_functions(data, self.config, thermo)
-        elif not args.absolute:
-            relative = []
-            for atoms, group in data.groupby(["name", "change"]):
-                group[thermo] -= group[thermo].min()
-                relative.append(group)
-            data = relative
-        else:
-            data = [data]
+        data = self.get_relative(data)
 
         for d in data:
             tmp_cols = cols.copy()
@@ -257,12 +250,12 @@ class Results:
                 or len(d.groupby("selectivity")) == 1
             ):
                 tmp_cols.remove("selectivity")
-            d = d[tmp_cols + [thermo]]
+            d = d[tmp_cols + [self.thermo]]
             if args.unit == "kcal/mol":
-                d.rename(columns={thermo: thermo_unit}, inplace=True)
+                d.rename(columns={self.thermo: thermo_unit}, inplace=True)
             else:
-                d[thermo] = d[thermo] / UNIT.HART_TO_KCAL
-                d.rename(columns={thermo: thermo_unit}, inplace=True)
+                d[self.thermo] = d[self.thermo] / UNIT.HART_TO_KCAL
+                d.rename(columns={self.thermo: thermo_unit}, inplace=True)
             with pd.option_context(
                 "display.max_rows", None, "display.max_columns", None
             ):
@@ -270,15 +263,15 @@ class Results:
             print()
 
         header = True
-        for d in self.boltzmann_average(data, cols[:-1], thermo):
+        for d in self.boltzmann_average(data, cols[:-1], self.thermo):
             if len(d.groupby("conformer")) == 1:
                 continue
-            d = d[cols[:-1] + [thermo]]
+            d = d[cols[:-1] + [self.thermo]]
             if args.unit == "kcal/mol":
-                d.rename(columns={thermo: thermo_unit}, inplace=True)
+                d.rename(columns={self.thermo: thermo_unit}, inplace=True)
             else:
-                d[thermo] = d[thermo] / UNIT.HART_TO_KCAL
-                d.rename(columns={thermo: thermo_unit}, inplace=True)
+                d[self.thermo] = d[self.thermo] / UNIT.HART_TO_KCAL
+                d.rename(columns={self.thermo: thermo_unit}, inplace=True)
             if not header:
                 print()
                 print("Boltzmann averaged over conformers for template")
@@ -290,22 +283,22 @@ class Results:
             print()
 
         header = True
-        for d in self.boltzmann_average(data, cols[:-2], thermo):
+        for d in self.boltzmann_average(data, cols[:-2], self.thermo):
             if len(d.groupby("selectivity")) == 1:
                 continue
             temperature = d["temperature"].tolist()[0]
-            p = d[thermo].map(
+            p = d[self.thermo].map(
                 lambda x: np.exp(-x / (PHYSICAL.R * temperature))
             )
             p["selectivity"] = d["selectivity"]
             p = p.groupby("selectivity").sum()
             p = 100 * p / sum(p)
-            d = d[cols[:-2] + [thermo]]
+            d = d[cols[:-2] + [self.thermo]]
             if args.unit == "kcal/mol":
-                d.rename(columns={thermo: thermo_unit}, inplace=True)
+                d.rename(columns={self.thermo: thermo_unit}, inplace=True)
             else:
-                d[thermo] = d[thermo] / UNIT.HART_TO_KCAL
-                d.rename(columns={thermo: thermo_unit}, inplace=True)
+                d[self.thermo] = d[self.thermo] / UNIT.HART_TO_KCAL
+                d.rename(columns={self.thermo: thermo_unit}, inplace=True)
             if header:
                 print()
                 print("Boltzmann averaged over selectivity")
@@ -316,6 +309,21 @@ class Results:
                 print(d)
             print(", ".join(["{:0.1f}% {}".format(p[i], i) for i in p.index]))
             print()
+
+    def get_relative(self, data):
+        data.dropna(subset=[self.thermo], inplace=True)
+        data[self.thermo] = data[self.thermo] * UNIT.HART_TO_KCAL
+        if "Results" in self.config:
+            data = self.parse_functions(data, self.config, self.thermo)
+        elif not self.args.absolute:
+            relative = []
+            for atoms, group in data.groupby(["name", "change"]):
+                group[self.thermo] -= group[self.thermo].min()
+                relative.append(group)
+            data = relative
+        else:
+            data = [data]
+        return data
 
     @staticmethod
     def boltzmann_average(data, cols, thermo):
@@ -428,7 +436,11 @@ class Plot:
                 "Plot",
                 "selectivity",
                 fallback=results.config.get(
-                    "Results", "selectivity", fallback=""
+                    "Results",
+                    "selectivity",
+                    fallback=results.config.get(
+                        "Reaction", "selectivity", fallback=""
+                    ),
                 ),
             ).split(",")
         ]
@@ -508,7 +520,10 @@ class Plot:
     def get_plot_list(self):
         if self.args.change is None:
             change = sorted(
-                set(c if c else "None" for n, t, c in self.results.data.keys())
+                set(
+                    c if c else "None"
+                    for c in self.results.data["change"].unique()
+                )
             )
         else:
             change = self.args.change
@@ -580,7 +595,12 @@ class Plot:
 
     def get_vertices(self, change):
         label_patt = re.compile("\[([^]]*)\]")
-        relative = self.results.get_relative()
+        relative = self.results.get_relative(self.results.data)
+        tmp = []
+        for r in relative:
+            if len(r[r["change"] == change]) > 0:
+                tmp.append(r)
+        relative = pd.concat(tmp)
         tags = []
         verts = []
         for s in self.selectivity:
@@ -598,23 +618,21 @@ class Plot:
                     skip = False
                     for t in self.selectivity:
                         if t != s and t in key[1]:
-                            skip = True
-                    if skip:
-                        continue
-                    val = getattr(
-                        self.results.data[key][0], self.results.thermo
-                    )
-                    if not val:
-                        continue
-                    minimum = relative[change][0]
-                    if not minimum or self.args.absolute:
-                        minimum = 0
-                    if self.args.unit == "kcal/mol":
-                        val = (val - minimum) * UNIT.HART_TO_KCAL
-                    elif self.args.unit == "J/mol":
-                        val = (val - minimum) * UNIT.HART_TO_JOULE
+                            val = relative[
+                                relative["template"].str.contains(s)
+                            ]
+                            break
                     else:
-                        val = val - minimum
+                        val = relative
+                    if key[0]:
+                        val = val[val["name"] == key[0]]
+                    if key[1]:
+                        val = val[val["template"] == key[1]]
+                    if key[2]:
+                        val = val[val["change"] == key[2]]
+                    if val.empty:
+                        continue
+                    val = val.pop(self.results.thermo).tolist()[0]
                     vals += [
                         (i * float(self.spacing), val),
                         (i * float(self.spacing) + 1, val),
