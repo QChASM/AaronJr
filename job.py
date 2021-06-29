@@ -135,6 +135,7 @@ class Job:
         ),
         ("^.*$", "project"),  # this is included in metadata
         ("^.*$", "include"),  # this has been parsed into the main body
+        "_changed_list",
     ]
     SKIP_CONNECT = False
     LOG = None
@@ -179,23 +180,14 @@ class Job:
             self.config = Config(config, quiet=quiet)
         self.set_connections(self.config)
 
-        make_changes = True
         # load structure from fw spec
         if isinstance(structure, (Firework, LazyFirework)):
             self.load_fw(structure)
-            make_changes = False
         # or from passed geometry
         elif isinstance(structure, Geometry):
             self.structure = structure
         else:
             self.structure = Geometry(structure)
-        if make_changes:
-            self._make_changes()
-        if not self.structure_hash:
-            old_level = Geometry.LOG.level
-            Geometry.LOG.setLevel("ERROR")
-            self.structure_hash = hash(self.structure.copy())
-            Geometry.LOG.setLevel(old_level)
 
         if self.config.get("Job", "include", fallback="").lower() == "detect":
             if self.structure.name.lower().startswith("int"):
@@ -217,9 +209,17 @@ class Job:
                 self.step = 0
 
         # find fw id for root and current step's job
-        self.config["Job"]["name"] = os.path.join(
+        self.jobname = os.path.join(
             ".".join(self.config._changes.keys()), self.structure.name
         )
+        if not self.structure_hash:
+            structure_hash = hashlib.sha256()
+            old_level = Geometry.LOG.level
+            Geometry.LOG.setLevel("ERROR")
+            structure_hash.update(str(hash(self.structure.copy())).encode())
+            Geometry.LOG.setLevel(old_level)
+            structure_hash.update(self.jobname.encode())
+            self.structure_hash = structure_hash.hexdigest()
         if not testing:
             self.set_root(make_root=make_root)
 
@@ -441,7 +441,7 @@ class Job:
             **dict(list(config["Job"].items()) + list(config["HPC"].items())),
         )
         # save qadapter; transfer if remote
-        rel_dir = os.path.dirname(config["Job"]["name"])
+        rel_dir = os.path.dirname(self.jobname)
         if config["HPC"].get("host"):
             filename = os.path.join(
                 config["HPC"].get("remote_dir"),
@@ -556,7 +556,9 @@ class Job:
             "step_list": self.step_list,
         }
         if step != "all":
-            spec["step"] = step
+            spec["step"] = (
+                int(step) if int(step) == float(step) else float(step)
+            )
             spec["conformer"] = conformer
         spec = config.as_dict(spec, skip=skip)
         return spec
@@ -659,7 +661,10 @@ class Job:
             self.structure_hash = fw.spec["starting_structure"]
         if not hasattr(self, "structure"):
             self.structure = Geometry()
-        self.structure.name = self.get_basename().rstrip("." + str(self.step))
+        self.jobname = fw.name.rstrip("." + str(self.step))
+        self.structure.name = self.jobname.lstrip(
+            os.path.join(".".join(self.config._changes.keys()), "")
+        )
         self.set_root()
 
     def set_root(self, make_root=True):
@@ -701,7 +706,7 @@ class Job:
             wf_name = os.path.join(
                 wf_name, self.config["Reaction"]["template"]
             )
-        wf_name = "{}/{}".format(wf_name, self.config["Job"]["name"])
+        wf_name = "{}/{}".format(wf_name, self.jobname)
         return wf_name
 
     # file management
@@ -710,7 +715,7 @@ class Job:
             step = self.step
         if conformer is None:
             conformer = self.conformer
-        name = self.config["Job"]["name"]
+        name = self.jobname
         if conformer:
             name = "{}_{}".format(name, conformer)
         if step:
@@ -1056,7 +1061,7 @@ class Job:
             qadapter,
             os.path.join(
                 config["HPC"]["work_dir"],
-                os.path.dirname(config["Job"]["name"]),
+                os.path.dirname(self.jobname),
             ),
             fw.fw_id,
         )

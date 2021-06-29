@@ -8,9 +8,11 @@ import re
 import subprocess
 import sys
 import tkinter as tk
+from configparser import NoOptionError
 
 import numpy as np
 import pandas as pd
+from AaronTools import addlogger
 from AaronTools.comp_output import CompOutput
 from AaronTools.config import Config
 from AaronTools.const import PHYSICAL, UNIT
@@ -67,17 +69,24 @@ def boltzmann_weight(energy, temperature):
     return np.exp(energy / (PHYSICAL.R * temperature))
 
 
+@addlogger
 class Results:
     # job_patt groups: full match, name, template, change
-    job_patt = re.compile("((&?[\w-]+)(?:{([\w-]+)})?(?::([\w-]+))?)")
+    job_patt = re.compile("((&?[\w\.-]+)(?:{([\w\.-]+)})?(?::([\w\.-]+))?)")
+    LOG = None
+    LEVEL = "info"
 
     def __init__(self, args, job_dict=None):
         self.config = Config(args.config, quiet=True)
         self.config.parse_functions()
+        self._calc_attr = []
+
         self.args = args
         self.thermo = self.args.thermo.lower()
         if self.thermo in ["rrho", "qrrho", "qharm"]:
             self.thermo = "free_energy"
+        self.thermo_unit = "{} ({})".format(self.args.thermo, self.args.unit)
+
         self.data = pd.DataFrame()
         try:
             self.data = pd.read_pickle(self.args.cache)
@@ -91,21 +100,115 @@ class Results:
             self.load_jobs(job_dict)
             pd.to_pickle(self.data, self.args.cache)
 
+        if not self.args.temp and self.config.get(
+            "Results", "temperature", fallback=""
+        ):
+            self.args.temp = self.config.getfloat("Results", "temperature")
+        if self.args.temp:
+            self.data["temperature"] = self.args.temp
+
+        if self.thermo not in self.data:
+            self.LOG.error(
+                "`%s` not in data. Please adjust your `--thermo` selection, ensure necessary computations were run (e.g. frequency computation for free_energy), or ensure the correct step numbers are loaded (if using the `load` keyword in [Results] section). Then use `AaronJr results --reload` to update the data cache.",
+                self.thermo,
+            )
+            exit(1)
+
+        self._parse_calc_attr(job_dict)
         self.apply_corrections()
         if self.args.command == "results":
             self.print_results(self.args)
         if self.args.command == "plot":
             Plot(self, self.args)
 
+    def _parse_calc_attr(self, job_dict):
+        calc = self.config.get("Results", "calc", fallback="")
+        if not calc:
+            return
+        calc = [c.strip() for c in calc.split("\n") if c.strip()]
+        for i, c in enumerate(calc):
+            calc[i] = [
+                x.strip() for x in re.split("[:=]", c.strip(), maxsplit=1)
+            ]
+        calc = dict(calc)
+        # groups: full_match, step, attr/method[, arguments]
+        func_patt = re.compile("((\d+\.?\d*)\.(\w+(?:\((.*?)\))?))")
+
+        for name, job_list in job_dict.items():
+            for job in job_list:
+                step_list = self._get_job_step_list(job)
+                fw_id = job
+                # find index for self.data row
+                for step in step_list:
+                    if "conformer" in job.config.for_step(step).get(
+                        "Job", "type"
+                    ):
+                        continue
+                    fw = job.set_fw(step=step)
+                    if fw is None:
+                        continue
+                    fw_id = int(fw.fw_id)
+                    break
+                # parse function and eval
+                for attr, func in calc.items():
+                    self._calc_attr.append(attr)
+                    parsed_func = func
+                    step_out = {}
+                    val = np.nan
+                    for match in func_patt.findall(func):
+                        step = match[1]
+                        old = match[0]
+                        new = re.sub(
+                            "^{}\.".format(step),
+                            "step_out['{}'].".format(step),
+                            old,
+                        )
+                        parsed_func = parsed_func.replace(old, new, 1)
+                        fw = job.set_fw(step=step)
+                        if fw is None:
+                            break
+                        output = job.get_output()
+                        if output is None:
+                            break
+                        step_out[step] = output
+                    else:
+                        val = eval(parsed_func, {"step_out": step_out})
+                    self.data.loc[fw_id, attr] = val
+
+    def _get_job_step_list(self, job):
+        step_list = self.config.get(
+            "Results",
+            "load",
+            fallback=job.config.get("Results", "load", fallback=""),
+        )
+        if step_list:
+            step_list = [float(s.strip()) for s in step_list if s.strip()]
+        else:
+            step_list = reversed(job.step_list)
+        return step_list
+
     def load_jobs(self, job_dict):
         data = []
         for name, job_list in job_dict.items():
             for job in job_list:
-                change, template = os.path.split(job.config["Job"]["name"])
+                step_list = self._get_job_step_list(job)
+                change, template = os.path.split(job.jobname)
+                if job.conformer:
+                    template = template.replace(
+                        "_{}".format(job.conformer), "", 1
+                    )
                 change, selectivity = os.path.split(change)
                 if not change:
                     change = selectivity
                     selectivity = None
+                if selectivity is None:
+                    for s in self.config.get(
+                        "Results", "selectivity", fallback=""
+                    ).split(","):
+                        s = s.strip()
+                        if s and s in template:
+                            selectivity = s
+                            break
                 conformer = job.conformer
                 data_row = {
                     "name": name,
@@ -114,7 +217,7 @@ class Results:
                     "selectivity": selectivity,
                     "conformer": conformer,
                 }
-                for step in reversed(job.step_list):
+                for step in step_list:
                     if "conformer" in job.config.for_step(step).get(
                         "Job", "type"
                     ):
@@ -158,12 +261,20 @@ class Results:
                 )
             except KeyError:
                 pass
-        self.data.set_index("fw_id", inplace=True)
+        try:
+            self.data.set_index("fw_id", inplace=True)
+        except KeyError:
+            self.LOG.error(
+                "No fireworks found for these jobs. Run `AaronJr update` and try again"
+            )
+            exit(1)
 
     def apply_corrections(self):
         """
         Applies the thermodynamic correction requested with args.thermo
         """
+        if self.thermo in self._calc_attr:
+            return
         for key, data in self.data.groupby(
             ["name", "change", "template", "selectivity", "conformer"]
         ):
@@ -203,7 +314,7 @@ class Results:
                     pass
 
     def print_results(self, args):
-        thermo_unit = "{} ({})".format(self.args.thermo, self.args.unit)
+        thermo_unit = self.thermo_unit
         cols = [
             "name",
             "change",
@@ -239,6 +350,16 @@ class Results:
         data = self.get_relative(data)
 
         for d in data:
+            if args.change:
+                args_change = set(args.change)
+                if "None" in args_change:
+                    args_change.discard("None")
+                    args_change.add("")
+                if "none" in args.change:
+                    args_change.discard("none")
+                    args_change.add("")
+                if set(d["change"].unique()) - args_change:
+                    continue
             tmp_cols = cols.copy()
             if (
                 "conformer" not in d.columns
@@ -262,10 +383,10 @@ class Results:
                 print(d)
             print()
 
+        if self.args.absolute:
+            return
         header = True
         for d in self.boltzmann_average(data, cols[:-1], self.thermo):
-            if len(d.groupby("conformer")) == 1:
-                continue
             d = d[cols[:-1] + [self.thermo]]
             if args.unit == "kcal/mol":
                 d.rename(columns={self.thermo: thermo_unit}, inplace=True)
@@ -284,8 +405,6 @@ class Results:
 
         header = True
         for d in self.boltzmann_average(data, cols[:-2], self.thermo):
-            if len(d.groupby("selectivity")) == 1:
-                continue
             temperature = d["temperature"].tolist()[0]
             p = d[self.thermo].map(
                 lambda x: np.exp(-x / (PHYSICAL.R * temperature))
@@ -310,12 +429,16 @@ class Results:
             print(", ".join(["{:0.1f}% {}".format(p[i], i) for i in p.index]))
             print()
 
-    def get_relative(self, data):
-        data.dropna(subset=[self.thermo], inplace=True)
+    def get_relative(self, data, change=None):
+        data = data.dropna(subset=[self.thermo])
         data[self.thermo] = data[self.thermo] * UNIT.HART_TO_KCAL
         if "Results" in self.config:
-            data = self.parse_functions(data, self.config, self.thermo)
-        elif not self.args.absolute:
+            data = self.parse_functions(
+                data, self.config, self.thermo, absolute=self.args.absolute
+            )
+        elif not self.args.absolute or self.config.get(
+            "Results", "relative", fallback=""
+        ):
             relative = []
             for atoms, group in data.groupby(["name", "change"]):
                 group[self.thermo] -= group[self.thermo].min()
@@ -323,6 +446,12 @@ class Results:
             data = relative
         else:
             data = [data]
+        if change is not None:
+            for d in data:
+                d = d[d["change"] == change]
+                if d.empty:
+                    continue
+                return d
         return data
 
     @staticmethod
@@ -353,8 +482,9 @@ class Results:
         return boltzmann_avg
 
     @staticmethod
-    def parse_functions(data, config, thermo):
-        data = data.copy()[["name", "change", "template", thermo]]
+    def parse_functions(data, config, thermo, absolute=False):
+        data = data.copy()
+        pd.set_option("display.max_rows", None)
         relative = None
         for key, val in config["Results"].items():
             if not key.startswith("&") and key != "relative":
@@ -395,22 +525,37 @@ class Results:
                     keep="last",
                     inplace=True,
                 )
-        if relative.shape[0] == 1:
-            relative = relative.iloc[0]
-        tmp = []
-        for change, group in data.groupby("change"):
-            rel = relative[relative["change"] == change][thermo].to_list()
-            if len(rel) < 1:
-                rel = relative[relative["change"] == ""][thermo].to_list()
-            if len(rel) != 1:
-                raise RuntimeError("[Results] relative setting is ambiguious")
-            rel = rel[0]
-            group[thermo] = group[thermo] - rel
-            tmp.append(group)
-        if tmp:
-            data = tmp
+
+        if relative is not None:
+            if relative.shape[0] == 1:
+                relative = relative.iloc[0]
+            tmp = []
+            for change, group in data.groupby("change"):
+                rel = relative[relative["change"] == change][thermo].to_list()
+                if len(rel) < 1:
+                    rel = relative[relative["change"] == ""][thermo].to_list()
+                if len(rel) != 1:
+                    raise RuntimeError(
+                        "[Results] relative setting is ambiguious"
+                    )
+                rel = rel[0]
+                group[thermo] = group[thermo] - rel
+                tmp.append(group)
+            if tmp:
+                data = tmp
+            else:
+                data = [data]
+        elif not absolute:
+            relative = []
+            for atoms, group in data.groupby(["name", "change"]):
+                group[thermo] -= group[thermo].min()
+                relative.append(group)
+            data = relative
         else:
-            data = [data]
+            tmp = []
+            for _, group in data.groupby(["name", "change"]):
+                tmp += [group]
+            data = tmp
         return data
 
 
@@ -444,16 +589,27 @@ class Plot:
                 ),
             ).split(",")
         ]
-        self.path = [
-            p.strip()
-            for p in self.results.config["Plot"]["path"].split("\n")
-            if p
-        ]
-        for i, p in enumerate(self.path):
-            if "*" in p:
-                self.path[i] = [p.replace("*", s) for s in self.selectivity]
-            else:
-                self.path[i] = [p]
+        self.path = None
+        self.smooth = None
+        if "path" in self.results.config["Plot"]:
+            self.path = [
+                p.strip()
+                for p in self.results.config["Plot"]["path"].split("\n")
+                if p
+            ]
+            for i, p in enumerate(self.path):
+                if "*" in p:
+                    self.path[i] = [
+                        p.replace("*", s) for s in self.selectivity
+                    ]
+                else:
+                    self.path[i] = [p]
+        elif "smooth" in self.results.config["Plot"]:
+            self.smooth = self.results.config["Plot"]["smooth"]
+        else:
+            raise NoOptionError(
+                "Plot requires either `path` or `smooth` option to be defined"
+            )
         self.spacing = float(
             results.config.get("Plot", "spacing", fallback="2")
         )
@@ -504,7 +660,10 @@ class Plot:
         for change, title in self.get_plot_list():
             if change.lower() == "none":
                 change = ""
-            fig = self.one_plot(change, title)
+            if self.path is not None:
+                fig = self.rxn_energy_diagram(change, title)
+            if self.smooth is not None:
+                fig = self.smooth_plot(change, title)
             if self.args.save:
                 fig.savefig(
                     "{}.{}".format(
@@ -544,7 +703,55 @@ class Plot:
                 plot_list += [p.strip() for p in plot.split(",")]
         return plot_list
 
-    def one_plot(self, change, title):
+    def smooth_plot(self, change, title):
+        if not title:
+            title = change
+        job_patt = re.compile(
+            "((&?[\w\.\*-]+)(?:{([\w\.\*-]+)})?(?::([\w\.\*-]+))?)"
+        )
+
+        fig = plt.figure(figsize=self.size, dpi=Plot.dpi, tight_layout=True)
+        ax = fig.add_subplot(frameon=False)
+
+        match = job_patt.search(self.smooth)
+        groups = list(match.groups())
+        x_val = None
+        for i, tmp in enumerate(groups):
+            if tmp is None:
+                continue
+            groups[i] = tmp.replace(".", "\.").replace("*", "(.*)")
+            if "*" in tmp:
+                if i == 1:
+                    x_val = re.compile("^" + groups[i] + "$"), "name"
+                else:
+                    x_val = re.compile("^" + groups[i] + "$"), "template"
+        _, name, template, _ = groups
+        data = self.results.get_relative(self.results.data, change=change)
+        # data = self.results.data[self.results.data["change"] == change]
+        data = data[data["name"].str.match(name)]
+        data = data[data["template"].str.match(template)]
+        data["x"] = data[x_val[1]].map(lambda x: x_val[0].match(x).group(1))
+        try:
+            data["x"] = data["x"].map(lambda x: float(x))
+        except ValueError:
+            ax.tick_params(axis="x", labelrotation=60)
+            pass
+        xpt = data["x"]
+        ypt = data[self.results.thermo]
+        plt.scatter(xpt, ypt)
+        plt.plot(xpt, ypt)
+
+        # plot formatting
+        ax.set_title(title, fontsize=self.titlesize)
+        ax.tick_params(labelsize=self.labelsize)
+        if "xlabel" in self.results.config["Plot"]:
+            ax.set_xlabel(self.results.config["Plot"]["xlabel"])
+        else:
+            ax.set_xlabel(groups[1])
+        ax.set_ylabel(self.results.thermo_unit)
+        return fig
+
+    def rxn_energy_diagram(self, change, title):
         fig = plt.figure(figsize=self.size, dpi=Plot.dpi, tight_layout=True)
         ax = fig.add_subplot(frameon=False)
 

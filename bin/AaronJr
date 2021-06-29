@@ -7,8 +7,8 @@ import os
 import time
 from time import sleep
 
-from Aaron.job import LAUNCHPAD, Job
-from Aaron.results import Results
+from AaronJr.job import LAUNCHPAD, Job
+from AaronJr.results import Results
 from AaronTools.config import Config
 from fireworks import LaunchPad
 
@@ -24,13 +24,6 @@ def main(args):
         Job.SKIP_CONNECT = True
     elif args.command == "run" and args.dryrun:
         Job.SKIP_CONNECT = True
-    if (
-        args.command in ["results", "plot"]
-        and not args.reload
-        and os.path.exists(args.cache)
-    ):
-        Results(args)
-        return
 
     # parse child config files and store in `configs`
     if "Configs" in config:
@@ -96,7 +89,7 @@ def main(args):
                         if n_conf in conf_job:
                             # one job for all steps
                             continue
-                        conf_job[n_conf] = Job(child, job.config)
+                        conf_job[n_conf] = Job(child, this_config)
                     conformers.update(conf_job.values())
                 all_jobs.update(conformers)
             if not args.quiet:
@@ -106,11 +99,11 @@ def main(args):
                     )
                     + " " * 50,
                 )
-        all_jobs = sorted(all_jobs, key=lambda x: x.config["Job"]["name"])
+        all_jobs = sorted(all_jobs, key=lambda x: x.jobname)
         job_dict[name] = all_jobs
 
     all_jobs = set(it.chain.from_iterable(job_dict.values()))
-    all_jobs = sorted(all_jobs, key=lambda x: x.config["Job"]["name"])
+    all_jobs = sorted(all_jobs, key=lambda x: x.jobname)
     if args.command == "run":
         fw_jobs = update(args, all_jobs)
         run(args, fw_jobs)
@@ -274,6 +267,7 @@ def update(args, all_jobs):
     done = set()
     for job in all_jobs:
         wf, _ = job.add_workflow()
+        wf = sorted(set(wf) - done)
         while wf:
             fw_id = wf[0]
             fw = LAUNCHPAD.get_fw_by_id(fw_id)
@@ -378,6 +372,7 @@ def get_fws(args, template, config):
             parent = all_jobs[i].fw_id
             structure.atoms = all_jobs[i].structure.atoms
             break
+        structure = this_config.make_changes(structure)
         job = Job(
             structure,
             config=this_config,
