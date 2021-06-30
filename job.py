@@ -29,6 +29,7 @@ from fireworks.core.launchpad import LazyFirework
 from fireworks.user_objects.queue_adapters.common_adapter import (
     CommonAdapter as QueueAdapter,
 )
+from fireworks.utilities.fw_utilities import explicit_serialize
 from jinja2 import Environment, FileSystemLoader
 
 TEMPLATES = [
@@ -100,6 +101,7 @@ def get_steps(config):
 
 
 @addlogger
+@explicit_serialize
 class Job:
     """
     Attributes:
@@ -628,6 +630,12 @@ class Job:
         return None
 
     def set_fw(self, step=None, conformer=None, spec=None, fw_id=None):
+        if (
+            (fw_id is None or int(fw_id) == int(self.fw_id))
+            and (step is None or float(step) == float(self.step))
+            and (conformer is None or int(conformer) == int(self.conformer))
+        ):
+            fw_id = self.fw_id
         if fw_id is None:
             fw = self.find_fw(step=step, conformer=conformer, spec=spec)
         else:
@@ -662,10 +670,18 @@ class Job:
             self.structure_hash = fw.spec["starting_structure"]
         if not hasattr(self, "structure"):
             self.structure = Geometry()
-        self.jobname = fw.name.rstrip("." + str(self.step))
-        self.structure.name = self.jobname.lstrip(
+        idx = fw.name.rfind("." + str(self.step))
+        if idx > -1:
+            self.jobname = fw.name[:idx]
+        else:
+            self.jobname = fw.name
+        idx = self.jobname.find(
             os.path.join(".".join(self.config._changes.keys()), "")
         )
+        if idx > -1:
+            self.structure.name = self.jobname[idx:]
+        else:
+            self.structure.name = self.jobname
         self.set_root()
 
     def set_root(self, make_root=True):
