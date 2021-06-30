@@ -383,7 +383,9 @@ class Results:
                 print(d)
             print()
 
-        if self.args.absolute:
+        if self.args.absolute or self.config.getboolean(
+            "Results", "boltzmann", fallback=False
+        ):
             return
         header = True
         for d in self.boltzmann_average(data, cols[:-1], self.thermo):
@@ -484,12 +486,15 @@ class Results:
     @staticmethod
     def parse_functions(data, config, thermo, absolute=False):
         data = data.copy()
-        pd.set_option("display.max_rows", None)
         relative = None
+        drop = None
         for key, val in config["Results"].items():
+            if key == "drop":
+                drop = val
             if not key.startswith("&") and key != "relative":
                 continue
             subst = []
+            orig_val = val
             for match in Results.job_patt.findall(val):
                 if match[0] == "-":
                     continue
@@ -513,9 +518,31 @@ class Results:
                     1,
                 )
             val = eval(val, {"subst": subst, "thermo": thermo})
-            val = pd.concat([val, subst[0]["template"]], axis=1)
-            val["name"] = key.lstrip("&")
-            val.reset_index(inplace=True)
+            if not isinstance(val, pd.Series):
+                val = pd.Series(
+                    {
+                        thermo: val,
+                        "name": key.lstrip("&"),
+                        "change": "",
+                        "template": "",
+                    },
+                    name=-1,
+                )
+            else:
+                val = pd.DataFrame(val)
+                val["name"] = key.lstrip("&")
+                if len(subst[0]["template"]) == len(val):
+                    val["template"] = subst[0]["template"]
+                elif len(subst[1]["template"]) == len(val):
+                    val["template"] = subst[1]["template"]
+                else:
+                    # this shouldn't happen, but if it does...
+                    raise NotImplementedError(
+                        "Size mismatch in {}".format(orig_val)
+                    )
+                val.reset_index(inplace=True)
+                val.index = pd.Index([-1] * len(val.index))
+            val.dropna(inplace=True)
             if key == "relative":
                 relative = val
             else:
@@ -526,6 +553,16 @@ class Results:
                     inplace=True,
                 )
 
+        if drop:
+            for _, name, template, change in Results.job_patt.findall(drop):
+                selection = data["name"] != name
+                if template:
+                    selection = selection | data["template"] != template
+                if change and change.lower() != "none":
+                    selection = selection | data["change"] != change
+                elif change.lower() == "none":
+                    selection = selection | data["change"] != ""
+                data = data[selection]
         if relative is not None:
             if relative.shape[0] == 1:
                 relative = relative.iloc[0]
