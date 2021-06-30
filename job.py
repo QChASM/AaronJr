@@ -214,11 +214,12 @@ class Job:
         )
         if not self.structure_hash:
             structure_hash = hashlib.sha256()
-            old_level = Geometry.LOG.level
-            Geometry.LOG.setLevel("ERROR")
-            structure_hash.update(str(hash(self.structure.copy())).encode())
-            Geometry.LOG.setLevel(old_level)
-            structure_hash.update(self.jobname.encode())
+            tmp = ""
+            for a in sorted(
+                self.structure.atoms, key=lambda x: np.linalg.norm(x.coords)
+            ):
+                tmp += str(np.round(a.coords, 3).tolist())
+            structure_hash.update(tmp.encode())
             self.structure_hash = structure_hash.hexdigest()
         if not testing:
             self.set_root(make_root=make_root)
@@ -1116,7 +1117,7 @@ class Job:
                 if tdelta < datetime.timedelta(minutes=2):
                     return None
             self.LOG.warning(
-                ("Cannot find", name, "for validation check"), exc_info=True
+                "Cannot find %s for validation check", name, exc_info=True
             )
             if len(fw.archived_launches) < MAX_SUBMIT:
                 self.LOG.warning("Trying to rerun firework")
@@ -1155,7 +1156,7 @@ class Job:
         if output.finished:
             try:
                 self.complete_launch(fw, output, update=update)
-            except IndexError:
+            except (IndexError, ValueError):
                 return None
         fw = LAUNCHPAD.get_fw_by_id(self.fw_id)
 

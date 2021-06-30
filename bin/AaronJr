@@ -272,7 +272,12 @@ def update(args, all_jobs):
             fw_id = wf[0]
             fw = LAUNCHPAD.get_fw_by_id(fw_id)
             print(
-                "Checking job {} ...".format(fw.name),
+                "Checking job {} ...".format(
+                    os.path.join(
+                        os.path.dirname(os.path.relpath(job.config.infile)),
+                        fw.name,
+                    ),
+                ),
                 end="\r",
             )
             try:
@@ -290,7 +295,15 @@ def update(args, all_jobs):
                 # otherwise the traceback will overwrite the "Checking job..." message
                 print()
                 raise
-            print("Checking job {} {}".format(fw.name, fw.state))
+            print(
+                "Checking job {} {}".format(
+                    os.path.join(
+                        os.path.dirname(os.path.relpath(job.config.infile)),
+                        fw.name,
+                    ),
+                    fw.state,
+                ),
+            )
             print(capture.getvalue(), end="")
             # make sure any children that only became apparent after validation
             # are included in update loop (eg: conformer children don't get added
