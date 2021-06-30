@@ -4,6 +4,7 @@ import datetime
 import io
 import itertools as it
 import os
+import pickle
 import time
 from time import sleep
 
@@ -17,7 +18,6 @@ def main(args):
     config = Config(args.config, quiet=args.quiet)
     config.parse_functions()
     configs = {}
-    job_dict = {}
     if args.command not in ["run", "update"]:
         Job.SKIP_CONNECT = True
     elif args.command == "update" and args.no_xfer:
@@ -46,62 +46,7 @@ def main(args):
             config["DEFAULT"]["name"]: [Config(args.config, quiet=True)]
         }
 
-    # get fws
-    for name, conf_list in sorted(configs.items(), key=lambda x: x[0]):
-        all_jobs = set([])
-        for this_config in conf_list:
-            try:
-                template = this_config.get_template()
-            except FileNotFoundError as e:
-                raise e
-            for template, kind in sorted(
-                this_config.get_template(), key=lambda x: (x[1], x[0].name)
-            ):
-                if not args.quiet:
-                    print(
-                        "Loading jobs ({})... {}".format(
-                            this_config["DEFAULT"]["name"], template.name
-                        )
-                        + " " * 50,
-                        end="\r",
-                    )
-                all_jobs.update(get_fws(args, template, this_config))
-            if args.command not in ["run", "update"]:
-                # calling the 'update' method already gets conformers
-                # AND creates workflows for new conformers discovered during
-                # validation. This other way of getting conformers is only for
-                # conformers already present in the workflow (thus, this section
-                # is appropriate for `results` and `resources` commands)
-                conformers = set([])
-                for job in all_jobs:
-                    if job.fw_id is None:
-                        continue
-                    conf_job = {}
-                    children = LAUNCHPAD.get_wf_by_fw_id_lzyfw(job.fw_id)
-                    for child in children.fws:
-                        try:
-                            n_conf = child.spec["conformer"]
-                        except KeyError:
-                            # these are root fws
-                            continue
-                        if n_conf == 0:
-                            continue
-                        if n_conf in conf_job:
-                            # one job for all steps
-                            continue
-                        conf_job[n_conf] = Job(child, this_config)
-                    conformers.update(conf_job.values())
-                all_jobs.update(conformers)
-            if not args.quiet:
-                print(
-                    "Loading jobs ({})... {}".format(
-                        this_config["DEFAULT"]["name"], "Done"
-                    )
-                    + " " * 50,
-                )
-        all_jobs = sorted(all_jobs, key=lambda x: x.jobname)
-        job_dict[name] = all_jobs
-
+    job_dict = get_job_dict(args, configs)
     all_jobs = set(it.chain.from_iterable(job_dict.values()))
     all_jobs = sorted(all_jobs, key=lambda x: x.jobname)
     if args.command == "run":
@@ -424,6 +369,87 @@ def print_countdown(minutes, msg="{: 2}:{:02}"):
         sleep(1)
 
 
+def get_job_dict(args, configs):
+    def jobs_for_template(args, this_config):
+        jobs = set([])
+        try:
+            template = this_config.get_template()
+        except FileNotFoundError as e:
+            raise e
+        for template, kind in sorted(
+            this_config.get_template(), key=lambda x: (x[1], x[0].name)
+        ):
+            if not args.quiet:
+                print(
+                    "Loading jobs ({})... {}".format(
+                        this_config["DEFAULT"]["name"], template.name
+                    )
+                    + " " * 50,
+                    end="\r",
+                )
+            jobs.update(get_fws(args, template, this_config))
+        return jobs
+
+    try:
+        os.mkdir("cache")
+    except FileExistsError:
+        pass
+    job_cache = os.path.join("cache", "{}.job_dict")
+    job_dict = {}
+    for name, conf_list in sorted(configs.items(), key=lambda x: x[0]):
+        all_jobs = set([])
+        for this_config in conf_list:
+            if not args.reload_jobs and os.path.exists(
+                job_cache.format(this_config["DEFAULT"]["name"])
+            ):
+                with open(
+                    job_cache.format(this_config["DEFAULT"]["name"]), "rb"
+                ) as f:
+                    all_jobs.update(pickle.load(f))
+            else:
+                all_jobs.update(jobs_for_template(args, this_config))
+                with open(
+                    job_cache.format(this_config["DEFAULT"]["name"]), "wb"
+                ) as f:
+                    pickle.dump(all_jobs, f)
+            if args.command not in ["run", "update"]:
+                # calling the 'update' method already gets conformers
+                # AND creates workflows for new conformers discovered during
+                # validation. This other way of getting conformers is only for
+                # conformers already present in the workflow (thus, this section
+                # is appropriate for `results` and `resources` commands)
+                conformers = set([])
+                for job in all_jobs:
+                    if job.fw_id is None:
+                        continue
+                    conf_job = {}
+                    children = LAUNCHPAD.get_wf_by_fw_id_lzyfw(job.fw_id)
+                    for child in children.fws:
+                        try:
+                            n_conf = child.spec["conformer"]
+                        except KeyError:
+                            # these are root fws
+                            continue
+                        if n_conf == 0:
+                            continue
+                        if n_conf in conf_job:
+                            # one job for all steps
+                            continue
+                        conf_job[n_conf] = Job(child, this_config)
+                    conformers.update(conf_job.values())
+                all_jobs.update(conformers)
+            if not args.quiet:
+                print(
+                    "Loading jobs ({})... {}".format(
+                        this_config["DEFAULT"]["name"], "Done"
+                    )
+                    + " " * 50,
+                )
+        all_jobs = sorted(all_jobs, key=lambda x: x.jobname)
+        job_dict[name] = all_jobs
+    return job_dict
+
+
 # argument handling
 def add_common_arguments(parser):
     parser.add_argument(
@@ -436,6 +462,11 @@ def add_common_arguments(parser):
     )
     parser.add_argument(
         "--quiet", action="store_true", help="turn off status messages"
+    )
+    parser.add_argument(
+        "--reload_jobs",
+        action="store_true",
+        help="force refresh the job cache",
     )
 
 
