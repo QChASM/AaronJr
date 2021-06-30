@@ -383,8 +383,10 @@ class Results:
                 print(d)
             print()
 
-        if self.args.absolute or self.config.getboolean(
-            "Results", "boltzmann", fallback=False
+        # skip boltzmann summary if [Results] boltzmann = False
+        # or if --absolute flag used
+        if self.args.absolute or not self.config.getboolean(
+            "Results", "boltzmann", fallback=True
         ):
             return
         header = True
@@ -438,9 +440,7 @@ class Results:
             data = self.parse_functions(
                 data, self.config, self.thermo, absolute=self.args.absolute
             )
-        elif not self.args.absolute or self.config.get(
-            "Results", "relative", fallback=""
-        ):
+        elif not self.args.absolute:
             relative = []
             for atoms, group in data.groupby(["name", "change"]):
                 group[self.thermo] -= group[self.thermo].min()
@@ -491,7 +491,7 @@ class Results:
         for key, val in config["Results"].items():
             if key == "drop":
                 drop = val
-            if not key.startswith("&") and key != "relative":
+            if not key.startswith("&") and key.lower() != "relative":
                 continue
             subst = []
             orig_val = val
@@ -568,7 +568,8 @@ class Results:
                 relative = relative.iloc[0]
             tmp = []
             for change, group in data.groupby("change"):
-                rel = relative[relative["change"] == change][thermo].to_list()
+                rel = relative[relative["change"] == change]
+                rel = rel[thermo].to_list()
                 if len(rel) < 1:
                     rel = relative[relative["change"] == ""][thermo].to_list()
                 if len(rel) != 1:

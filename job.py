@@ -664,7 +664,7 @@ class Job:
                         name=name,
                     )
                 ]
-            self.structure = Geometry(atoms)
+            self.structure = Geometry(atoms, refresh_ranks=False)
             self.structure.comment = comment
             self.structure.parse_comment()
             self.structure_hash = fw.spec["starting_structure"]
