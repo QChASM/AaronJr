@@ -275,43 +275,36 @@ class Results:
         """
         if self.thermo in self._calc_attr:
             return
-        for key, data in self.data.groupby(
-            ["name", "change", "template", "selectivity", "conformer"]
-        ):
-            for index, row in data.iterrows():
-                output = row2output(row)
-                try:
-                    corr = None
-                    if self.thermo in ["energy", "enthalpy"]:
-                        dE, dH, s = output.therm_corr(
-                            temperature=self.args.temp
-                        )
-                        self.data.loc[index, "energy"] = (
-                            output.energy + output.ZPVE
-                        )
-                        self.data.loc[index, "enthalpy"] = output.enthalpy + dH
-                    elif self.args.thermo.lower() in ["free_energy", "rrho"]:
-                        corr = output.calc_G_corr(
-                            v0=0, temperature=self.args.temp, method="RRHO"
-                        )
-                    elif self.args.thermo.upper() in ["QRRHO"]:
-                        corr = output.calc_G_corr(
-                            v0=self.args.w0,
-                            temperature=self.args.temp,
-                            method="QRRHO",
-                        )
-                    elif self.args.thermo.upper() in ["QHARM"]:
-                        corr = output.calc_G_corr(
-                            v0=self.args.w0,
-                            temperature=self.args.temp,
-                            method="QHARM",
-                        )
-                    if corr:
-                        self.data.loc[index, "free_energy"] = (
-                            output.energy + corr
-                        )
-                except (TypeError, AttributeError):
-                    pass
+        for index, row in self.data.iterrows():
+            output = row2output(row)
+            try:
+                corr = None
+                if self.thermo in ["energy", "enthalpy"]:
+                    dE, dH, s = output.therm_corr(temperature=self.args.temp)
+                    self.data.loc[index, "energy"] = (
+                        output.energy + output.ZPVE
+                    )
+                    self.data.loc[index, "enthalpy"] = output.enthalpy + dH
+                elif self.args.thermo.lower() in ["free_energy", "rrho"]:
+                    corr = output.calc_G_corr(
+                        v0=0, temperature=self.args.temp, method="RRHO"
+                    )
+                elif self.args.thermo.upper() in ["QRRHO"]:
+                    corr = output.calc_G_corr(
+                        v0=self.args.w0,
+                        temperature=self.args.temp,
+                        method="QRRHO",
+                    )
+                elif self.args.thermo.upper() in ["QHARM"]:
+                    corr = output.calc_G_corr(
+                        v0=self.args.w0,
+                        temperature=self.args.temp,
+                        method="QHARM",
+                    )
+                if corr:
+                    self.data.loc[index, "free_energy"] = output.energy + corr
+            except (TypeError, AttributeError):
+                pass
 
     def print_results(self, args):
         thermo_unit = self.thermo_unit
@@ -373,9 +366,9 @@ class Results:
                 tmp_cols.remove("selectivity")
             d = d[tmp_cols + [self.thermo]]
             if args.unit == "kcal/mol":
+                d[self.thermo] = d[self.thermo] * UNIT.HART_TO_KCAL
                 d.rename(columns={self.thermo: thermo_unit}, inplace=True)
             else:
-                d[self.thermo] = d[self.thermo] / UNIT.HART_TO_KCAL
                 d.rename(columns={self.thermo: thermo_unit}, inplace=True)
             with pd.option_context(
                 "display.max_rows", None, "display.max_columns", None
@@ -392,11 +385,11 @@ class Results:
         header = True
         for d in self.boltzmann_average(data, cols[:-1], self.thermo):
             d = d[cols[:-1] + [self.thermo]]
-            if args.unit == "kcal/mol":
-                d.rename(columns={self.thermo: thermo_unit}, inplace=True)
-            else:
-                d[self.thermo] = d[self.thermo] / UNIT.HART_TO_KCAL
-                d.rename(columns={self.thermo: thermo_unit}, inplace=True)
+            # if args.unit == "kcal/mol":
+            #     d[self.thermo] = d[self.thermo] * UNIT.HART_TO_KCAL
+            #     d.rename(columns={self.thermo: thermo_unit}, inplace=True)
+            # else:
+            #     d.rename(columns={self.thermo: thermo_unit}, inplace=True)
             if not header:
                 print()
                 print("Boltzmann averaged over conformers for template")
@@ -417,11 +410,11 @@ class Results:
             p = p.groupby("selectivity").sum()
             p = 100 * p / sum(p)
             d = d[cols[:-2] + [self.thermo]]
-            if args.unit == "kcal/mol":
-                d.rename(columns={self.thermo: thermo_unit}, inplace=True)
-            else:
-                d[self.thermo] = d[self.thermo] / UNIT.HART_TO_KCAL
-                d.rename(columns={self.thermo: thermo_unit}, inplace=True)
+            # if args.unit == "kcal/mol":
+            #     d[self.thermo] = d[self.thermo] * UNIT.HART_TO_KCAL
+            #     d.rename(columns={self.thermo: thermo_unit}, inplace=True)
+            # else:
+            #     d.rename(columns={self.thermo: thermo_unit}, inplace=True)
             if header:
                 print()
                 print("Boltzmann averaged over selectivity")
@@ -435,7 +428,6 @@ class Results:
 
     def get_relative(self, data, change=None):
         data = data.dropna(subset=[self.thermo])
-        data[self.thermo] = data[self.thermo] * UNIT.HART_TO_KCAL
         if "Results" in self.config:
             data = self.parse_functions(
                 data, self.config, self.thermo, absolute=self.args.absolute
@@ -563,7 +555,7 @@ class Results:
                 elif change.lower() == "none":
                     selection = selection | data["change"] != ""
                 data = data[selection]
-        if relative is not None:
+        if not absolute and relative is not None:
             if relative.shape[0] == 1:
                 relative = relative.iloc[0]
             tmp = []
@@ -591,7 +583,7 @@ class Results:
             data = relative
         else:
             tmp = []
-            for _, group in data.groupby(["name", "change"]):
+            for _, group in data.groupby(["change"]):
                 tmp += [group]
             data = tmp
         return data
