@@ -399,7 +399,7 @@ def get_job_dict(args, configs):
     for name, conf_list in sorted(configs.items(), key=lambda x: x[0]):
         all_jobs = set([])
         for this_config in conf_list:
-            if not args.reload_jobs and os.path.exists(
+            if not args.reload and os.path.exists(
                 job_cache.format(this_config["DEFAULT"]["name"])
             ):
                 with open(
@@ -464,9 +464,10 @@ def add_common_arguments(parser):
         "--quiet", action="store_true", help="turn off status messages"
     )
     parser.add_argument(
-        "--reload_jobs",
+        "-r",
+        "--reload",
         action="store_true",
-        help="force refresh the job cache",
+        help="force refresh the cache",
     )
 
 
@@ -562,11 +563,6 @@ def results_arguments(results_parser):
         help="Where to save (if file doesn't exist) / load (if file does exist) cached job output data",
     )
     results_parser.add_argument(
-        "--reload",
-        action="store_true",
-        help="Clear the current cache file and reload output data",
-    )
-    results_parser.add_argument(
         "--step", type=float, nargs="+", help="Use only data from this step"
     )
 
@@ -596,6 +592,15 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(
         formatter_class=argparse.ArgumentDefaultsHelpFormatter,
         description="For help with a specific command use 'Aaron <command> --help'",
+    )
+    parser.add_argument(
+        "--quiet", action="store_true", help="turn off status messages"
+    )
+    parser.add_argument(
+        "-r",
+        "--reload",
+        action="store_true",
+        help="force refresh the cache",
     )
 
     # Subparsers for commands

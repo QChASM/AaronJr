@@ -1,0 +1,10 @@
+host: mongodb+srv://aaronjr-test.tvhu1.mongodb.net
+port: 27017
+name: fireworks
+authsource: "$external"
+logdir: null
+strm_lvl: INFO
+uri_mode: false
+ssl: true
+ssl_certfile: ./X509-cert-7564623662480292167.pem
+mongoclient_kwargs: {authMechanism: 'MONGODB-X509'}

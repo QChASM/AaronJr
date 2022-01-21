@@ -1,0 +1,4 @@
+host: mongodb+srv://aaronjr-test.tvhu1.mongodb.net/fireworks?authSource=%24external&authMechanism=MONGODB-X509&retryWrites=true&w=majority
+uri_mode: true
+ssl: True
+ssl_certfile: X509-cert-2803026271181855199.pem

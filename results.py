@@ -1,15 +1,9 @@
 #!/usr/bin/env python
-import io
-import itertools as it
-import json
 import os
-import pickle
 import re
 import subprocess
-import sys
-import tkinter as tk
-from configparser import NoOptionError
 
+import matplotlib
 import numpy as np
 import pandas as pd
 from AaronTools import addlogger
@@ -17,24 +11,9 @@ from AaronTools.comp_output import CompOutput
 from AaronTools.config import Config
 from AaronTools.const import PHYSICAL, UNIT
 from AaronTools.utils import utils
-from AaronTools.utils.utils import progress_bar
 from matplotlib import patches
 from matplotlib import pyplot as plt
 from matplotlib.path import Path
-
-
-def get_curr_screen_geometry():
-    """
-    Workaround to get the size of the current screen in a multi-screen setup.
-
-    Returns:
-        geometry (str): The standard Tk geometry string.
-            [width]x[height]+[left]+[top]
-    """
-    root = tk.Tk()
-    dpi = root.winfo_fpixels("1i")
-    root.destroy()
-    return dpi
 
 
 def row2output(row):
@@ -334,6 +313,10 @@ class Results:
                 if err:
                     raise RuntimeError(err.decode())
                 data.loc[index, args.script] = out.decode().strip()
+            if len(data["selectivity"].unique()):
+                del data["selectivity"]
+            if len(data["conformer"].unique()):
+                del data["conformer"]
             with pd.option_context(
                 "display.max_rows", None, "display.max_columns", None
             ):
@@ -600,11 +583,11 @@ class Plot:
     :titlesize: font size for title
     """
 
-    dpi = get_curr_screen_geometry()
-
     def __init__(self, results, args):
         self.args = args
         self.results = results
+
+        # AaronJr settings
         self.selectivity = [
             s.strip()
             for s in self.results.config.get(
@@ -637,29 +620,11 @@ class Plot:
         elif "smooth" in self.results.config["Plot"]:
             self.smooth = self.results.config["Plot"]["smooth"]
         else:
-            raise NoOptionError(
+            raise Exception(
                 "Plot requires either `path` or `smooth` option to be defined"
             )
         self.spacing = float(
             results.config.get("Plot", "spacing", fallback="2")
-        )
-        self.labelsize = float(
-            results.config.get("Plot", "labelsize", fallback="16")
-        )
-        self.titlesize = float(
-            results.config.get("Plot", "titlesize", fallback="24")
-        )
-        self.colors = [
-            c.strip()
-            for c in self.results.config.get(
-                "Plot",
-                "colors",
-                fallback=self.results.config.get("Plot", "color", fallback=""),
-            ).split(",")
-            if c
-        ]
-        self.linewidth = float(
-            self.results.config.get("Plot", "linewidth", fallback="1.5")
         )
         self.xlim = [
             float(x)
@@ -675,18 +640,27 @@ class Plot:
             ).split(",")
             if y
         ]
-        self.size = [
-            float(s.strip())
-            for s in self.results.config.get(
-                "Plot", "size", fallback=""
-            ).split(",")
-            if s
-        ]
-        if not self.size:
-            self.size = [3.25]
-            self.size += [self.size[0] * 3 / 4]
-        self.size = [s * 300 / Plot.dpi for s in self.size]
 
+        # matplotlib settings
+        self.figure_kwargs = self._get_figure_kwargs()
+        self.path_kwargs = self._get_path_kwargs()
+        self.labelsize = float(
+            results.config.get("Plot", "labelsize", fallback="16")
+        )
+        self.titlesize = float(
+            results.config.get("Plot", "titlesize", fallback="24")
+        )
+        self.colors = [
+            c.strip()
+            for c in self.results.config.get(
+                "Plot",
+                "colors",
+                fallback=self.results.config.get("Plot", "color", fallback=""),
+            ).split(",")
+            if c
+        ]
+
+        # make and save/show plots
         for change, title in self.get_plot_list():
             if change.lower() == "none":
                 change = ""
@@ -706,6 +680,96 @@ class Plot:
             else:
                 plt.show()
 
+    def _get_size(self):
+        size = [
+            float(s.strip())
+            for s in self.results.config.get(
+                "Plot", "size", fallback=""
+            ).split(",")
+            if s
+        ]
+        if not size:
+            size = [3.25]
+            size += [size[0] * 3 / 4]
+        return size
+
+    def _get_figure_kwargs(self):
+        rv = {}
+        rv["figsize"] = self._get_size()
+        rv["dpi"] = float(
+            self.results.config.get("Plot", "dpi", fallback="300")
+        )
+        # str or None
+        rv["facecolor"] = self.results.config.get(
+            "Plot", "facecolor", fallback=None
+        )
+        rv["edgecolor"] = self.results.config.get(
+            "Plot", "edgecolor", fallback=None
+        )
+        rv["linewidth"] = float(
+            self.results.config.get("Plot", "linewidth", fallback="1.5")
+        )
+        rv["frameon"] = self.results.config.getboolean(
+            "Plot", "frameon", fallback=None
+        )
+        rv["subplotpars"] = self._get_subplot_params(
+            self.results.config.get("Plot", "subplotpars", fallback=None)
+        )
+        for kw in ["tight_layout", "constrained_layout"]:
+            try:
+                rv[kw] = self.results.config.getboolean(
+                    "Plot", kw, fallback=True
+                )
+            except ValueError:
+                for k, v in [
+                    t.split("=")
+                    for t in self.results.config.get(
+                        "Plot", kw, fallback=""
+                    ).split(",")
+                ]:
+                    rv[kw][k.strip()] = float(v.strip())
+
+        return rv
+
+    def _get_subplot_params(self, val=None):
+        """
+        val = None or "left=float, right=float, ..."
+        see matplotlib.figure.SubplotParams doc for details
+        """
+        if val is None:
+            return None
+        val = [v.strip() for v in val.split(",")]
+        kwargs = {}
+        for v in val:
+            k, v = v.split("=")
+            k = k.strip()
+            v = v.strip()
+            kwargs[k] = float(k)
+        return matplotlib.figure.SubplotParams(**kwargs)
+
+    def _get_path_kwargs(self):
+        rv = {}
+        # scalar or None
+        for kw in ["alpha"]:
+            rv[kw] = self.results.config.getfloat("Plot", kw, fallback=None)
+        # str
+        for kw in [
+            "facecolor",
+            "fc",
+            "edgecolor",
+            "ec",
+            "hatch",
+            "linestyle",
+            "ls",
+        ]:
+            if kw in self.results.config["Plot"]:
+                rv[kw] = self.results.config["Plot"][kw]
+        rv["linewidth"] = self.results.config.getfloat(
+            "Plot", "linewidth", fallback="1.5"
+        )
+        rv["joinstyle"] = self.results.config.get("Plot", "joinstyle", "bevel")
+        return rv
+
     def get_plot_list(self):
         if self.args.change is None:
             change = sorted(
@@ -717,7 +781,12 @@ class Plot:
         else:
             change = self.args.change
         if self.args.title is None:
-            title = []
+            title = [
+                t.strip()
+                for t in self.results.config.get(
+                    "Plot", "title", fallback=""
+                ).split(",")
+            ]
         else:
             title = self.args.title
         for i, c in enumerate(change):
@@ -740,7 +809,7 @@ class Plot:
             "((&?[\w\.\*-]+)(?:{([\w\.\*-]+)})?(?::([\w\.\*-]+))?)"
         )
 
-        fig = plt.figure(figsize=self.size, dpi=Plot.dpi, tight_layout=True)
+        fig = plt.figure(**self.figure_kwargs)
         ax = fig.add_subplot(frameon=False)
 
         match = job_patt.search(self.smooth)
@@ -757,7 +826,6 @@ class Plot:
                     x_val = re.compile("^" + groups[i] + "$"), "template"
         _, name, template, _ = groups
         data = self.results.get_relative(self.results.data, change=change)
-        # data = self.results.data[self.results.data["change"] == change]
         data = data[data["name"].str.match(name)]
         data = data[data["template"].str.match(template)]
         data["x"] = data[x_val[1]].map(lambda x: x_val[0].match(x).group(1))
@@ -782,7 +850,7 @@ class Plot:
         return fig
 
     def rxn_energy_diagram(self, change, title):
-        fig = plt.figure(figsize=self.size, dpi=Plot.dpi, tight_layout=True)
+        fig = plt.figure(self.figure_kwargs)
         ax = fig.add_subplot(frameon=False)
 
         # get paths between stationary points
@@ -798,11 +866,7 @@ class Plot:
             except IndexError:
                 color = None
             patch = patches.PathPatch(
-                Path(vert),
-                facecolor="none",
-                edgecolor=color,
-                linewidth=self.linewidth,
-                joinstyle="bevel",
+                Path(vert), color=color, **self.path_kwargs
             )
             ax.add_patch(patch)
 
@@ -852,7 +916,6 @@ class Plot:
                         label = ""
                     match = Results.job_patt.search(q)
                     key = match.group(2), match.group(3), change
-                    skip = False
                     for t in self.selectivity:
                         if t != s and t in key[1]:
                             val = relative[
